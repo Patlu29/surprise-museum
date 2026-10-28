@@ -1,7 +1,7 @@
 # Handoff: architect
 
 ## Summary
-Integration round 1 (28/10/2026): I synced the architecture docs and root config with what was built. `VITE_API_MODE` is now documented and typed, `npm run check:live` exists, and the backend's `requireLiveBackend()` guard is wired into `vite.config.ts`. Every deviation the tech lead accepted is recorded in architecture v1.1, in amended ADRs 0008 and 0009, and in new ADRs 0014 to 0017. The builder preview seam is confirmed as a second lazy entry point, but loaded by a direct import rather than `import.meta.glob`, and lint now enforces that. The viewport meta has `interactive-widget=resizes-content`, and the chunk-size warning now uses per-chunk budgets, with the lazy HEIC decoder handled on its own.
+Integration round 1 (28/10/2026): I synced the architecture docs and root config with what was built. `VITE_API_MODE` is now documented and typed, `npm run check:live` exists, and the backend's `requireLiveBackend()` guard is wired into `vite.config.ts`. Every deviation the tech lead accepted is recorded in architecture v1.1, in amended ADRs 0008 and 0009, and in new ADRs 0014 to 0017. The builder preview seam is confirmed as a second lazy entry point, but loaded by a direct import rather than `import.meta.glob`, and lint now enforces that as an error everywhere (the transitional exemption is removed, now that the frontend-developer has switched the builder). The viewport meta has `interactive-widget=resizes-content`, and the chunk-size warning now uses per-chunk budgets, with the lazy HEIC decoder handled on its own.
 
 The earlier architecture and scaffold work (round 0, 27/10/2026) is still in place; its decisions are in ADRs 0001 to 0013.
 
@@ -10,7 +10,7 @@ The earlier architecture and scaffold work (round 0, 27/10/2026) is still in pla
 - `src/vite-env.d.ts`: added `VITE_API_MODE?: string`
 - `package.json`: added the `check:live` script (`node supabase/scripts/check-live-config.mjs`); no dependency changes
 - `vite.config.ts`: imports and registers `requireLiveBackend()` (build only, enforces only when `VITE_API_MODE=live`); new `chunkSizeBudgets()` plugin (1000 kB per chunk, 3,500 kB for the lazy `heic-to` chunk only while it is not statically imported); Vite's global `chunkSizeWarningLimit` is raised to 3,500 as a backstop
-- `eslint.config.js`: `no-restricted-syntax` in `src/ui`, `src/hooks`, `src/App.tsx` and `src/main.tsx` allows only `import('@/scene/Experience')` and `import('@/scene/preview/AvatarPreview')`; relative dynamic imports into the scene and `import.meta.glob` over scene files are errors. A temporary block lowers this to a warning for `src/ui/builder/AvatarPreviewSlot.tsx` only
+- `eslint.config.js`: `no-restricted-syntax` in `src/ui`, `src/hooks`, `src/App.tsx` and `src/main.tsx` allows only `import('@/scene/Experience')` and `import('@/scene/preview/AvatarPreview')`; relative dynamic imports into the scene and `import.meta.glob` over scene files are errors, with no exemptions. The transitional warning-level block for `src/ui/builder/AvatarPreviewSlot.tsx` was added and then removed this round, after the frontend-developer switched that file to the direct import
 - `index.html`: viewport meta now includes `interactive-widget=resizes-content`, with a comment
 - `docs/architecture.md`: v1.1. Updated sections 1, 2, 4, 5.1, 6.1 to 6.11, 7.3 (now a summary of `docs/api.md`, which wins), 8, 10.3, 10.4, 11, 12 (measured sizes and chunk budgets), 13 (scripts, plugins, viewport, build modes, `VITE_API_MODE`, deploy steps), 14, 15, 16; added 17 (change log)
 - `docs/decisions/0008-procedural-stylised-avatars.md`: amended (skinned rig with rigid weights, kit-driven `applyPose`, `AvatarRig` interface, one source for option labels)
@@ -18,7 +18,7 @@ The earlier architecture and scaffold work (round 0, 27/10/2026) is still in pla
 - `docs/decisions/0014-camera-composition-and-fading-partitions.md`: new
 - `docs/decisions/0015-api-mode-and-persistent-demo-mock.md`: new
 - `docs/decisions/0016-automatic-graphics-tier.md`: new
-- `docs/decisions/0017-builder-preview-scene-entry-point.md`: new
+- `docs/decisions/0017-builder-preview-scene-entry-point.md`: new; marked implemented, with the exemption removed
 
 ## Decisions
 - **Live guard wired as the backend designed it.** It applies to `vite build` only, and enforces only when `VITE_API_MODE=live`, so dev, ordinary and `VITE_API_MODE=mock` builds are unaffected. Verified results:
@@ -41,6 +41,14 @@ The earlier architecture and scaffold work (round 0, 27/10/2026) is still in pla
 - **New ADRs, not only edits**, where a decision really changed: camera and fading partitions (0014), API mode and mock persistence (0015), graphics tier (0016) and the preview seam (0017). The layout and avatar changes are dated amendments to 0009 and 0008.
 - **`docs/api.md` is the API contract.** Architecture 7.3 is now a summary that points to it.
 
+## Verification (after removing the lint exemption)
+| Check | Result |
+|---|---|
+| `npm run lint` (and `eslint . --max-warnings 0`) | 0 errors, 0 warnings |
+| `npm run build` | Pass |
+| `import.meta.glob` over the scene in `AvatarPreviewSlot.tsx` (stdin probe) | Reported as an error |
+| Earlier this round | `npm run typecheck` passes; `npm test` 543 of 543; `VITE_API_MODE=live npm run build` with no variables exits 1 |
+
 ## Assumptions
 - The tech lead's acceptance of the deviations is final, so the ADRs are marked "Accepted" and not "Proposed".
 - `App.tsx` and `main.tsx` follow the same scene-import rules as `src/ui`. They passed lint with no change.
@@ -52,7 +60,7 @@ The earlier architecture and scaffold work (round 0, 27/10/2026) is still in pla
 - Supabase plan (free projects pause and have no backups): still open. Questions about plans, pricing or contracts go to the Sales team. (user)
 
 ## Requests for other agents
-- **frontend-developer:** in `src/ui/builder/AvatarPreviewSlot.tsx`, replace the `import.meta.glob(...)` lookup and the cast with `const LazyPreview = lazy(() => import('@/scene/preview/AvatarPreview'));`, and keep the WebGL, error and "Try again" fallbacks. The "not available in this version" message can then go. Tell me when this is done, so I can delete the transitional block in `eslint.config.js` and the lint warning disappears.
+- **frontend-developer:** done, thank you. `AvatarPreviewSlot.tsx` now uses the direct lazy import, and I have removed the lint exemption. The "not available in this version" fallback message can go if it is still there; the WebGL, error and "Try again" fallbacks stay.
 - **qa-engineer:** `playwright.config.ts` runs `npm run build`, which now builds in live mode. Set `VITE_API_MODE=mock` on that command (for example `env: { VITE_API_MODE: 'mock' }` in `webServer`, or the command prefix). Please also check `blob:` photos under the production CSP in Firefox and Safari, and check that the builder keeps fields visible above the Android keyboard (`interactive-widget`).
 - **devops-engineer:** the Pages workflow must run `npm run check:live` and then `npm run build`, both with `VITE_API_MODE=live`, `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from repository variables. Without `VITE_API_MODE=live`, a missing variable produces a site that builds but cannot reach a backend (ADR 0015, architecture section 13). Also add the Deno checks from the backend handoff.
 - **performance-optimiser:** the Visit welcome screen is at 111 of 120 kB gzipped (the shared `index` chunk is 82 kB), and the shared three.js chunk is 969 of 1000 kB minified. Please review both before Release 2. Real-device frame times and the graphics-tier thresholds are still unmeasured.

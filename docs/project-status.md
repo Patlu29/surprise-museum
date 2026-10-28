@@ -1,6 +1,6 @@
 # Project status — Surprise Museum
 
-**Current phase:** 4. Build — in progress
+**Current phase:** 5. Performance — in progress
 **Last updated:** 27/10/2026
 
 ## Phases
@@ -10,8 +10,8 @@
 | 1. Requirements | Complete (v0.2) | Approved 27/10/2026 |
 | 2. Architecture | Complete, scaffold builds | Approved 27/10/2026 |
 | 3. Design | Complete (design-spec v1.0) | Approved 27/10/2026 |
-| 4. Build | In progress | — |
-| 5. Performance | Not started | — |
+| 4. Build | Complete: build, typecheck, lint clean; 543 tests pass | — |
+| 5. Performance | In progress | — |
 | 6. QA | Not started | — |
 | 7. Delivery | Not started | — |
 

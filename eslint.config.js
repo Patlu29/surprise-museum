@@ -177,15 +177,6 @@ export default defineConfig([
     },
   },
   {
-    // Transitional (28/10/2026): this file still finds the preview with import.meta.glob. A warning
-    // here, an error everywhere else. Remove this block once the frontend-developer switches it to
-    // lazy(() => import('@/scene/preview/AvatarPreview')) (architect handoff, ADR 0017).
-    files: ['src/ui/builder/AvatarPreviewSlot.tsx'],
-    rules: {
-      'no-restricted-syntax': ['warn', ...sceneEntryPoints],
-    },
-  },
-  {
     files: ['*.config.{ts,js}', 'tests/e2e/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
