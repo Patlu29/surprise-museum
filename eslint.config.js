@@ -15,13 +15,38 @@ const noUi = {
   group: ['@/ui/*', '@/ui'],
   message: 'Only src/App.tsx and src/ui may import UI code.',
 };
-// Static imports only. A lazy `import('@/scene/Experience')` is allowed (the rule does not see
-// dynamic imports) and is the only way the UI may load the scene, keeping three.js out of the
+// Static imports only. no-restricted-imports does not see dynamic imports; those are limited to
+// the two scene entry points by `sceneEntryPoints` below (ADR 0017), keeping three.js out of the
 // first-view chunk (NFR-2, NFR-4).
 const noScene = {
   group: ['@/scene/*', '@/scene'],
-  message: "Load the 3D scene lazily: lazy(() => import('@/scene/Experience')).",
+  message:
+    "Load the 3D scene lazily: lazy(() => import('@/scene/Experience')) or lazy(() => import('@/scene/preview/AvatarPreview')).",
 };
+/**
+ * The UI may load the scene through exactly two lazy entry points (ADR 0017):
+ * `@/scene/Experience` (the museum canvas) and `@/scene/preview/AvatarPreview` (the builder's
+ * second canvas). Any other dynamic import of scene code, a relative path into src/scene, or an
+ * `import.meta.glob` over it is refused. (esquery regexes cannot contain "/", hence the dots.)
+ */
+const SCENE_ENTRY_MESSAGE =
+  "The UI may load the scene only through lazy(() => import('@/scene/Experience')) or lazy(() => import('@/scene/preview/AvatarPreview')) (ADR 0017).";
+const sceneEntryPoints = [
+  {
+    selector:
+      'ImportExpression[source.value=/^@.scene/]:not([source.value=/^@.scene.(Experience|preview.AvatarPreview)$/])',
+    message: SCENE_ENTRY_MESSAGE,
+  },
+  {
+    selector: 'ImportExpression[source.value=/^[.].*[^A-Za-z]scene([^A-Za-z]|$)/]',
+    message: SCENE_ENTRY_MESSAGE,
+  },
+  {
+    selector:
+      "CallExpression[callee.object.type='MetaProperty'][callee.property.name=/^glob/][arguments.0.value=/scene/]",
+    message: `${SCENE_ENTRY_MESSAGE} import.meta.glob hides a missing or renamed entry point and skips type checking.`,
+  },
+];
 const noRendering = {
   group: [
     'react',
@@ -134,7 +159,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/ui/**/*.{ts,tsx}', 'src/hooks/**/*.{ts,tsx}'],
+    files: ['src/ui/**/*.{ts,tsx}', 'src/hooks/**/*.{ts,tsx}', 'src/App.tsx', 'src/main.tsx'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -148,6 +173,16 @@ export default defineConfig([
           ],
         },
       ],
+      'no-restricted-syntax': ['error', ...sceneEntryPoints],
+    },
+  },
+  {
+    // Transitional (28/10/2026): this file still finds the preview with import.meta.glob. A warning
+    // here, an error everywhere else. Remove this block once the frontend-developer switches it to
+    // lazy(() => import('@/scene/preview/AvatarPreview')) (architect handoff, ADR 0017).
+    files: ['src/ui/builder/AvatarPreviewSlot.tsx'],
+    rules: {
+      'no-restricted-syntax': ['warn', ...sceneEntryPoints],
     },
   },
   {

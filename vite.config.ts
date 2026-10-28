@@ -2,6 +2,8 @@
 import { fileURLToPath, URL } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig, loadEnv, type HtmlTagDescriptor, type Plugin } from 'vite';
+// Owned by the backend-developer; typed by check-live-config.d.mts. ADR 0015.
+import { requireLiveBackend } from './supabase/scripts/check-live-config.mjs';
 
 /**
  * The site is served from https://patlu29.github.io/surprise-museum/ (GitHub Pages project site).
@@ -65,12 +67,62 @@ function contentSecurityPolicy(supabaseUrl: string | undefined): Plugin {
   };
 }
 
+/**
+ * Chunk size budgets, in kB of minified output (the same measure as Vite's own warning).
+ * Every chunk gets DEFAULT_CHUNK_LIMIT_KB, except the HEIC decoder, which is a known 3 MB WASM
+ * bundle (ADR 0004). It gets its own ceiling, and only while it stays a lazily loaded chunk that
+ * no other chunk imports statically, so growth in it, or anything pulling it into a normal
+ * chunk, still warns. See docs/architecture.md, section 12.
+ */
+const DEFAULT_CHUNK_LIMIT_KB = 1000;
+const LAZY_CHUNK_LIMITS_KB: ReadonlyArray<{ label: string; module: RegExp; limitKb: number }> = [
+  {
+    label: 'heic-to (HEIC decoder, ADR 0004)',
+    module: /[\\/]node_modules[\\/]heic-to[\\/]/,
+    limitKb: 3500,
+  },
+];
+
+function chunkSizeBudgets(): Plugin {
+  return {
+    name: 'surprise-museum:chunk-size-budgets',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const chunks = Object.values(bundle).filter((output) => output.type === 'chunk');
+      const staticallyImported = new Set(chunks.flatMap((chunk) => chunk.imports));
+      for (const chunk of chunks) {
+        const sizeKb = chunk.code.length / 1000;
+        const lazy = chunk.isDynamicEntry && !staticallyImported.has(chunk.fileName);
+        const exception = lazy
+          ? LAZY_CHUNK_LIMITS_KB.find((entry) =>
+              chunk.moduleIds.some((id) => entry.module.test(id)),
+            )
+          : undefined;
+        const limitKb = exception?.limitKb ?? DEFAULT_CHUNK_LIMIT_KB;
+        if (sizeKb > limitKb) {
+          this.warn(
+            `${chunk.fileName} is ${sizeKb.toFixed(0)} kB minified, over its ${limitKb} kB budget` +
+              `${exception ? ` (${exception.label})` : ''}. See docs/architecture.md, section 12.`,
+          );
+        }
+      }
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
 
   return {
     base: BASE_PATH,
-    plugins: [react(), contentSecurityPolicy(env.VITE_SUPABASE_URL)],
+    plugins: [
+      react(),
+      // Fails `vite build` only when VITE_API_MODE=live and the Supabase variables are missing,
+      // placeholders or a secret key. Dev, ordinary and VITE_API_MODE=mock builds are untouched.
+      requireLiveBackend(),
+      contentSecurityPolicy(env.VITE_SUPABASE_URL),
+      chunkSizeBudgets(),
+    ],
     resolve: {
       alias: {
         '@contract': fileURLToPath(
@@ -88,9 +140,13 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
     },
     build: {
-      // three.js alone is about 700 kB minified before gzip; the 3D chunk is loaded lazily
-      // after the welcome screen. Budgets are in docs/architecture.md, section 12.
-      chunkSizeWarningLimit: 1000,
+      // Per-chunk budgets are enforced by chunkSizeBudgets() above (1000 kB for every chunk,
+      // a separate ceiling for the lazy HEIC decoder). Vite's single global limit is raised to
+      // that ceiling so it does not warn about the decoder; it remains a backstop.
+      chunkSizeWarningLimit: Math.max(
+        DEFAULT_CHUNK_LIMIT_KB,
+        ...LAZY_CHUNK_LIMITS_KB.map((c) => c.limitKb),
+      ),
     },
     test: {
       include: ['src/**/*.test.{ts,tsx}', 'tests/unit/**/*.test.{ts,tsx}'],

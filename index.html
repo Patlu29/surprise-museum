@@ -2,7 +2,15 @@
 <html lang="en-AU">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!--
+      interactive-widget=resizes-content: on Chromium and Firefox for Android the on-screen keyboard
+      shrinks the layout viewport (and dvh), so builder fields and sticky actions stay above it.
+      iOS Safari ignores it and keeps its own behaviour. See docs/architecture.md, section 13.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <!-- Museums are private gifts reached only by link (FR-49). Nothing on this site is indexed. -->
     <meta name="robots" content="noindex, nofollow, noarchive" />
     <!-- Never send this page's URL to other sites. -->
