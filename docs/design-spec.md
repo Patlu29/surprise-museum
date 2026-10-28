@@ -1,0 +1,1066 @@
+# Design spec: Surprise Museum
+
+Version 1.0 | 27/10/2026 | Owner: ux-ui-designer | Based on requirements v0.2, user stories v0.2 and architecture v1.0
+
+Tokens live in `src/styles/tokens.css` (values) and `src/styles/base.css` (shared rules). This document is the source of truth for look, layout, behaviour and accessibility. Developers build from it and must use tokens, never raw values.
+
+**Release tags.** Each feature is tagged **MVP** (a Must in requirements v0.2) or **R2** (Should or Could, Release 2 or later). R2 items are specified now so that the layout, tokens and component structure leave room for them. Build MVP first.
+
+## Contents
+
+1. Visual direction
+2. User flows
+3. Layout
+4. Design tokens
+5. Components
+6. 3D interactions
+7. Loading and error states
+8. Accessibility
+9. Appendix A: Avatar kit and customiser
+10. Appendix B: Copy deck
+11. Appendix C: Requirement coverage
+
+---
+
+## 1. Visual direction
+
+### 1.1 Concept: "A private view"
+
+A gallery after hours, opened for just two people. Warm lamplight, quiet rooms, and every picture lit like it matters. The product is a gift, so the 2D screens feel like a beautifully printed exhibition catalogue and the 3D museum feels like a small, intimate gallery rather than a game level or a generic white cube.
+
+| Quality | What it means in practice |
+|---|---|
+| Warm | Cream, linen, oak, brass and claret. No cold greys, no pure white, no pure black. Light is about 3000 K |
+| Intimate | Dark ceilings and soft pools of light on the pictures and the floor in front of them. Rooms feel lit by the photos. Small rooms, a low horizon, no vast spaces |
+| Gallery-like | Picture lights, walnut frames with cream mounts, small museum plaques, a claret carpet runner, a spotlit podium at the end |
+| Gentle | Slow, soft motion. Nothing flashes, bounces or races. Everything has a calm alternative under reduced motion |
+| Personal | Names are everywhere they should be: the welcome screen, the labels, the caption card header and the closing note |
+
+Shape language: soft rounded rectangles (picture-frame proportions) with a hairline brass inner border (`--shadow-inset-frame`). Brass is decoration on light surfaces and text or icon colour on dark ones.
+
+### 1.2 Typography
+
+| Role | Font | Weight | Size token | Use |
+|---|---|---|---|---|
+| Display | Fraunces (variable, SIL Open Font Licence), self-hosted, Latin subset | 600 | `--text-display`, `--text-3xl`, `--text-2xl`, `--text-xl` | Welcome title, screen headings, plaque titles, caption card name |
+| Reading | Fraunces | 400 | `--caption-size` (1.125 rem, scalable), `--leading-reading` | Photo captions and the closing message. A serif at reading size feels like a handwritten museum label |
+| UI and body | System UI stack (`--font-sans`) | 400, 500, 600 | `--text-md`, `--text-sm`, `--text-xs` | Buttons, fields, helper text, name labels, HUD. Zero download and the best legibility on phones |
+| Eyebrow | System UI, uppercase, `--tracking-eyebrow` | 600 | `--text-xs` | "A private view" above titles |
+
+- Body text and inputs are never below 16 px, which also stops iOS zooming into fields.
+- Fraunces is only needed for headings and captions. Load the Latin subset at weights 400 and 600 only, with `font-display: swap`, from the app's own origin (the CSP is `font-src 'self'`). Budget: 60 kB or less for both files. If it is late, the fallback stack (Iowan Old Style, Palatino, Georgia) is metrically similar, so layout stays stable.
+- Names typed by the Creator keep accents, emoji and any script exactly as typed. UI text that shows them uses `.user-text` (see `base.css`) and the system font stack, which carries emoji.
+- Text must survive 200% zoom and the WCAG 1.4.12 text-spacing overrides without clipping. No fixed-height text containers.
+
+### 1.3 Colour
+
+Two surface families, so the same brand works in the builder and over a moving 3D scene.
+
+| Family | Where | Base colours |
+|---|---|---|
+| **Paper** | Builder, home, welcome, error screens, caption card, finale card, dialogs | Parchment `--color-bg`, paper `--color-surface`, ink `--color-text`, claret `--color-accent` |
+| **Night** | HUD glass over the scene: joystick, top bar, hint chips, name labels, toasts | Aubergine `--color-night` at 84% (`--color-hud`) with a 14 px blur, text `--color-on-night`, brass `--color-brass` for icons and highlights |
+
+Claret is the one action colour on paper. On night, brass carries highlights and rose (`--color-accent-on-night`) carries links. Danger and success always pair colour with an icon and words.
+
+All text and component pairs, with measured WCAG ratios, are in section 4.2. Never use a pair that is not listed there. In particular, brass is never text on paper (2.2:1).
+
+### 1.4 The museum's architectural look
+
+Applies to the default (only) MVP theme. The technical-artist owns materials and lighting; this table fixes the look and the colour targets. Hex values are tokens named `--scene-*`.
+
+| Element | Look | Colour tokens |
+|---|---|---|
+| Walls | Warm linen plaster, slightly darker towards the ceiling (vertex-colour gradient, 100% to 75%). Painted skirting 0.12 m high | `--scene-wall`, `--scene-wall-shade`, `--scene-skirting` |
+| Floor | Wide oak boards running along the route (along -Z), faint grain, matte with a very soft sheen. A claret runner 1.6 m wide with thin brass edge lines runs down the centreline from the entrance through every doorway to the podium. It is wayfinding without being a tour | `--scene-floor`, `--scene-floor-grain`, `--scene-runner`, `--scene-runner-edge` |
+| Ceiling | Dark and warm, so each room feels lit by its pictures. A simple brass ceiling rose or recessed strip per room is enough | `--scene-ceiling` |
+| Doorways | 2.4 m wide, 2.7 m high, with a 0.12 m painted architrave. A rounded arch top is optional (visual only; colliders stay boxes) | `--scene-skirting` |
+| Lighting | Hemisphere light plus one warm directional light, no shadow maps (architecture 6.11). The mood comes from baked-looking gradients and decals, not real-time lights | `--scene-light-warm`, `--scene-light-sky`, `--scene-light-ground` |
+| Picture lights | A small brass bar above each frame with a visible emissive strip, and a soft warm wash on the wall around the frame (additive decal, 10 to 14% alpha) | `--scene-brass`, `--scene-pool` |
+| Frames | Border 0.06 m total: 0.02 m walnut outer, 0.04 m cream mount inside. Depth 0.05 m. The photo itself is unlit (`MeshBasicMaterial`, FR-40) so it is always evenly lit, never glared or shadowed | `--scene-frame`, `--scene-mat` |
+| Standing-spot pools | A soft warm elliptical glow on the floor in front of each picture, about 1.6 m wide, centred 1.6 m from the wall. It marks "stand here" and makes presentations discoverable without instructions (G-4). It brightens with proximity: 40% at 3 m to 100% at 1.5 m. Optional (Should): it fills over the 1 s dwell. Reduced motion: it steps on when the dwell completes | `--scene-pool` |
+| Plaques | A small brass-edged cream plaque beside each frame (0.18 by 0.12 m) showing the picture number ("3"), and a larger title plaque on the entrance hall's left wall. Text is drawn into a `CanvasTexture` using the display font (after `document.fonts.ready`), so no font download is needed in the scene and emoji work. Plaques are decorative; the same information is in the UI. **MVP:** title plaque only. **R2:** numbered plaques | `--scene-plaque`, `--scene-plaque-ink` |
+| Entrance hall | Title plaque reads, in order: small caps "A PRIVATE VIEW", the museum title (display, up to 3 lines), "For {Visitor}", "Curated by {Guide}". A low bench and a coat stand are optional dressing if the budget allows | |
+| Character contact | A soft elliptical blob shadow under each character | `--scene-blob-shadow` |
+
+Frame hover highlight (desktop) and the "Where next?" glow use `--scene-hint-glow`.
+
+### 1.5 The finale room and podium
+
+The final room is the emotional payoff, so it changes mood clearly from the linen galleries.
+
+| Element | Look |
+|---|---|
+| Walls | Deep claret plaster (`--scene-finale-wall`), the same warm family but darker and richer, so entering feels like arriving somewhere |
+| Floor | Dark polished wood (`--scene-finale-floor`). The claret runner ends in a brass-edged semicircle at the podium |
+| Podium | A low cream stone disc, radius 1.5 m, height 0.18 m, with a thin brass inlay ring (`--scene-podium`, `--scene-brass`) |
+| Light | A soft warm cone falling from a ceiling oculus onto the podium (`--scene-spot`): additive cone mesh at 8 to 10% alpha, plus a floor pool. A few dust motes drift in the cone (40 points or fewer). Low graphics quality: no cone mesh, floor pool only |
+| Lectern | At the far edge: a walnut lectern with a cream open guest book on top. Decorative and solid (0.6 by 0.4 m) |
+| Visible from afar | The podium's light is visible down the centre line through the doorways, so the Visitor can see where the museum ends from the entrance |
+| On enter | The podium ring brightens over 300 ms and the pool grows 15%. Reduced motion: it switches on instantly. No confetti in the MVP (R2, FR-43, and never under reduced motion) |
+| R2 "all viewed" highlight | The podium ring and cone brighten and the ring pulses slowly (4 s cycle). Reduced motion: steady, brighter, no pulse |
+
+### 1.6 Avatar style
+
+Full kit, labels and rules are in Appendix A. In short:
+
+- "Designer toy" proportions: about 5.5 heads tall, large head, soft rounded limbs, mitten hands, simple rounded shoes. Friendly, not cartoonish and not uncanny.
+- Flat, bold colour blocking, no outlines. Hair, skin and outfit contrast clearly so each reads at 120 px tall.
+- **The Visitor mostly sees her character from behind**, so hair and the back of the outfit carry identity. Hair styles are designed back-first (ponytail, bun, braids, bob length and afro volume must read from behind). The customiser has a "Back view" button for this reason.
+- Face: two dark oval eyes, thin brows in the hair colour, a small smile, soft rose cheek blush. No nose geometry beyond a tiny bump in a slightly deeper skin tone.
+- The Guide wears a small brass round badge on the left chest; the Visitor wears a cream "visitor sticker" with a rose heart in the same spot. This quietly signals roles without relying on name labels, and the Guide's badge is the slot for the Creator's face photo in a later release (FR-21).
+
+### 1.7 Motion personality
+
+Slow, soft, never urgent. Standard ease is `--ease-standard`. All durations come from tokens, which fall to 0 ms under reduced motion (section 8.4 lists every animation and its replacement).
+
+### 1.8 Voice and copy
+
+Warm, plain, a little playful. Short sentences. Australian English ("customise", "colour"). Addresses the Creator as "you" and the Visitor by name. Errors never blame the user and always say what to do next. Copy deck in Appendix B.
+
+---
+
+## 2. User flows
+
+### 2.1 Creator (Epic E1, E2, E6)
+
+```mermaid
+flowchart LR
+  H[Home #/] --> C1[1 Photos]
+  C1 --> C2[2 Words]
+  C2 --> C3[3 Characters]
+  C3 --> C4[4 Review and publish]
+  C1 & C2 & C3 & C4 -. Preview .-> P[Preview #/create/preview]
+  P -- Exit preview --> C4
+  C4 -- Publish --> R[Published: share link + edit link]
+  R --> E[Edit screen #/edit/token: view, copy, delete]
+```
+
+The builder is one route (`#/create`) with four steps held in component state and browser history state (`history.pushState` with a step number, no new hash routes), so the Back button goes to the previous step rather than leaving and losing work.
+
+| Step | What the Creator does | Key rules |
+|---|---|---|
+| Home | Reads one sentence and three steps, taps **Create a museum** | No sign-in, no account prompt (FR-1). Static, no 3D, loads fast |
+| 1 Photos | Adds 1 to 20 photos, watches progress, writes optional captions, reorders, replaces, removes | Rejections list the file name and reason; valid files continue (FR-3). Retry per photo (FR-4). Reorder by drag or by Earlier and Later buttons (WCAG 2.5.7). Captions 280 characters with a counter |
+| 2 Words | Visitor name (required), Guide name (required), museum title (optional), closing message (optional) | 1 to 24 characters for names, 60 for title, 1,000 for the message. A live sample shows the welcome title and both name labels as typed |
+| 3 Characters | Styles the Visitor and the Guide with a live 3D preview | Every option is a labelled control. Preview updates within 1 s. Works without WebGL (options still usable) |
+| 4 Review and publish | Checks the summary, ticks the consent, optionally previews, publishes | Consent is required (FR-56). Publish shows progress, cannot run twice, and failure keeps all work |
+| Published | Copies or shares the **share link**, copies and saves the **edit link** | Edit link has a prominent "save this" warning and must be acknowledged before "Finish" (FR-50) |
+| Edit link | Opens `#/edit/<token>`: sees a summary, copies the share link, deletes | Delete needs a confirmation dialog whose default focus is Cancel (US-24). MVP offers view, copy and delete only |
+
+Preview is available from every step once there is at least 1 photo and both names. If not, the Preview button opens a dialog listing what is missing, with a link to each fix (US-8).
+
+Leaving protection: until published, the browser shows its native "leave site?" prompt on close or reload if the draft has content (memory-only draft in MVP; FR-12 restore is R2).
+
+### 2.2 Visitor (Epic E3, E4, E7)
+
+```mermaid
+flowchart LR
+  L[Open link] --> LD[Loading data]
+  LD --> W[Welcome: title, For name, Start]
+  LD -. fails .-> ER[Error screens]
+  W -- Start --> LS[Loading scene with progress]
+  LS --> M[Museum: free roaming]
+  M -- pause near a picture 1 s --> G[Guide presents caption card]
+  G -- walk away over 4.5 m, or dismiss --> M
+  M -- tap a picture --> V[Full-screen photo]
+  V -- Close --> M
+  M -- step onto podium --> F[Finale card]
+  F -- Replay --> M0[Back at entrance]
+  F -- Keep exploring --> M
+```
+
+| Stage | What the Visitor sees and does |
+|---|---|
+| Loading data | Paper screen with the brass frame mark and "Opening your surprise". Never blank (FR-57) |
+| Welcome | Eyebrow "A private view", the museum title, "For {name}", "Your guide today: {Guide}", a large **Start** button with focus, a small Privacy link. The 3D chunk and the nearest photos download in the background while she reads |
+| Start before ready | The button shows "Getting the gallery ready" with real progress and the screen waits, then cross-fades into the scene. If already ready, the cross-fade is immediate (500 ms, cut under reduced motion) |
+| Arrival | The Visitor stands at the entrance facing the route, the Guide beside her, both labelled. Controls work at once. One quiet coaching hint appears (section 6.1) |
+| Free roaming | Walk anywhere. No Next button, no fixed order |
+| Presentation | After about 1 s near a picture the Guide walks over and the caption card appears. Walking away or tapping Close ends it, and the Guide follows again |
+| Full-screen photo | Tap or click a picture. Zoom, read the caption, Close returns to the same spot |
+| Finale | Step onto the podium. The Guide stands beside her and the closing note appears with **Keep exploring** and **Replay** |
+
+### 2.3 Error states (Epic E6, E7)
+
+| Situation | Screen | Recovery |
+|---|---|---|
+| Unknown, deleted, expired or mistyped link; any unknown route | **Not found** (7.5): reveals nothing about content, no list of museums | "Go to the home page" |
+| Museum data cannot be fetched (offline, server error) | **Couldn't open it** (7.6) with the museum unchanged | "Try again" without a page reload (US-30) |
+| WebGL unavailable | **Can't show 3D** (7.7): explanation, supported browsers, how to enable hardware acceleration | R2: "See the photos as a slideshow" |
+| Graphics context lost mid-visit | Modal "The 3D view stopped" (7.8) | "Reload" |
+| A photo fails to load | In-frame placeholder with a retry affordance, plus a DOM "Retry" chip near the picture, plus a Retry in the full-screen viewer (7.9) | "Retry"; the Guide still presents the caption and the Visitor keeps roaming (FR-58) |
+| In-app browser likely to struggle (NFR-9) | Dismissible info card on the welcome screen: "Open in your browser" | Copy link, or the browser's menu |
+| Builder: rejected file, failed upload, publish failure, rate limit | Inline messages next to the cause (7.10) | Retry per item; work is never lost |
+
+---
+
+## 3. Layout
+
+### 3.1 Principles
+
+1. **Canvas first.** On the Visit screens the canvas fills the viewport (`.scene-root`). All UI sits above it in `.ui-layer`, which ignores pointer events so empty space still reaches the canvas; each control opts back in with `.ui-hit`.
+2. **The centre stays clear.** Controls live at the edges. Panels dock at the edge that is free of the Visitor and the active picture (section 3.5).
+3. **Thumb zones.** Movement bottom-left, look-around anywhere else, primary actions in the lower half. Top corners hold rarely used buttons.
+4. **Use `dvh`, not `vh`**, and add safe-area insets (`--safe-*`) to every edge so notches, rounded corners and the home indicator never clip a control.
+5. **Touch targets 44 by 44 px minimum** (`--touch-target`), 56 px for primary calls to action (`--touch-target-lg`), 8 px or more between targets.
+6. Orientation changes never restart anything: position, viewed pictures, panels and the Guide are kept (US-33).
+
+### 3.2 Breakpoints
+
+| Name | Width | Visit layout | Builder layout |
+|---|---|---|---|
+| Phone portrait | 360 to 639 px | Joystick bottom-left; caption card docks top; sheets are bottom sheets | One column; sticky bottom action bar; stepper is "Step n of 4" with a segmented bar |
+| Phone landscape | `(orientation: landscape) and (max-height: 500px)` | Joystick bottom-left; caption card docks right (or left); sheets are right-hand drawers | One column, content capped at `--content-max-width`; action bar becomes a compact right-aligned bar |
+| Tablet | 640 to 1023 px | As desktop but controls stay touch-sized; joystick shown when `(pointer: coarse)` | Two columns on the Characters step; one column elsewhere |
+| Desktop | 1024 px and wider | No joystick; keyboard and mouse hints; caption card docks right; picture list and settings are side drawers | Left vertical stepper (12 rem), content, and on the Characters step a sticky live preview |
+
+Design floor is 360 px wide. Text content (builder, dialogs, error screens) must also reflow without horizontal scrolling at 320 px (WCAG 1.4.10). The HUD is designed from 360 px.
+
+### 3.3 Visitor screen composition
+
+```text
+PHONE PORTRAIT 360 x 640                PHONE LANDSCAPE 740 x 360
++-----------------------------+         +---------------------------------------------+
+| [Pictures]  5 of 12   [?]   |         | [Pictures] [Where next?]      5 of 12   [?] |
+| +-------------------------+ |         |                                +-----------+|
+| | (T) Tom  Photo 3    [X] | |         |                                | (T) Tom [X]||
+| | "Caption text ..."      | |         |        (3D scene,              | "Caption   ||
+| +-------------------------+ |         |         centre clear)          |  text ..." ||
+|                             |         |                                +-----------+|
+|    Tom            Sophie    |         |   Tom       Sophie                          |
+|     (labels over heads)     |         |                                             |
+|  ( joystick )               |         |  ( joystick )                               |
++-----------------------------+         +---------------------------------------------+
+
+DESKTOP 1280 x 720
++--------------------------------------------------------------------------------+
+| [Pictures] [Where next?]                 5 of 12                [Reset] [?] [Cog] |
+|                                                              +------------------+
+|                                                              | (T) Tom   Photo 3 |
+|                  (3D scene, centre clear)                    | "Caption ..."  [X]|
+|                                                              +------------------+
+|        Tom        Sophie                                                         |
+|   [ W A S D or arrows to walk . drag to look around ]   (fades after first use)  |
++--------------------------------------------------------------------------------+
+```
+
+| HUD element | Position | MVP or R2 | Size |
+|---|---|---|---|
+| Help button `?` | Top-right | MVP | 44 px round |
+| Reset view | Top-right, left of Help; appears only after the camera is turned away from default | MVP | 44 px round |
+| Settings | Top-right, left of Reset view | R2 | 44 px round |
+| Pictures (list) | Top-left | R2 | 44 px round |
+| Where next? | Top-left, right of Pictures | R2 | 44 px tall pill with label |
+| Viewed progress "5 of 12" | Top-centre | R2 | Pill, 32 px tall (not interactive) |
+| Joystick | Bottom-left, `--hud-margin` plus safe areas from the edges | MVP (touch) | 128 px base, 56 px knob, 176 px hit area |
+| Look-around | Whole canvas outside controls and the joystick hit area | MVP | Drag |
+| Controls hint chip | Bottom-centre (desktop) or above the joystick (touch) | MVP | Auto-hides |
+| Caption card | Docked by the placement rule (3.5) | MVP | Section 5.6 |
+| Preview bar | Full-width strip above the HUD in preview only; HUD top inset grows by `--preview-bar-height` | MVP | 44 px |
+
+The Help sheet (MVP) is a short, non-blocking sheet: "How to explore" with the three ideas (walk, pause by a picture, tap a picture), the control table for the current device, and an accessibility note about the keyboard. It is the only way to re-read the coaching hints.
+
+### 3.4 Camera composition targets (for the scene-developer)
+
+The architecture gives a starting boom of 3.5 m at 2.2 m height. At that setting the Visitor fills about half of a portrait screen and hides the picture she is looking at, so tune to these screen-space targets instead. Full camera behaviour is in 6.3.
+
+| Viewport | Visitor height on screen | Feet at (from top) | Notes |
+|---|---|---|---|
+| Phone portrait | 24 to 32% of viewport height | 70 to 74% | The bottom 26% is the joystick zone. The top 30% stays free for the caption card |
+| Phone landscape | 42 to 50% | 80% | Left and right 30% columns stay free for the joystick and the caption card |
+| Tablet and desktop | 36 to 44% | 82% | Right 30% column stays free for the caption card |
+
+Achieve this with boom length, vertical FOV (50 to 60 degrees), and a constant view offset (`camera.setViewOffset`) that never changes during a session. The offset is a fixed composition, not camera motion.
+
+### 3.5 Caption card placement rule (FR-64, US-12)
+
+The caption card must cover neither the Visitor nor the active picture. Because the camera is user-controlled, the card is placed by a small pure function, `chooseCaptionDock(inputs): Placement`, in `src/ui/overlays/` (frontend-developer), unit-tested.
+
+**Inputs** (screen-space rectangles in CSS px, refreshed about every 100 ms while a presentation is active, not per frame):
+
+| Input | Meaning |
+|---|---|
+| `viewport` | Window inner size minus safe areas |
+| `keepOut` | HUD rectangles the card must not cover: top bar, joystick base (touch), preview bar, and the Look closer or Retry chip when shown |
+| `picture` | Bounding rectangle of the active picture's frame projected to the screen, or none if off-screen or behind the camera |
+| `actors` | Bounding rectangles of the Visitor and the Guide including their name labels |
+| `bigText` | Whether the caption scale is above 1 |
+
+**Candidate placements, evaluated in order.** Each is a dock plus a size. "Full" means up to the dock's maximum height with internal scrolling; "strip" is one or two lines (`--panel-peek-height`) with a Read more button.
+
+| Layout | Order |
+|---|---|
+| Phone portrait | 1 top, full (below top bar, full width minus `--hud-margin`, up to 32 dvh or 14 rem). 2 top, strip. 3 bottom strip above the joystick |
+| Phone landscape | 1 right, full (width `min(36vw, 22rem)`, between top bar and bottom). 2 left, full, above the joystick. 3 right, strip |
+| Tablet and desktop | 1 right, full (`--panel-max-width`, up to 50 dvh, 24 px from the edge). 2 left, full. 3 right, strip. 4 bottom-centre strip |
+
+**Selection.** Pick the first candidate whose rectangle, grown by 8 px, does not intersect `picture`, any `actors` rectangle, or `keepOut`. If none qualifies, pick the candidate with the least intersection with `picture` (the Visitor takes second priority), always in strip size. Expanding a strip with Read more is an explicit user action, so it may then overlap.
+
+**Stability.**
+- Once placed, keep the placement unless it has overlapped for 400 ms or more or the layout changes. Never move a card while the Visitor is typing, scrolling its text or has focus inside it.
+- Placement changes cross-fade in `--duration-fast`. Under reduced motion they are instant.
+- A caption longer than the dock's height scrolls inside the card. The scroll area has `tabindex="0"` so keyboard users can scroll it.
+- The Close button is always in the header and never scrolls away.
+
+QA check: in Playwright at 360 by 640, 390 by 844, 844 by 390 and 1280 by 720, with the default camera, the card's rectangle must not intersect the picture rectangle for a short, a 140-character and a 280-character caption.
+
+### 3.6 Builder layouts
+
+```text
+PHONE (360)                              DESKTOP (1280)
++---------------------------+            +---------+-----------------------------------+
+| Surprise Museum   Preview |            | Logo    |  Step 3 of 4: Characters           |
+| Step 3 of 4  [==][==][=][ ]|            |         |                                    |
+|                           |            | 1 Photos|  +-------------+  Guide | Visitor  |
+| Characters                |            | 2 Words |  |   live 3D   |  Face and skin   |
+| +-----------------------+ |            | 3 Chars |  |   preview   |  Hair             |
+| |   live 3D preview     | |            | 4 Publ. |  | (sticky)    |  Outfit           |
+| |  Tom        Sophie    | |            |         |  +-------------+  Body             |
+| +-----------------------+ |            |         |                                    |
+| [Guide: Tom][Visitor: Sophie]|          |         |  [Back]                    [Next] |
+| Face | Hair | Outfit | Body|           +---------+-----------------------------------+
+| (option tiles ...)        |
++---------------------------+
+| [ Back ]          [ Next ]|  sticky action bar, safe-area padded
++---------------------------+
+```
+
+The sticky bar and the header never hide a focused control (WCAG 2.4.11): `scroll-padding-block` in `base.css` reserves their height.
+
+---
+
+## 4. Design tokens
+
+### 4.1 Summary
+
+All tokens are CSS custom properties in `src/styles/tokens.css`. Scene tokens (`--scene-*`) and avatar tokens (`--avatar-*`) are references for the technical-artist, who mirrors them in code with a comment pointing to this document.
+
+| Group | Tokens | Notes |
+|---|---|---|
+| Colour: paper | `--color-bg`, `--color-surface`, `--color-surface-sunken`, `--color-text`, `--color-text-muted`, `--color-border`, `--color-border-strong` | `--color-border` is decoration only; use `--color-border-strong` for control outlines |
+| Colour: action | `--color-accent`, `-hover`, `-active`, `-tint`, `--color-on-accent` | Claret |
+| Colour: brass | `--color-brass`, `-hover`, `-deep` | Decorative on paper; text and icons on night |
+| Colour: states | `--color-danger`, `-hover`, `--color-on-danger`, `-tint`; `--color-success`, `-tint`; `--color-warning-text`, `-tint`, `-border`; `--color-info-tint` | Always with an icon and words |
+| Colour: night | `--color-night`, `-raised`, `--color-hud`, `--color-hud-solid`, `--color-on-night`, `--color-on-night-muted`, `--color-accent-on-night`, `--color-danger-on-night`, `--color-scrim`, `--color-viewer-bg` | `--color-hud` falls back to solid without `backdrop-filter` |
+| Focus | `--color-focus`, `--color-focus-edge` | Two-tone ring, rule in `base.css` |
+| Name labels | `--label-bg`, `--label-fg`, `--label-ring`, `--label-ring-width`, `--label-dot-visitor`, `--label-dot-guide`, `--label-font-size`, `--label-max-width`, `--label-padding-x`, `--label-padding-y` | Section 5.5 |
+| Scene | `--scene-wall`, `-wall-shade`, `-skirting`, `-floor`, `-floor-grain`, `-ceiling`, `-runner`, `-runner-edge`, `-frame`, `-mat`, `-brass`, `-brass-deep`, `-plaque`, `-plaque-ink`, `-light-warm`, `-light-sky`, `-light-ground`, `-pool`, `-finale-wall`, `-finale-floor`, `-podium`, `-spot`, `-blob-shadow`, `-hint-glow` | Section 1.4 and 1.5 |
+| Avatar | `--avatar-skin-01..10`, `--avatar-skin-blush`, `--avatar-hair-*` (11), `--avatar-outfit-*` (12), `--avatar-denim`, `-trousers`, `-joggers`, `-shoes`, `-sole`, `-eye`, `-badge-*` | Appendix A |
+| Type | `--font-display`, `--font-sans`, `--font-body` (alias), `--text-xs..3xl`, `--text-display`, `--leading-*`, `--weight-*`, `--tracking-eyebrow`, `--measure-reading`, `--caption-scale`, `--caption-size` | `--caption-scale` is 1, 1.25 or 1.5 from Settings (R2) |
+| Space | `--space-1..6, 8, 10, 12, 16` (4 px scale) | |
+| Size | `--touch-target` (44), `--touch-target-lg` (56), `--icon-sm/md/lg`, `--hairline`, `--border-control` (2), `--border-selected` (3), `--joystick-*`, `--hud-margin`, `--panel-max-width`, `--panel-peek-height`, `--sheet-max-height`, `--content-max-width`, `--content-wide-max-width`, `--preview-bar-height`, `--safe-*` | |
+| Shape and depth | `--radius-sm/md/lg/xl/pill`, `--radius-2` (alias), `--shadow-card/panel/hud/label`, `--shadow-inset-frame`, `--blur-panel` | |
+| Layers | `--z-canvas` 0, `--z-labels` 5, `--z-hud` 10, `--z-preview-bar` 14, `--z-panel` 20, `--z-sheet` 22, `--z-fade` 24, `--z-viewer` 26, `--z-screen` 28, `--z-modal` 30, `--z-toast` 40 | Name labels sit below every panel (ADR 0011). Pass `zIndexRange={[5, 0]}` to drei `Html` |
+| Motion | `--duration-instant/fast/normal/slow/camera/fade-through`, `--ease-standard/emphasised/out`, `--press-scale` | All durations are 0 ms under reduced motion |
+
+Scaffold names kept for compatibility: `--font-body`, `--radius-2`, `--touch-target`, `--color-accent`, `--color-surface`, `--color-text`, `--space-2`, `--space-4`.
+
+### 4.2 Contrast record (WCAG 2.2 AA)
+
+Ratios calculated from the token hex values with the WCAG relative-luminance formula. Required: 4.5:1 for text, 3:1 for large text, icons and component boundaries. QA should re-verify with a tool.
+
+| Foreground | Background | Ratio | Use |
+|---|---|---|---|
+| `--color-text` | `--color-surface` | 14.7 | Body text |
+| `--color-text` | `--color-bg` | 13.4 | Body text on page |
+| `--color-text` | `--color-surface-sunken` | 12.7 | Text in wells |
+| `--color-text-muted` | `--color-surface` | 6.0 | Helper text, counters |
+| `--color-text-muted` | `--color-bg` / `--color-surface-sunken` | 5.4 / 5.2 | Helper text, placeholders |
+| `--color-accent` | `--color-surface` / `--color-bg` / `--color-surface-sunken` | 7.8 / 7.1 / 6.7 | Links, secondary button text |
+| `--color-on-accent` | `--color-accent` | 7.8 | Primary button |
+| `--color-on-danger` | `--color-danger` | 6.1 | Danger button |
+| `--color-danger` | `--color-surface` / `--color-bg` / `--color-danger-tint` | 6.1 / 5.5 / 5.4 | Error text |
+| `--color-success` | `--color-surface` / `--color-success-tint` | 5.9 / 5.4 | Success text |
+| `--color-warning-text` | `--color-warning-tint` / `--color-surface` | 6.6 / 6.9 | Edit-link warning |
+| `--color-warning-border` | `--color-warning-tint` | 3.3 | Warning box outline |
+| `--color-border-strong` | `--color-surface` / `--color-bg` / `--color-surface-sunken` | 4.8 / 4.4 / 4.2 | Input and swatch outlines (needs 3) |
+| `--color-accent` | `--color-accent-tint` | 6.3 | Selected tile outline |
+| `--color-on-night` | `--color-hud-solid` | 15.3 | HUD text and icons |
+| `--color-on-night` | HUD glass over a pure white scene pixel (worst case, 84% opacity) | 8.7 | HUD in the worst case |
+| `--color-on-night-muted` | `--color-hud-solid` | 9.9 | Secondary HUD text |
+| `--color-accent-on-night` | `--color-hud-solid` | 9.1 | Links on night |
+| `--color-danger-on-night` | `--color-hud-solid` | 8.7 | Errors on night |
+| `--color-brass` | `--color-hud-solid` | 7.3 | Icons and highlights on night |
+| `--color-text` | `--color-brass` | 6.6 | Text on a brass button (night primary) |
+| `--color-on-night` | `--color-viewer-bg` | 16.8 | Full-screen viewer chrome |
+| `--label-fg` | `--label-bg` | 16.3 | Name labels |
+| `--color-focus` | `--color-hud-solid` | 12.2 | Focus ring on night |
+| `--color-focus-edge` | `--color-surface` / `--color-bg` | 14.7 / 13.4 | Focus ring on paper |
+
+**Name labels over any wall.** The pill has a near-black fill and a near-white hairline ring. Over any backdrop with relative luminance L, the fill edge contrasts at (L + 0.05) / 0.0597 and the ring at 0.97 / (L + 0.05). The worse of the two is never below 3.8:1 at any L (the mid-grey case), so the pill edge is always distinguishable. Checked specifically against linen walls (12.5:1 fill edge), oak floor (5.7:1) and the claret finale wall (11.3:1 ring).
+
+**Not allowed:** brass as text on paper; muted text on night; any text over the 3D scene without a solid or glass backing; colour as the only state cue.
+
+---
+
+## 5. Components
+
+Every control meets 44 by 44 px, has a visible two-tone focus ring (`base.css`), and keeps its state visible without colour alone. State columns: **D** default, **H** hover (pointer only), **F** focus, **A** active (pressed), **X** disabled, **L** loading.
+
+### 5.1 Buttons
+
+| Variant | D | H | A | X | L |
+|---|---|---|---|---|---|
+| Primary | `--color-accent` fill, `--color-on-accent` text, 56 px tall (calls to action) or 44 px, radius pill | `--color-accent-hover` | `--color-accent-active`, scale `--press-scale` | 45% opacity, `aria-disabled` and a reason in text nearby | Spinner replaces the label's icon, label becomes "Publishing...", `aria-busy`, ignores presses |
+| Secondary | `--color-surface` fill, `--border-control` solid `--color-accent`, accent text | Fill `--color-accent-tint` | Tint plus scale | As above | As above |
+| Tertiary | Text and icon in accent, underline on hover, 44 px target | Underline | Tint | As above | As above |
+| Danger | `--color-danger` fill, `--color-on-danger` text | `--color-danger-hover` | Darker plus scale | As above | As above |
+| Night icon (HUD) | 44 px circle, `--color-hud` glass, 24 px `--color-on-night` icon, 1 px `--color-on-night` at 25% ring | Fill `--color-night-raised` | Scale `--press-scale` | 45% | Spinner |
+| Night primary | `--color-brass` fill, `--color-text` label | `--color-brass-hover` | Scale | | |
+
+Prefer enabled buttons that explain what is missing on press (inline error plus focus to the first problem) over disabled buttons that hide the reason. Use `aria-disabled` only for genuinely unavailable actions such as Publish while photos are still uploading, and say why in adjacent text.
+
+### 5.2 Fields
+
+| Part | Spec |
+|---|---|
+| Text field, textarea | Visible label above (never placeholder-only), 16 px text, 48 px minimum height, `--border-control` solid `--color-border-strong`, radius `--radius-md`, fill `--color-surface`. Helper text below in muted. Counter at the bottom right ("12 / 280"). Focus: ring. Error: border `--color-danger`, icon plus message below, `aria-invalid`, `aria-describedby` |
+| Character limits | Input stops at the limit and the helper line changes to "That is the limit: 24 characters" (US-4, US-3). The counter is not a live region; the limit message is `role="status"` |
+| Name fields | `autocapitalize="words"`, `autocomplete="off"`. The native `maxlength` attribute counts UTF-16 units, so enforce the limit in code by Unicode code points (as `contract.ts` does) so that an emoji counts as one character |
+| Closing message | `lang="en-AU"`, spellcheck on, 6 rows, line breaks kept |
+| Consent checkbox | 24 px box in a 44 px row, the label is the full sentence. The terms and privacy links open in a new tab with `rel="noopener"`, because the draft is held in memory and must not be lost |
+
+### 5.3 Option tiles, swatches and tabs (customiser)
+
+| Component | Spec |
+|---|---|
+| Swatch (skin, hair colour, outfit colour) | 44 px circle in a 52 px cell, 2 px `--color-border-strong` ring so the lightest swatches show on paper, selected: 3 px `--color-accent` ring plus a check mark inside, name in `aria-label` and a tooltip-free visible label for the group's current value ("Hair colour: Auburn") |
+| Text tile (hair style, outfit, body type, height, facial hair) | 44 px minimum height, label centred, radius `--radius-md`, selected: `--color-accent-tint` fill, `--border-selected` accent ring, and a check icon |
+| Group | `role="radiogroup"` with a visible group label. Arrow keys move and select within the group (roving `tabindex`), Tab leaves the group |
+| Tabs (Guide or Visitor; Face, Hair, Outfit, Body) | `role="tablist"`, automatic activation, arrow keys, `aria-selected`, 44 px tall, active tab has a 3 px accent underline plus bold weight |
+
+### 5.4 Photo row (builder step 1)
+
+States: **uploading** (progress bar plus "Uploading 62%"), **processing** ("Preparing photo..."), **ready** (check plus "Ready"), **failed** (alert icon, reason, **Retry**), **removed** (row leaves; announced "Photo removed").
+
+```text
++-----------------------------------------------------+
+| [grip] [thumb 64x64 contain]  Photo 3        62%  |
+|                               Uploading...         |
+| Caption (optional)                                  |
+| +-------------------------------------------------+ |
+| |                                                 | |
+| +-------------------------------------------------+ |
+|                                            12 / 280 |
+| [ Earlier ] [ Later ] [ Replace ] [ Remove ]        |
++-----------------------------------------------------+
+```
+
+- The thumbnail uses `object-fit: contain` on a sunken background, so the Creator sees the true aspect ratio (nothing is cropped, matching the museum).
+- Reorder: drag the grip (mouse), long-press 300 ms then drag (touch), keyboard on the grip (Space picks up, arrows move, Space drops, Escape cancels, announced politely: "Photo 3 moved to position 2 of 7"), and the **Earlier** and **Later** buttons, which are the single-pointer alternative required by WCAG 2.5.7. **Earlier** is absent on the first row and **Later** on the last (not just disabled).
+- The grip has `touch-action: none`; the rest of the row scrolls normally.
+- **Remove** asks for confirmation inline ("Remove photo 3 and its caption? [Remove] [Keep]"). **Replace** keeps the caption (US-3).
+- On desktop (1024 px and wider) rows become a three-column grid of the same cards.
+
+### 5.5 Name label (3D, DOM via drei `Html`)
+
+```text
+  ( heart )  Sophie        Visitor label: night fill, cream hairline ring, rose heart marker
+  ( diamond )  Tom         Guide label:   same, brass diamond marker
+```
+
+| Property | Spec |
+|---|---|
+| Fill and text | `--label-bg` solid, `--label-fg` text, 600 weight, `--label-font-size` (15 px), `--leading-tight` |
+| Edge | `--label-ring-width` solid `--label-ring` (hairline that separates the pill from dark walls) plus `--shadow-label` |
+| Shape | Pill (`--radius-pill`); one line when it fits, wraps to as many as three lines for long names (`--radius-md` when wrapped), `overflow-wrap: anywhere`, never truncated (names must show exactly as typed) |
+| Size | `max-width: min(var(--label-max-width), 44vw)`, padding `--label-padding-y` by `--label-padding-x`. Constant screen size: do not scale with distance |
+| Marker | A 10 px CSS shape before the name: heart (rose) for the Visitor, diamond (brass) for the Guide. Decorative, `aria-hidden`. Not relied upon |
+| Position | Centred 0.35 m above the head (scaled with height). `pointer-events: none`, `user-select: none`, `aria-hidden="true"` (ADR 0011) |
+| Visibility | Always shown while the character is on screen (FR-17). Hidden, with a `--duration-fast` fade, when the wall line-of-sight test fails or the character is off-screen; instant under reduced motion |
+| Collision | If the two labels overlap on screen, raise the label of the character farther from the camera by its own height plus 4 px (once) |
+| Layer | `--z-labels`, below the HUD and every panel |
+| Builder preview | The same style under each preview character, so Creators see exactly what the Visitor will see (US-7) |
+
+### 5.6 Caption card (Guide presentation) (MVP)
+
+```text
++---------------------------------------------+
+| (T)  Tom                    [Look closer][X] |   header: badge, name, actions (44 px)
+|      Photo 3 of 12                           |
+|---------------------------------------------|
+| "We found this place by accident and        |   body: Fraunces 400, --caption-size,
+|  stayed all afternoon."                     |   --leading-reading, scrolls if long
++---------------------------------------------+
+                 \  (optional tail towards the Guide)
+```
+
+| Property | Spec |
+|---|---|
+| Surface | `.surface-paper`, radius `--radius-lg`, brass inset hairline. Opaque, so ink text is 14.7:1 over any scene |
+| Header | 36 px round badge filled with the Guide's outfit colour showing the first letter of the Guide's name (letter colour chosen at runtime for 4.5:1; `aria-hidden`), the Guide's name in the display font ("labelled with the Guide's name", FR-26), "Photo n of N" in muted text, a 44 px **Look closer** button (opens the full-screen viewer, 5.8; icon plus text, text hidden below 400 px wide with `aria-label` kept), and a 44 px Close button |
+| Body | Caption text with `.user-text` (line breaks kept). Max measure `--measure-reading` |
+| Tail (Should) | A 12 px triangle on the card edge pointing at the Guide's head position; hidden if the Guide is off-screen. Decorative |
+| States | **Entering:** fade and rise 8 px in `--duration-fast` (instant under reduced motion). **Open.** **Strip:** two lines with fade-out and a **Read more** button. **Scrolling:** a thin scroll shadow at the clipped edge. **Exiting:** fade in `--duration-fast`. There is no loading state: it appears when the Guide arrives or after 1.5 s at most (architecture 6.4) |
+| Close | The Close button, Escape, or Enter or Space while focus is on the canvas. Dismissal ends the presentation and suppresses that picture until the Visitor is past 4.5 m (FR-27, A-19). Walking away past 4.5 m closes it with no action |
+| No caption | No card appears (FR-71). The Guide still walks over and faces the picture |
+| Semantics | `role="region"` with `aria-labelledby` on the header. Not a dialog: it does not trap focus or steal it. Announcement is by a separate `role="status"` live region (8.3). Placement: 3.5 |
+| Release 2 | The greeting (FR-9) reuses the same card with the header "Tom says hello" |
+
+### 5.7 Finale card (MVP)
+
+Same shell as the caption card with these differences.
+
+| Property | Spec |
+|---|---|
+| Header | A brass heart seal icon, the heading "A note from {Guide}" (display font), and no Close button; the footer buttons dismiss it |
+| Body | The closing message, `.user-text`, `--caption-size`, line breaks preserved. If empty: heading "The end" and the text "Thanks for visiting, {Visitor}." |
+| Footer | **Keep exploring** (primary) and **Replay from the start** (secondary), each at least 44 px tall, always visible below the scroll area |
+| Long message | Up to 1,000 characters. In a compact dock the body shows about 5 lines with **Read the whole note**, which opens a full-height reading sheet (modal, focus trapped, Escape closes) that has the same footer buttons |
+| Entering | Appears within 1.5 s of stepping on the podium (as the caption card). Reduced motion: appears instantly with no celebratory effect |
+| Re-entry | Stepping off the podium (beyond r + 1 m) and back on shows it again (US-14) |
+
+### 5.8 Full-screen photo viewer (MVP)
+
+| Part | Spec |
+|---|---|
+| Surface | `--color-viewer-bg`, `--z-viewer`, modal dialog (`role="dialog"`, `aria-modal`, labelled "Photo n of N"), focus moves to Close, focus returns to the canvas on close (the Visitor is exactly where she was, FR-35) |
+| Photo | `<img>` at the `full.jpg` URL with `alt` equal to the caption, or "Photo n of N" if there is none (FR-63). `object-fit: contain`, never cropped. Shows the blurred LQIP while loading |
+| Caption | Beneath the photo on its own band in `--color-on-night` (not over the photo). Fraunces, `--caption-size`. Scrolls if long |
+| Controls | Close (top-right, 44 px). Zoom in, zoom out, Reset zoom (bottom-right cluster, 44 px, for keyboard and switch users) |
+| Zoom | Pinch (touch), wheel (mouse, 1.0 to 5.0 times), double-tap or double-click (toggles 1 and 2.5), plus and minus keys. When zoomed: drag to pan, arrow keys pan. Panning is clamped to the image. Reduced motion: no zoom easing |
+| States | **Loading:** LQIP blurred plus a chip "Loading full photo...". **Error:** the LQIP dimmed plus "We couldn't load this photo" with **Try again** and **Close**. **Loaded:** crossfade (instant under reduced motion) |
+| Scene behind | Rendering pauses and Visitor input is disabled while open. The Guide and presentation state are untouched |
+| Closing | Close button, Escape, or a tap on the dark background outside the photo (when not zoomed) |
+
+### 5.9 Joystick (MVP, touch)
+
+| Part | Spec |
+|---|---|
+| Base | `--joystick-size` circle, `--color-hud` glass, 2 px `--color-on-night` ring at 40%, faint N, E, S, W ticks. 70% opacity idle, 100% while held |
+| Knob | `--joystick-knob` circle, `--color-on-night` at 92%, `--shadow-hud` |
+| Hit area | `--joystick-hit` square centred on the base, `.ui-gesture` and `touch-action: none`. Pointer capture on `pointerdown`; the pointer id is tracked so a second finger can orbit independently |
+| Mapping | Knob offset limited to `--joystick-travel`. Inside `--joystick-dead-zone` there is no movement. Beyond it, magnitude maps linearly to 0.35 to 1.0 of walking speed. Direction is camera-relative (forward is away from the camera). Output is a `MoveIntent` written to `inputState` |
+| Release | Knob returns to centre in `--duration-fast` (instant under reduced motion). Movement stops at once |
+| Left-handed (R2) | A Settings option mirrors the joystick to the bottom-right and the look-around to the left |
+| Alternative (R2, recommended for MVP) | A Settings option replaces the joystick with four arrow buttons (44 px, press and hold to move). This satisfies WCAG 2.5.7 for users who cannot drag precisely |
+| Accessibility | `role="application"` is not used; the joystick is a pointer-only enhancement and the keyboard and arrow-button paths are the accessible ones. It has `aria-hidden="true"` so screen readers do not read a meaningless control |
+
+### 5.10 Look-around and canvas (MVP)
+
+The canvas wrapper is focusable (`tabindex="0"`, `role="application"`, `aria-roledescription="3D museum"`, label "Museum. Press H for help.", `aria-describedby` pointing to the controls description). Focus ring is the inset ring in `base.css`. Detail in 6.1 to 6.3.
+
+### 5.11 Hint chip, edge arrow and progress pill (R2)
+
+| Component | Spec |
+|---|---|
+| Where next? button | 44 px pill in the top-left cluster, brass compass icon and the label "Where next?" (label hidden below 400 px wide, icon stays, `aria-label` keeps the text). When every picture has been viewed it reads "To the finale" |
+| Edge arrow | A 48 px night glass chip with a brass arrow at the screen edge in the direction of the target picture, and the distance in metres ("about 12 m"). If the target is on screen it is replaced by the in-scene frame glow only. Non-interactive, `aria-hidden`; the announcement carries the information |
+| Frame glow | The target frame's emissive brass glow `--scene-hint-glow` pulses 3 times over about 4 s then holds steady until 6 s, then fades. Reduced motion: steady glow for 6 s, no pulse |
+| Progress pill | Night glass pill, 32 px tall, "5 of 12" in `--text-sm` with a small ring. `role="status"` is not used (the caption announcement already covers the change). Visible label for assistive tech: `aria-label="5 of 12 pictures viewed"` |
+
+### 5.12 Picture list sheet (R2)
+
+| Part | Spec |
+|---|---|
+| Container | Phone portrait: bottom sheet up to `--sheet-max-height`, drag handle plus Close, scrim. Landscape and desktop: right drawer 22 rem wide. `role="dialog"`, `aria-modal`, focus trapped, Escape closes, focus returns to the canvas |
+| Row | 56 px tall button: thumbnail 48 px (`object-fit: contain` on sunken fill), "Photo 3" plus the first line of the caption (ellipsis), and a "Viewed" text with a check icon when viewed (not colour alone). Final row: "Finale: a note from {Guide}" |
+| Action | Pressing a row closes the sheet and walks the Visitor to stand in front of that picture. The jump is a cut hidden by a `--duration-fade-through` fade veil at `--z-fade` (instant under reduced motion). The camera snaps behind the Visitor facing the picture, the Guide relocates beside her, and the presentation starts as usual (US-44) |
+| Announcement | "Moved to photo 3 of 12" |
+
+### 5.13 Settings sheet (R2)
+
+| Setting | Control | Default |
+|---|---|---|
+| Sound (shown only when the museum has audio) | Switch "Sound on or off" | On after Start |
+| Graphics | Segmented: Auto, Low | Auto |
+| Caption text size | Segmented: Normal, Large, Extra large (sets `data-caption-size`) | Normal |
+| Motion | Segmented: Follow my device, Reduce, Full (sets `data-motion`) | Follow my device |
+| Controls | Segmented: Joystick, Arrow buttons | Joystick |
+| Joystick side | Segmented: Left, Right | Left |
+| Help | Button "How to explore" | |
+
+Changes apply immediately and persist in `localStorage` (`settingsStore`). Same sheet container as the picture list.
+
+### 5.14 Dialogs, toasts, alerts
+
+| Component | Spec |
+|---|---|
+| Dialog | `role="dialog"` (or `alertdialog` for destructive and context-lost), `aria-modal`, labelled and described, focus trapped, Escape closes unless it is blocking, initial focus on the safest control (Cancel for delete), focus returns to the trigger, `--z-modal`, `--color-scrim` |
+| Alert (inline) | Icon plus bold lead-in plus message, tinted background (`--color-danger-tint`, `--color-warning-tint`, `--color-success-tint`, `--color-info-tint`), border `--hairline` in the state colour; errors use `role="alert"`, progress and success use `role="status"` |
+| Toast | Night glass pill at the bottom-centre above the safe area (`--z-toast`), 4 s, then gone; pauses while hovered or focused; every toast outcome is also reflected in the UI (for example the Copy button reads "Copied") so a missed toast loses nothing |
+
+### 5.15 Link field with Copy and Share (publish screen)
+
+| Part | Spec |
+|---|---|
+| Field | Read-only text input showing the full link, selects all on focus, labelled "Share link" |
+| Copy | Primary 56 px button. On success the label changes to "Copied" with a check for 3 s and a `role="status"` message "Link copied". On failure: "We couldn't copy automatically. The link is selected: press and hold, then choose Copy" |
+| Share | Shown only when `navigator.share` exists. Opens the device share sheet. Absent otherwise (US-28) |
+| Edit link | Same field, label "Private edit link", a warning alert above it, and an acknowledgement checkbox (5.16) |
+
+### 5.16 Stepper and action bar (builder)
+
+| Part | Spec |
+|---|---|
+| Stepper (phone) | Text "Step 2 of 4: Words" plus four 44 px-tall segments (the visible bar is 6 px; the tap target is taller). Current: `aria-current="step"`. Completed steps are links back; future steps are not focusable until reachable |
+| Stepper (desktop) | Vertical list in the left rail with numbered markers and a check when complete. Not colour-only |
+| Action bar | Sticky bottom bar on phones: **Back** (secondary) and **Next** (primary), safe-area padded. Last step: **Publish** replaces Next. On step change focus moves to the new step's heading (`tabindex="-1"`) and a polite status announces "Step 3 of 4: Characters" |
+| Document title | Updates per step for WCAG 2.4.2, for example "Characters, step 3 of 4 | Surprise Museum" |
+
+---
+
+## 6. 3D interactions
+
+Every interaction is specified as Trigger, Feedback, Camera, Exit, Touch, Keyboard.
+
+### 6.1 Interaction: Move
+
+- **Trigger:** touch joystick; W A S D or arrow keys; (R2) arrow buttons.
+- **Feedback:** the Visitor walks (walk cycle only while moving, FR-18) and turns to face the direction of travel; footsteps are silent (no audio in MVP). Maximum speed 1.6 m/s (a leisurely gallery pace; the longest museum, 64 m, takes about 40 s). Keyboard has a 150 ms acceleration ease; the joystick scales speed with deflection (5.9). Walls and frames stop her and she slides along them (FR-34).
+- **Camera:** follows the Visitor's translation. It never rotates on its own (6.3).
+- **Exit:** release the stick or keys; she stops at once and idles.
+- **Touch:** joystick bottom-left, hit area 176 px.
+- **Keyboard:** focus the canvas (it takes focus after Start). Movement is camera-relative. Tab always leaves the canvas; arrow and letter keys are only captured while it has focus.
+- **Coaching:** after Start, one hint at a time, each shown once per session, never modal, auto-hidden on first use or after 8 s:
+  1. Touch: "Drag to walk" near the joystick and "Drag here to look around" on the right. Desktop: "W A S D or arrow keys to walk. Drag to look around".
+  2. About 3 s later if no presentation has happened: "Walk up to a picture and {Guide} will tell you about it".
+  3. After the first presentation: "Tap a picture to look closer" (desktop: "Click a picture to look closer").
+  Reduced motion: static chips, no ghost-finger animation.
+
+### 6.2 Interaction: Look around (orbit)
+
+- **Trigger:** drag on the canvas (one finger or the mouse, left or right button) outside controls and outside the joystick hit area; Q and E, or Shift with the arrow keys.
+- **Feedback:** the camera orbits the Visitor. Touch: 0.3 degrees per px. Mouse: 0.25 degrees per px. Keyboard: 90 degrees per second yaw, 60 degrees per second pitch.
+- **Limits:** pitch (camera elevation above the horizontal) 4 to 55 degrees; no panning; yaw unlimited.
+- **Exit:** release. The camera stays where the user left it (no snap-back).
+- **Touch:** a drag that starts in the joystick hit area is the joystick; a second finger anywhere else orbits independently.
+- **Keyboard:** Q and E, or Shift with the arrow keys, as above. R resets (see 6.4).
+- **Tap, not drag:** movement under 8 px and 350 ms is a tap, which may select a picture (6.6).
+- **Cursor (desktop):** `grab` over the canvas, `grabbing` while dragging, `pointer` over pictures.
+
+### 6.3 Interaction: Camera follow
+
+- **Style:** third-person follow (A-4). Composition targets are in 3.4. Distance (boom) is adjustable only on desktop (wheel, plus and minus keys): 2.5 to 6.0 m, 0.4 m per wheel notch.
+- **Follow:** the camera's position follows the Visitor's translation with 120 ms critical damping. Yaw and pitch change only from user input. Movement is camera-relative, so there is no need to swing the camera behind her as she turns, which avoids unexpected rotation.
+- **Occlusion:** when a wall blocks the line to the Visitor the boom shortens, down to 1.2 m, easing over 150 ms.
+- **Never moves on its own.** The camera does not move because of the Guide, a presentation, a hint, a picture list jump or the finale. The only non-input changes are (a) following the Visitor's own movement and (b) a cut to the default pose after Replay or a jump-to-picture, which the user caused.
+- **Reduced motion:** the same, with no damping (the camera is rigidly attached), no eased boom change, no eased Reset, and no fade-through (hard cuts). The camera never auto-moves.
+- **Not used:** camera shake, head bob, FOV changes, motion blur, auto-orbit, intro fly-through (there is no intro; the welcome screen is the intro).
+
+### 6.4 Interaction: Reset view
+
+- **Trigger:** the Reset view HUD button (appears once the camera is more than 20 degrees from the default yaw or pitch, or the boom is changed); R on the keyboard.
+- **Feedback:** the camera returns to behind the Visitor at default pitch and boom over `--duration-camera` (instant under reduced motion). The button then hides.
+- **Exit:** automatic.
+
+### 6.5 Interaction: Hover a picture (desktop)
+
+- **Trigger:** pointer over a photo mesh. Characters are not pickable (their raycast is disabled so clicks pass through to the picture behind them).
+- **Feedback:** cursor `pointer`; frame emissive brass tint 0 to 25% over `--duration-fast` (instant under reduced motion). Highlight within 100 ms.
+- **Exit:** pointer leaves.
+- **Touch:** no hover state; the standing-spot pool and the onboarding hint carry the affordance.
+- **Keyboard:** not applicable; see the Pictures list (R2) and the controls in 6.7.
+
+### 6.6 Interaction: Open a picture full-screen
+
+- **Trigger:** click (desktop) or tap (touch, under 8 px and 350 ms) on a picture from anywhere it is visible; Enter on a focused picture in the Pictures list (R2).
+- **Feedback:** frame highlight within 100 ms, then the viewer (5.8) opens within 200 ms. The picture counts as viewed (A-17).
+- **Camera:** does not move. Rendering pauses behind the viewer.
+- **Exit:** Close, Escape, or the background. The Visitor is exactly where she was.
+- **Touch:** same as click; no hover.
+- **Keyboard:** pictures live in the 3D world, not the DOM, so they have no tab stops. Every picture that is being presented has a keyboard path through a **Look closer** button (44 px): it is in the caption card header (5.6), and for a picture with no caption, where no card appears (FR-71), it appears as a small night-glass chip, "Look closer at photo 3", at the bottom-centre above the joystick zone while that presentation is active. This gives FR-61 a complete path in the MVP without the Pictures list. In R2 the Pictures list adds a path to any picture, not only the one being presented.
+- **Failed photo:** tapping a failed frame retries it (6.10).
+
+### 6.7 Interaction: Presentation (Guide walks over and presents)
+
+- **Trigger:** the Visitor stays within 3 m of a picture's presentation zone for 1 s (FR-26). Values are tunable (A-16); the design does not depend on the numbers.
+- **Feedback sequence:**
+  1. Approaching: the standing-spot pool brightens with proximity (continuous cue).
+  2. Dwell complete: the Guide stops following, turns, and walks to a spot beside the Visitor facing the picture. It never stands between her and the picture and never hides her from the camera (FR-30).
+  3. Arrival, or 1.5 s at most: the Guide's presenting gesture plays once (R2), a soft brass ring (0.55 m radius, 200 ms fade) appears under the Guide's feet, and the caption card appears (5.6). A polite announcement is made (8.3).
+  4. Leaving: past 4.5 m or Close, the ring and card fade out in `--duration-fast` and the Guide resumes following (FR-27).
+- **Camera:** does not move.
+- **Reduced motion:** the Guide fades in beside the Visitor over 250 ms instead of walking across the room (FR-62), there is no presenting gesture (a still pose), and the card appears instantly.
+- **Interrupt rules:** pass-through in under 1 s starts nothing; a second zone replaces the first after its own dwell; nothing queues (FR-28). The card must not flicker at the boundary, because the exit distance (4.5 m) exceeds the entry distance (3 m).
+- **No caption:** the Guide walks over and faces the picture, no card, the picture still counts as viewed (FR-71).
+- **Touch and keyboard:** nothing to press. Dismiss with Close, Escape, Enter or Space on the canvas, or by walking away.
+
+### 6.8 Interaction: Guide presence cues
+
+| Cue | When | Spec |
+|---|---|---|
+| Name label | Always on screen | 5.5 |
+| Follow behaviour | Roaming | Guide stays 2 to 5 m away and idles when she stops. It never stands in the camera-to-Visitor corridor (yield: sidestep, or fade to 35% opacity, FR-30) |
+| Floor ring | During a presentation | Brass ring under the Guide's feet |
+| Card header | During a presentation | Guide badge and name |
+| Relocate | More than 8 m away or stuck for 3 s | 250 ms fade out, reappear beside the Visitor, 250 ms fade in. Reduced motion: opacity changes instantly, no fade |
+| Off-screen pointer (Should) | The Guide has been off-screen for more than 1.5 s while not presenting | A small edge chip with the Guide's name and an arrow, `aria-hidden`, non-interactive, fades after the Guide returns. Never shown during a presentation |
+| Badge | Always | Brass badge on the Guide's chest (1.6) |
+
+### 6.9 Interaction: Finale
+
+- **Trigger:** the Visitor steps into the podium zone (radius 1.8 m, FR-29). Per the assumed default (Q-21), this triggers the closing message whatever has been viewed. In R2 (FR-70), if pictures are unviewed, the Guide first asks "You haven't seen everything yet. Show the note now?" with **Show the note** and **Keep exploring**.
+- **Feedback:** the podium ring brightens (300 ms). The Guide walks (or fades in) beside her on the podium. The finale card appears within 1.5 s.
+- **Camera:** does not move.
+- **Exit:** **Keep exploring** closes the card and suppresses it until she leaves the zone plus 1 m. **Replay from the start** returns the Visitor and Guide to the entrance (a `--duration-fade-through` veil with a hard cut under reduced motion), clears the viewed count, resets the camera behind her, and announces "Back at the entrance. Viewed pictures have been cleared."
+- **Touch and keyboard:** the two footer buttons; Escape equals Keep exploring.
+- **Reduced motion:** no dust motes, no pulse, no confetti.
+
+### 6.10 Interaction: Retry a failed photo
+
+- **Trigger:** the frame shows the failed placeholder (a dark warm panel with a circular-arrow glyph over the blurred LQIP). Tap the frame, or use the DOM **Retry** chip, which appears at the bottom-centre above the joystick when the Visitor is within 6 m of a failed picture ("Photo 3 did not load. Retry").
+- **Feedback:** the glyph spins while retrying (a static ellipsis under reduced motion); on success the photo crossfades in over `--duration-normal` (instant under reduced motion).
+- **Keyboard:** the DOM chip is a normal button, reachable by Tab; in R2 also from the Pictures list.
+
+### 6.11 Interaction: Customiser preview (builder)
+
+- **Trigger:** change any option; drag the preview to turn the characters (yaw only, 0.4 degrees per px); **Turn left**, **Turn right** and **Back view** buttons (44 px) for keyboard and switch users; click a character to switch the active tab.
+- **Feedback:** the changed part updates within 1 s (FR-15), with no flicker.
+- **Camera:** fixed framing; only the characters turn. Default angle is a three-quarter front view. There is no auto-spin (an optional slow idle turn is allowed only with full motion).
+- **Exit:** not applicable.
+
+---
+
+## 7. Loading and error states
+
+### 7.1 Loading: opening the link (MVP)
+
+Full-screen paper (`--z-screen`). Centre: a 120 px brass picture-frame mark; below it "Opening your surprise" in the display font; below that a progress line. Phase 1 (fetching the museum) is indeterminate (a slow brass sweep along the frame; static under reduced motion). Phase 2 (after Start, assets) is determinate with real progress.
+
+- Progress element: `role="progressbar"` with `aria-valuenow`. Track `--color-surface-sunken` with a `--color-border-strong` outline; fill `--color-accent`. Text percentage beneath ("Hanging the pictures... 62%").
+- Messages: "Opening your surprise" (data), "Hanging the pictures" (assets), "Almost there" (after 6 s). The `role="status"` region updates at most every 5 s or at 25% steps, so screen readers are not flooded.
+- Never blank: this screen is the first paint of the route.
+
+### 7.2 Welcome (MVP)
+
+```text
++---------------------------------------+
+|  +-------------------------------+    |   brass hairline double frame, inset 16 px
+|  |        A PRIVATE VIEW         |    |   eyebrow
+|  |                               |    |
+|  |   A museum for Sophie         |    |   --text-display, display font, balanced
+|  |                               |    |
+|  |   For Sophie                  |    |   --text-2xl, claret
+|  |   Your guide today: Tom       |    |   --text-md, muted
+|  |                               |    |
+|  |      [   Start   ]            |    |   56 px, min width 12 rem, focused
+|  |                               |    |
+|  |         Privacy               |    |   small link
+|  +-------------------------------+    |
++---------------------------------------+
+```
+
+- States: **ready**, **Start pressed but scene not ready** (button label "Getting the gallery ready", progress line, `aria-busy`, further presses ignored), **in-app browser notice** (dismissible info alert above the card), **WebGL unavailable** (replaced by 7.7).
+- The title may be up to 60 characters and wraps. "For {Visitor}" uses `.user-text`.
+- Start has initial focus (US-11). Enter and Space activate.
+- Document title: the museum title.
+
+### 7.3 Loading: scene after Start (MVP)
+
+Covered by 7.1 phase 2 and the Start button's state. Photos that are not yet loaded show their blurred LQIP in the frame, never blank (NFR-3). Frames load nearest-first, so close pictures sharpen first. A frame never pops: the sharp texture cross-fades over `--duration-normal` (instant under reduced motion).
+
+### 7.4 Frame placeholders in the scene (MVP)
+
+| State | Look |
+|---|---|
+| Placeholder | The 24 px LQIP, smoothly upscaled, with a slow diagonal sheen (static under reduced motion) |
+| Loading | As placeholder plus a tiny three-dot glyph in the frame centre |
+| Loaded | The photo, crossfaded |
+| Failed | The LQIP desaturated and dimmed to 40%, a circular-arrow glyph (brass on night) in the centre |
+
+### 7.5 Not found (MVP)
+
+Paper screen, centred, no navigation to other museums.
+
+- Illustration: an empty walnut frame hanging slightly crooked under a brass picture light (static SVG, 20 kB or less, `aria-hidden`).
+- Heading (h1): "We can't find that museum".
+- Body: "The link might have a typo, or the museum may have been taken down. Check the link, or ask the person who sent it to send it again."
+- Action: **Go to the home page** (secondary). No other content, no hints about what existed.
+- Used for unknown, deleted and expired links and unknown routes (FR-55). R2 adds "expired" and "not yet" variants with the same layout.
+
+### 7.6 Couldn't open it (MVP)
+
+Heading "We couldn't open your surprise". Body: "It looks like the connection dropped. Check you're online and try again." Action: **Try again** (primary; re-fetches without reloading the page). `role="alert"` on the heading region.
+
+### 7.7 WebGL unavailable (MVP message, R2 slideshow)
+
+- Heading "This device can't show the 3D museum".
+- Body: "Your browser couldn't start the 3D view. Try the latest Chrome, Safari, Edge or Firefox, and check that hardware acceleration is turned on in its settings."
+- R2 action: **See the photos as a slideshow** (primary). Slideshow: full-screen night background, the photo `contain` in the upper area, caption in a band beneath it (never over the photo), "Photo 3 of 12", **Previous** and **Next** (56 px), arrow keys, and a final slide with the closing note. A "Back" link returns to this message.
+- Also shown inside the builder's Characters step as "3D preview isn't available on this device. Your choices are still saved." (options remain usable).
+
+### 7.8 Graphics context lost (MVP)
+
+`alertdialog` over the dimmed scene: "The 3D view stopped. This can happen when a phone is low on memory." Actions: **Reload** (primary), and the message "Your place in the museum won't be kept." (NFR-11).
+
+### 7.9 Failed photo (MVP)
+
+Three places, as 6.10: the in-scene glyph, the DOM Retry chip, and the viewer's error state. The Guide still presents the caption and she keeps roaming (FR-58).
+
+### 7.10 Builder errors (MVP)
+
+| Situation | Presentation |
+|---|---|
+| Rejected files | A `role="alert"` box above the photo list: "3 files weren't added", then a list of "{file name}: {reason}". Persistent until dismissed. Valid files carry on |
+| Failed upload | The row shows an alert icon, "Upload failed: check your connection", and **Retry** (only this photo) |
+| HEIC cannot be read | Row error: "We couldn't open this HEIC photo. Try exporting it as a JPEG." |
+| Over 20 photos | "You can add up to 20 photos. Remove one to add another." |
+| Missing required fields | Inline error under the field plus a summary alert at the top of the step with links to each field; focus moves to the summary on a failed Next |
+| Publish failure | `role="alert"`: "We couldn't publish your museum. Your photos and words are safe." plus **Try again** |
+| Rate limit | "That's a lot of tries in a short time. Please wait a few minutes and try again." |
+| Offline | Persistent bar "You're offline. We'll carry on when you're back." Uploads resume |
+| Edit link not found or deleted | The not-found screen (7.5) |
+
+### 7.11 Preview mode (MVP)
+
+A 44 px strip at the top (`--z-preview-bar`): a brass "Preview" tag, "This is how {Visitor} will see it", and **Exit preview**. The HUD's top inset grows by `--preview-bar-height`. The welcome screen is included. Exit returns to Review with everything intact (US-8). If the minimum is not met, the preview is replaced by the list of what is missing (2.1).
+
+---
+
+## 8. Accessibility (WCAG 2.2 AA)
+
+### 8.1 Keyboard
+
+Every Visitor action is available by keyboard (FR-61). Canvas shortcuts are active only while the canvas has focus (WCAG 2.1.4). Tab always moves focus out of the canvas; the canvas never traps it.
+
+| Key (canvas focused) | Action |
+|---|---|
+| W A S D, arrow keys | Walk (camera-relative) |
+| Q and E, or Shift with Left and Right | Turn the view |
+| Shift with Up and Down | Tilt the view |
+| Plus, Minus (desktop) | Camera closer, further |
+| R | Reset view |
+| Escape | Close the topmost panel, card or viewer |
+| Enter or Space | Dismiss the caption card when focus is on the canvas (otherwise normal activation) |
+| H | Open Help |
+| P | Open Pictures (R2) |
+| N | Where next? (R2) |
+
+Tab order on the Visit screen: skip link to the canvas, canvas, caption or finale card when open, HUD buttons (top-left to top-right), then any chips. Dialogs and sheets trap focus, restore it on close, and are dismissible with Escape.
+
+Focus is never moved automatically onto the caption card (the Visitor may be walking). Instead the announcement (8.3) tells keyboard and screen reader users the card is open, and the first Tab from the canvas reaches it. Exception: the finale card is a decision point and takes focus on **Keep exploring** when it appears, if the previous focus was the canvas.
+
+### 8.2 Visual
+
+- Contrast per section 4.2. Name labels and captions have solid backings, 4.5:1 or better (NFR-12).
+- Non-text contrast 3:1: control outlines, focus ring, swatch rings, progress bars.
+- Visible focus on every interactive element: two-tone ring (`base.css`). In Windows High Contrast the ring becomes a system `Highlight` outline.
+- Colour is never the only cue: selected tiles have a check, viewed pictures say "Viewed", errors have an icon and words, role markers on labels are decoration.
+- Reflow: content works at 320 px wide without horizontal scrolling; at 200% text zoom nothing is clipped; text-spacing overrides (WCAG 1.4.12) do not break cards (no fixed-height text boxes).
+- Target size: 44 px minimum everywhere (the AA minimum is 24 px).
+- Orientation: both orientations are supported; nothing is locked.
+- No content flashes more than three times a second.
+
+### 8.3 Screen readers and the scene description
+
+| Region | Behaviour |
+|---|---|
+| Canvas label | "Museum. {Title}. Press H for help." with `aria-describedby` to a visually hidden controls description |
+| Scene description (visually hidden, on Start) | "You are in the entrance hall of {title}. {N} pictures hang along {R} galleries, leading to a finale room. {Guide}, your guide, is beside you. Walk freely. Pause by a picture and {Guide} will tell you about it." |
+| Presentation live region (`role="status"`, polite) | "{Guide}, photo 3 of 12: {caption}". With no caption: "Photo 3 of 12" (FR-63). Announced once when the presentation starts |
+| Room changes (polite, throttled to one per 4 s) | "Entrance hall", "Gallery 2 of 3", "Finale room" |
+| Finale | "Finale. {Guide} is sharing a note." then the note's text is read from the card (the card gets focus on its primary button, 8.1) |
+| Hint (R2) | "Nearest picture you haven't seen: photo 4 of 12, about 9 metres ahead on your left" |
+| Jump (R2) | "Moved to photo 3 of 12" |
+| Replay | "Back at the entrance. Viewed pictures have been cleared." |
+| Failed photo | "Photo 3 did not load. A Retry button is available." |
+| Builder | Upload progress per photo is `role="progressbar"` with text; reorder, remove and replace outcomes are announced politely; step changes are announced; copy success is announced |
+
+The picture's alternative text is its caption, or "Photo n of N" if there is none (FR-63). Name labels are `aria-hidden`; names are announced through the above regions.
+
+### 8.4 Reduced motion (FR-62, US-32)
+
+Effective setting: Settings (R2) over the operating system's `prefers-reduced-motion`. The frontend mirrors it to `<html data-motion="reduce">` and the scene reads the same value from `settingsStore`.
+
+| Animation | Normal | Reduced motion |
+|---|---|---|
+| Camera | Follows the Visitor with 120 ms damping | Rigidly attached. Never moves on its own |
+| Reset view and boom changes | Eased 150 to 450 ms | Instant |
+| Guide to the Visitor for a presentation | Walks | Fades in beside the Visitor over 250 ms |
+| Guide relocation | 250 ms fade out and in | Instant |
+| Presenting gesture | Plays once | Still pose |
+| Replay and jump | 400 ms fade-through veil | Hard cut |
+| Standing-spot pool | Brightens with proximity and dwell | Steps on at dwell completion |
+| Podium ring and dust motes | Brightens, pulses (R2), motes drift | Steps on, no pulse, no motes |
+| Confetti (R2) | Plays up to 5 s | Never |
+| Loading sweep, frame sheen | Slow looping sweep | Static |
+| Panels, sheets, toasts, hover tints | `--duration-*` eased | Instant (durations are 0 ms) |
+| Hint glow | Pulses 3 times | Steady |
+| Joystick knob return | Eased | Instant |
+
+Reduced motion never removes information: every effect above has a still equivalent.
+
+### 8.5 Non-3D alternatives
+
+| Need | Alternative |
+|---|---|
+| Walk without a pointer | Keyboard (MVP), arrow buttons (R2, recommended) |
+| Reach a picture without steering | Pictures list with jump (R2) |
+| See photos and captions without 3D | Slideshow (R2, FR-60). The MVP shows an explanatory message only. See the open question |
+| Read captions without sight | Live region announcements and the viewer's `alt` text |
+| Larger captions | Caption text size setting (R2), and browser zoom always works |
+
+### 8.6 WCAG 2.2 AA checklist for the build
+
+| Criterion | How it is met |
+|---|---|
+| 1.1.1 Non-text content | Picture alt is the caption or "Photo n of N"; decorative art is `aria-hidden` |
+| 1.3.1, 1.3.2 | Real headings, lists, labels and landmarks (`main`, `nav`); DOM order matches visual order |
+| 1.3.4 Orientation | No lock |
+| 1.4.3, 1.4.11 | Section 4.2 |
+| 1.4.4, 1.4.10, 1.4.12 | rem-based type, reflow at 320 px, no fixed-height text |
+| 1.4.13 Content on hover or focus | No hover-only content; there are no tooltips |
+| 2.1.1, 2.1.2, 2.1.4 | Keyboard for everything; canvas never traps; shortcuts only when focused |
+| 2.2.2 Pause, stop, hide | Moving ornament is slow, small, and off under reduced motion; hints auto-hide but are re-readable in Help |
+| 2.3.1, 2.3.3 | No flashing; reduced motion |
+| 2.4.1, 2.4.2, 2.4.3, 2.4.6, 2.4.7 | Skip link, titles per step, logical focus order, descriptive headings, visible focus |
+| 2.4.11 Focus not obscured | `scroll-padding-block`, sticky bars are measured |
+| 2.5.1, 2.5.2 | No multi-finger or path gestures are required (pinch has buttons; joystick has the keyboard and, in R2, arrow buttons) |
+| 2.5.3 Label in name | Visible labels are contained in accessible names |
+| 2.5.7 Dragging movements | Reorder has Earlier and Later buttons; the joystick has alternatives (see the open question for MVP) |
+| 2.5.8 Target size | 44 px |
+| 3.2.6 Consistent help | The Help button is always in the same place |
+| 3.3.1, 3.3.2, 3.3.3, 3.3.4 | Labels, instructions, error text with a fix, review step before publish |
+| 3.3.7 Redundant entry | Names are entered once and reused everywhere |
+| 3.3.8 Accessible authentication | No authentication; the R2 passcode field allows paste and has no puzzle |
+| 4.1.2, 4.1.3 | Names, roles and values on custom controls; status messages through live regions |
+
+Test plan for QA: automated axe checks on every builder step and overlay; manual keyboard-only run of the full Visitor path; VoiceOver (iOS and macOS) and TalkBack on the welcome, the museum and the finale; reduced-motion run; 200% zoom and 320 px reflow; forced-colours check.
+
+---
+
+## 9. Appendix A: Avatar kit and customiser
+
+### 9.1 Proportions (medium height, 1.70 m)
+
+| Part | Spec |
+|---|---|
+| Overall | About 5.5 heads tall |
+| Head | Slightly oval sphere, 0.30 m wide and 0.32 m tall, on a 0.05 m neck |
+| Torso | 0.55 m, shoulders 0.40 m wide (regular) |
+| Legs | 0.80 m, hips 0.30 m wide (regular) |
+| Arms | 0.62 m including the mitten hand |
+| Feet | Rounded boxes 0.26 m long |
+| Heights | Shorter 0.91 (about 1.55 m), Medium 1.00 (1.70 m), Taller 1.09 (about 1.85 m), uniform scale |
+| Body types | Slim: torso and hips 0.90. Regular: 1.00. Curvy: hips 1.12, waist 0.96, bust 1.04. Broad: shoulders 1.15, torso 1.08, hips 1.00. Head size never changes with body type |
+| Budget | 6,000 triangles and 10 draw calls per character (architecture 6.7). Prefer a few clean shapes to many small ones |
+
+### 9.2 Option labels and swatches
+
+Option ids are the stable storage keys in `contract.ts`. The labels below are the display text and the accessible names. Hex values are the `--avatar-*` tokens.
+
+| Option | Ids and labels |
+|---|---|
+| Skin tone (10) | `skin-01` Very light `#FBE3D0`, `skin-02` Light `#F4CFB0`, `skin-03` Light medium `#EBB68F`, `skin-04` Medium `#DDA073`, `skin-05` Medium tan `#C98858`, `skin-06` Tan `#B06F44`, `skin-07` Medium brown `#8F5733`, `skin-08` Brown `#70412A`, `skin-09` Deep brown `#52301F`, `skin-10` Very deep `#3A2218` |
+| Hair style (12) | `shaved` Shaved, `buzz` Buzz cut, `short-crop` Short crop, `side-part` Side part, `curly-short` Short curls, `bob` Bob, `long-straight` Long straight, `long-wavy` Long wavy, `ponytail` Ponytail, `bun` Bun, `afro` Afro, `braids` Braids |
+| Hair colour (11) | `black` `#1C1618`, `dark-brown` `#3B2820`, `brown` `#5E3E2B`, `auburn` `#8B3A22`, `ginger` `#C2652A`, `blonde` `#DDB45E`, `platinum` `#EEE3C6`, `grey` `#A19DA3`, `white` `#F2EFEA`, `pink` `#E487A9`, `blue` `#4D7BD6`. Labels: Black, Dark brown, Brown, Auburn, Ginger, Blonde, Platinum, Grey, White, Pink, Blue |
+| Outfit style (6) | `tee-jeans` T-shirt and jeans (top in the outfit colour, fixed denim `--avatar-denim`), `hoodie` Hoodie (hoodie in the outfit colour, fixed joggers), `shirt-trousers` Shirt and trousers (shirt in the outfit colour, fixed charcoal trousers), `dress` Dress (all in the outfit colour, skin-tone legs), `suit` Suit (jacket and trousers in the outfit colour, cream shirt), `jumpsuit` Jumpsuit (all in the outfit colour) |
+| Outfit colour (12) | `red` `#C23B3B`, `coral` `#EE7B66`, `orange` `#E98A2E`, `mustard` `#D9A82B`, `green` `#4F9A5E`, `teal` `#2F8F8F`, `sky` `#6DB2E0` (Sky blue), `navy` `#263A66`, `purple` `#7B55A6`, `pink` `#E58FB0`, `charcoal` `#3A3A44`, `cream` `#EFE3CC` |
+| Body type (4) | Slim, Regular, Curvy, Broad |
+| Height (3) | Shorter (about 1.55 m), Medium (about 1.70 m), Taller (about 1.85 m) |
+| Facial hair (5, Guide only) | None, Stubble, Moustache, Goatee, Full beard (in the hair colour) |
+| Glasses (R2) | None, Round, Square (thin walnut frames) |
+| Hat (R2) | None, Beanie, Cap (in the outfit colour) |
+
+Shoes are fixed (`--avatar-shoes` with a `--avatar-sole`). Skin tones are neutral-warm so they read true under the warm light; the technical-artist should check all ten against the finale room's claret and the linen walls.
+
+How options read in the scene:
+
+| Option | Reads as |
+|---|---|
+| Skin tone | Face, neck, hands, arms and legs share one colour. A faint blush disc (`--avatar-skin-blush`) on the cheeks |
+| Hair style | Silhouette first, designed from the back. Volume and length are exaggerated slightly so styles differ at 120 px tall |
+| Hair colour | Applies to hair, brows and facial hair |
+| Outfit | Large flat colour block plus one fixed contrasting garment, so it reads from behind |
+| Body type, height | Silhouette only; the head stays constant |
+
+### 9.3 Defaults for a new draft
+
+| | Guide | Visitor |
+|---|---|---|
+| Skin tone | `skin-04` | `skin-04` |
+| Hair style, colour | `short-crop`, `dark-brown` | `bob`, `brown` |
+| Outfit, colour | `shirt-trousers`, `navy` | `jumpsuit`, `coral` |
+| Body type, height | Regular, Medium | Regular, Medium |
+| Facial hair | None | Not offered |
+
+Defaults avoid assuming anyone's gender and keep the two characters visibly different at a glance.
+
+### 9.4 Customiser layout and behaviour
+
+**Phone portrait.** The live preview is the top 42 dvh. One canvas shows both characters side by side on a shared round plinth (Guide left, Visitor right), each with its name label, so the Creator sees both together (US-7). The active character has a brass ring on its plinth. Below the preview:
+
+1. Tabs: **Guide: {name}** and **Visitor: {name}** (just "Guide" and "Visitor" until names are entered).
+2. A second tab row: **Face**, **Hair**, **Outfit**, **Body**.
+3. The options for the chosen tab, each group labelled:
+   - Face: Skin tone; Facial hair (Guide only).
+   - Hair: Hair style; Hair colour.
+   - Outfit: Outfit style; Outfit colour.
+   - Body: Body type; Height.
+4. Preview controls on the preview itself: **Turn left**, **Turn right**, **Back view** (44 px, night glass, top-right of the preview), and **Shuffle** and **Reset** under the tabs (tertiary buttons; R2 or Could).
+
+**Phone landscape.** Preview takes the left 45% at full height; the controls scroll in the right 55%.
+
+**Desktop.** Two columns: a sticky preview on the left, the controls on the right.
+
+**Behaviour.**
+- Selecting an option updates the preview within 1 s (FR-15), rebuilding only the affected part. There is no "Apply" button.
+- Selections persist in the draft; coming back to the step shows them (US-6).
+- All option groups are radiogroups with arrow-key navigation. Tabs use automatic activation.
+- The preview is `role="img"` with a live text description that updates (debounced 400 ms, polite): "{Guide}: medium height, regular build, short crop dark brown hair, navy shirt and trousers."
+- Drag-to-turn is an enhancement; the Turn buttons are the keyboard and switch path.
+- **Loading:** a skeleton silhouette pair and "Getting your characters ready". **Failure:** "We couldn't show the 3D preview. Your choices are still saved." and **Try again**; the option lists stay usable (US-6). **No WebGL:** the text description replaces the preview.
+- Lighting in the preview is neutral and slightly cool-white on a soft cream backdrop, so skin and hair colours read true while they are chosen.
+
+---
+
+## 10. Appendix B: Copy deck (Australian English)
+
+| Where | Copy |
+|---|---|
+| Home heading | "Turn your photos into a little museum" |
+| Home body | "Add your photos, meet your guide, and send a link. They open it on their phone and wander through, with you as their guide." |
+| Home steps | "1 Add up to 20 photos", "2 Make your two characters", "3 Send the link" |
+| Home primary | "Create a museum" |
+| Home footer | "Privacy", "Terms", "Report a problem" (destination to be confirmed). "For pricing or contracts, please contact our Sales team." |
+| Step names | "Photos", "Words", "Characters", "Review and publish" |
+| Add photos | "Add photos" / "You can add 1 to 20 photos. JPEG, PNG, WebP or HEIC, up to 15 MB each." |
+| Photo order help | "Photos hang along the museum from the entrance to the finale, in this order." |
+| Caption label | "Caption (optional)" / helper "This is what your guide says about the photo." |
+| Visitor name | "Who is this museum for?" / helper "Their name floats above their head. Up to 24 characters." |
+| Guide name | "Your name" / helper "Your guide wears this above their head. Up to 24 characters." |
+| Title | "Museum title (optional)" / helper "Leave it blank and we'll use \"A museum for {name}\"." |
+| Closing message | "Closing message (optional)" / helper "Your guide shares this when they reach the finale. Up to 1,000 characters." |
+| Consent | "I have the right to share these photos, and the people in them know about this and are comfortable with it." plus "Read the terms" and "Privacy policy" |
+| Publish | "Publish museum" / progress "Publishing your museum... 80%" |
+| Published heading | "Your museum is ready" |
+| Share link | "Share link" / "Send this to {name}. Opening it on a phone works best." / "Copy link" / "Share..." / "Copied" |
+| Edit link | "Private edit link" |
+| Edit warning | "Save this link now. It is the only way to change or delete your museum, and we can't recover it if you lose it. Don't share it." |
+| Edit acknowledgement | "I've saved my edit link." / button "Finish" |
+| Delete dialog | Title "Delete this museum for good?" Body "{name}'s link will stop working straight away, and your photos and words will be removed. This can't be undone." Buttons "Cancel" (default) and "Delete museum" |
+| Deleted | "Your museum has been deleted. The link no longer works." / "Make a new museum" |
+| Welcome | Eyebrow "A private view", title as set, "For {name}", "Your guide today: {Guide}", button "Start" |
+| First hints | "Drag to walk", "Drag here to look around", "Walk up to a picture and {Guide} will tell you about it", "Tap a picture to look closer" |
+| Card header | "{Guide}" / "Photo 3 of 12" |
+| Finale | "A note from {Guide}" / "Keep exploring" / "Replay from the start" / no message: "The end" "Thanks for visiting, {name}." |
+| Hint | "Where next?" / "To the finale" |
+| Retry chip | "Photo 3 did not load." / "Retry" |
+| Not found | As 7.5 |
+| Context lost | As 7.8 |
+
+---
+
+## 11. Appendix C: Requirement coverage
+
+| Requirement | Where addressed |
+|---|---|
+| FR-1 to FR-8, FR-10 to FR-12 (builder) | 2.1, 3.6, 5.1 to 5.4, 5.15, 5.16, 7.10, 7.11 |
+| FR-13 to FR-16, FR-20 (characters) | 1.6, 9 |
+| FR-17, FR-18 (labels, animation) | 5.5, 6.1, 6.8 |
+| FR-24, FR-25 (welcome, arrival) | 2.2, 7.2 |
+| FR-26 to FR-31, FR-71 (Guide) | 3.5, 5.6, 6.7, 6.8 |
+| FR-29 (finale) | 1.5, 5.7, 6.9 |
+| FR-32, FR-69, FR-70 (hint, progress, prompt) | 5.11, 6.9, 8.3 (R2) |
+| FR-33 to FR-36 (movement, viewer, list) | 5.8, 5.9, 5.12, 6.1 to 6.6 |
+| FR-39, FR-40 (layout, lighting) | 1.4 |
+| FR-47 to FR-52, FR-55, FR-56 | 2.1, 5.15, 7.5 |
+| FR-57 to FR-60 (loading, failures, WebGL) | 7 |
+| FR-61 to FR-65 (accessibility, reduced motion) | 8 |
+| NFR-10 (devices, 44 px) | 3.1, 3.2 |
+| NFR-12 (WCAG 2.2 AA, 4.5:1 labels) | 4.2, 5.5, 8 |
+| NFR-13 (privacy link) | 7.2, 10 |
+| NFR-23 (Australian English, DD/MM/YYYY) | 1.8, 10 |
+| NFR-25 (live-readiness) | The card, labels and cues read presentation and state from the registry and `sessionStore` only, so a future network source needs no design change. In live mode the Guide's header and card would be driven by the Creator's input without layout changes |
