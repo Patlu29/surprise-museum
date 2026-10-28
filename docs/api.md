@@ -329,11 +329,11 @@ A failure in 3 to 5 returns 422 `invalid_image` with `field` set to `full`, `wal
 |---|---|
 | Starts with `FF D8 FF`, well-formed marker structure, every segment length in bounds, ends with EOI with nothing after it | No appended or hidden data |
 | One baseline, extended-sequential or progressive frame; 8-bit; 1 or 3 components; at least one scan | Safe for every browser to display |
-| Application segments limited to: JFIF with no thumbnail (APP0), ICC colour profile (APP2), Adobe colour transform (APP14) | Everything else is rejected |
+| Application segments limited to: JFIF (APP0; up to 14 bytes, and a thumbnail size of 0 by 0 if present), ICC colour profile (APP2; the `ICC_PROFILE` identifier, any length up to the file limit), Adobe colour transform (APP14; up to 12 bytes) | Everything else is rejected. This is exactly the set the browser keeps (see below) |
 | No APP1 (EXIF and XMP), no APP13 (IPTC and Photoshop), no other APPn (maker notes, multi-picture data) | Location and camera privacy (FR-10) |
 | No COM (comment) segments | Free text can hold anything |
 
-The browser re-encodes every photo through a canvas, which produces a file that passes. The server check exists so a modified client cannot store metadata.
+The browser re-encodes every photo through a canvas and then strips it (`src/media/jpeg.ts`). Safari's canvas encoder always writes an APP1 `Exif` segment and an APP13 `Photoshop 3.0` segment of its own, so the client removes APP1, APP3 to APP13, APP15 and COM, and keeps APP0, APP2 and APP14 and the structural segments. The server therefore still **rejects APP1 and APP13**, and accepts everything the client keeps. A regression test (`src/api/__tests__/clientCompat.test.ts`, and a Deno test in `supabase/functions/tests/flow_test.ts`) uses a Safari-shaped fixture: raw output is refused with `invalid_image` (`field: "full"`), the stripped output is confirmed. The server check exists so a modified client cannot store metadata.
 
 Error messages for `invalid_image` are fixed, safe sentences (for example "The photo still contains camera or location metadata."), never parts of the file.
 
@@ -430,19 +430,80 @@ Up to 100 museums are expired and 100 queue entries drained per run; a bigger ba
 | `expiresAt` passes | All links return 404 at once. The hourly job (minute 17) deletes the rows and files within the hour |
 | `delete` | Rows gone at once; files removed immediately, or within the hour if that failed |
 
-## 12. Mock mode (no Supabase project)
+## 12. Mock mode and production builds
 
-`src/api` selects an in-memory implementation of the same `MuseumApi` interface when `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` is missing, or when `VITE_API_MODE=mock`. It follows every rule in this document: the same validators, the same JPEG checks on the uploaded bytes, the same limits and expiry, and the same uniform `not_found`. It differs in these ways only:
+`src/api` has two implementations of the same `MuseumApi` interface: the live client (Edge Functions) and a mock that runs in the browser.
 
-- Data lives in the page's memory. A reload, or opening the link in a second tab, starts empty.
+### Which one runs
+
+| `VITE_API_MODE` | Build | Result |
+|---|---|---|
+| `mock` | any | The mock. Local development and QA only |
+| `live` | any | The real backend. Every call fails with `unconfigured` if the Supabase variables are missing |
+| blank | development (`npm run dev`) | Live if `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are both set, otherwise the mock, so the app works with no setup |
+| blank | **production** (`npm run build`) | **Always live.** A production build never falls back to the mock by accident |
+
+`getApiMode()` returns `"live"` or `"mock"`, so the UI can show a "demo mode, nothing is saved online" notice.
+
+QA builds that need the mock must say so: `VITE_API_MODE=mock npm run build`. (`playwright.config.ts` runs `npm run build`, so set `VITE_API_MODE=mock` for the end-to-end run.)
+
+### Production guard (GitHub Pages)
+
+Production builds for GitHub Pages must use live mode. If the two Supabase variables were missing at build time, the site would load and then fail on every call, so the deploy build must fail first. `supabase/scripts/check-live-config.mjs` provides the check in two forms with the same rules.
+
+**1. A command for the deploy workflow.** Run it before `npm run build`, with `VITE_API_MODE=live` set:
+
+```yaml
+- name: Check the live backend is configured
+  run: node supabase/scripts/check-live-config.mjs
+  env:
+    VITE_API_MODE: live
+    VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+    VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+- name: Build
+  run: npm run build
+  env:
+    VITE_API_MODE: live
+    VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+    VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+```
+
+It exits 0 when the configuration is good and 1, with a plain-language list of what to fix, when it is not. `--file <path>` also reads a `KEY=VALUE` file (the process environment wins, as in Vite). It never prints a key.
+
+**2. A Vite plugin** (optional second line of defence inside the build):
+
+```ts
+import { requireLiveBackend } from './supabase/scripts/check-live-config.mjs';
+// in vite.config.ts
+plugins: [react(), requireLiveBackend()],
+```
+
+It does nothing unless `VITE_API_MODE=live`, so ordinary local builds and QA builds are unaffected. With `VITE_API_MODE=live` it fails `vite build` on the same problems. Wiring it into `vite.config.ts` belongs to the architect; the command alone is enough.
+
+What fails the check:
+
+| Problem | Message starts |
+|---|---|
+| `VITE_API_MODE` is `mock` | `VITE_API_MODE is "mock"` |
+| `VITE_SUPABASE_URL` missing, blank or a placeholder | `VITE_SUPABASE_URL is missing` |
+| URL is not `https://`, has a path or query, or is not a URL | `VITE_SUPABASE_URL must ...` |
+| `VITE_SUPABASE_ANON_KEY` missing, blank or a placeholder | `VITE_SUPABASE_ANON_KEY is missing` |
+| The key is a service-role JWT or an `sb_secret_` key (it would be published to the world) | `... is the SERVICE ROLE key` or `... is a SECRET key` |
+
+### How the mock behaves
+
+It follows every rule in this document: the same validators, the same JPEG checks on the uploaded bytes, the same limits and expiry, and the same uniform `not_found`. Differences:
+
+- **Persistence.** Data is kept in the browser: IndexedDB (photo bytes as binary data, 200 MiB cap), else `localStorage` (photo bytes as text, 3 MiB cap, a handful of photos), else memory (nothing persists). So a Creator can publish and then open the share link in a **new tab** or after a **reload**. Each call loads the latest data, applies the change and saves it under a lock shared by all tabs (Web Locks API where the browser has it), so two tabs do not overwrite each other. Nothing is stored in a way that identifies a token: museums are keyed by SHA-256 hashes, like the server.
+- **Size cap.** An upload that would pass the cap is refused with `server_error`, status 413 and the message "The demo storage on this device is full. Clear the demo data and try again." Existing data is untouched. Expired museums are deleted the next time any call runs, which frees their photos.
+- **Clear demo data.** `clearDemoData()` (from `@/api`) deletes every demo museum, photo and draft in this browser, for every tab. `getDemoDataInfo()` returns `{ storage, museums, photos, usedBytes, capacityBytes }` for a "Demo data" panel.
 - There is no rate limiting.
-- "Signed URLs" are `blob:` object URLs, and upload URLs are `mock://upload/...`.
-- `getApiMode()` returns `"mock"`, so the UI can show a "demo mode, nothing is saved online" notice.
-
-`VITE_API_MODE=live` forces the real backend and makes every call fail with `unconfigured` if the Supabase variables are missing, so a broken deployment cannot silently run on the mock.
+- "Signed URLs" are `blob:` object URLs made by each tab from the stored bytes, and upload URLs are `mock://upload/...`.
+- Demo data is per browser profile and per origin (`localhost:5173` and `localhost:4173` have separate data).
 
 ## 13. Change log
 
 | Date | Change |
 |---|---|
 | 28/10/2026 | First full contract. Differences from `docs/architecture.md` section 7.3: `create-museum` and `reserve-photo` return 201; `field` may also appear on `conflict` and `invalid_image`; 403, 405, 413 and 415 are sent with the `bad_request` code; `purge-expired` returns `{ purged, retried, failed }` (`failed` is new, type `PurgeExpiredResponse` added to `contract.ts`); `remove-photo` of a published photo returns `conflict`; `lqip` bytes are checked at `confirm-photo`; `visitorAvatar.facialHair` must be `none` |
+| 28/10/2026 | Integration round 1. `confirm-photo` accepts every segment the browser keeps (JFIF up to 14 bytes, ICC with any body, Adobe up to 12 bytes) and still rejects APP1 and APP13; Safari regression fixtures added. The mock persists in IndexedDB (else `localStorage`) with a size cap, `clearDemoData()` and `getDemoDataInfo()`. Production builds are always live unless `VITE_API_MODE=mock`; `supabase/scripts/check-live-config.mjs` fails a deploy build with missing or unsafe configuration |

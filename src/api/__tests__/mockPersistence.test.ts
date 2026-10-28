@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AvatarConfig, MuseumDocument } from '@contract';
-import { ApiRequestError } from '@/lib/apiPort';
+import type { ApiRequestError } from '@/lib/apiPort';
 import {
   createLocalStorageStorage,
   createIndexedDbStorage,

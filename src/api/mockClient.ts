@@ -256,23 +256,26 @@ export function createMockApi(options: MockApiOptions = {}): MockMuseumApi {
   async function execute<T>(fn: (state: DemoState) => Promise<T>): Promise<T> {
     const state = parseState(await storage.loadState());
     const baseline = JSON.stringify(state);
+
+    let outcome: { ok: true; value: T } | { ok: false; error: unknown };
     try {
       await pruneExpired(state);
-      return await fn(state);
+      outcome = { ok: true, value: await fn(state) };
     } catch (error) {
-      throw error instanceof DemoStorageFullError ? storageFull() : error;
-    } finally {
-      // Saved even when the call fails: a refused photo, for example, has been discarded.
-      const after = JSON.stringify(state);
-      if (after !== baseline) {
-        try {
-          await storage.saveState(after);
-        } catch (error) {
-          if (error instanceof DemoStorageFullError) throw storageFull();
-          throw error;
-        }
+      outcome = { ok: false, error: error instanceof DemoStorageFullError ? storageFull() : error };
+    }
+
+    // Saved even when the call failed: a refused photo, for example, has been discarded.
+    const after = JSON.stringify(state);
+    if (after !== baseline) {
+      try {
+        await storage.saveState(after);
+      } catch (error) {
+        throw error instanceof DemoStorageFullError ? storageFull() : error;
       }
     }
+    if (!outcome.ok) throw outcome.error;
+    return outcome.value;
   }
 
   /** Expired museums are gone for good, and their photo bytes are freed. */

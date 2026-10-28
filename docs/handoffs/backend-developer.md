@@ -1,86 +1,92 @@
 # Handoff: backend-developer
 
 ## Summary
-I built the whole Supabase backend: idempotent migrations, four Edge Functions (including `confirm-photo` with byte-level JPEG checks), the typed `src/api` client with an in-memory mock that is selected automatically when no Supabase project is configured, the contract in `docs/api.md`, and a step-by-step setup guide in `supabase/README.md`. Nothing is deployed and no cloud resource exists; the user still has to create the project. Everything that can run without a project was run: 102 Vitest tests, 25 Deno tests, the SQL against real Postgres (PGlite), and a smoke test over real HTTP.
+I built the whole Supabase backend: idempotent migrations, four Edge Functions (including `confirm-photo` with byte-level JPEG checks), the typed `src/api` client, the contract in `docs/api.md`, and a step-by-step setup guide in `supabase/README.md`. Nothing is deployed and no cloud resource exists; the user still has to create the project. Integration round 1 (28/10/2026) added three things: the server and mock now accept every JPEG segment the browser keeps (with a Safari regression fixture), the mock persists in IndexedDB with a localStorage fallback, a size cap and "clear demo data", and production builds are always live with a deploy guard that fails when the Supabase variables are missing.
 
 ## Files changed
-- `supabase/migrations/20261027000100_initial_schema.sql`: rewritten idempotent; tables, constraints, RLS with no policies, grants revoked, `usage` on the schema revoked from `anon` and `authenticated`
-- `supabase/migrations/20261027000110_functions.sql`: new; `rate_limit_hit`, `rate_limit_blocked`, `reserve_photo`, `publish_museum` (atomic publish), `delete_museum_rows`, `expire_museums`; all `service_role` only
-- `supabase/migrations/20261027000120_storage_bucket.sql`: new; private `photos` bucket (JPEG, 2 MiB), no storage policies
-- `supabase/migrations/20261027000200_retention_schedule.sql`: rewritten; `invoke_purge_expired()` reads the Vault secrets, hourly pg_cron jobs, safe when secrets are missing
-- `supabase/functions/_shared/`: `contract.ts` (added `PurgeExpiredResponse`), `tokens.ts`, `jpeg.ts`, `validate.ts` (pure, shared with the mock), `http.ts`, `config.ts`, `ports.ts`, `present.ts`, `supabaseBackend.ts`, `boot.ts`, `testing/` (in-memory backend and JPEG fixtures, test-only)
-- `supabase/functions/{create-museum,get-museum,manage-museum,purge-expired}/`: `index.ts`, `handler.ts`, `deno.json`; plus `supabase/functions/deno.json` (import map, tasks)
-- `supabase/functions/tests/`: `flow_test.ts`, `purge_test.ts`, `helpers.ts`, `devServer.ts`
-- `supabase/functions/.env.example`: added optional `PUBLIC_API_URL` and a note not to set `SUPABASE_*`
-- `supabase/tests/database/lockdown.test.sql`: pgTAP, 21 assertions
-- `supabase/scripts/smoke-test.mjs`: end-to-end check of a deployed or local backend
-- `supabase/README.md`: full setup guide, local development, tests, operations, troubleshooting
-- `src/api/`: `index.ts`, `liveClient.ts`, `mockClient.ts`, `mode.ts`, `shared.ts`, `__tests__/` (6 files)
-- `docs/api.md`: full contract with examples
+**Original build**
+- `supabase/migrations/20261027000100_initial_schema.sql`, `...000110_functions.sql`, `...000120_storage_bucket.sql`, `...000200_retention_schedule.sql`: idempotent schema, RLS with no policies, revoked grants, atomic DB functions (`reserve_photo`, `publish_museum`, `delete_museum_rows`, `expire_museums`, rate limits), private bucket, hourly pg_cron jobs
+- `supabase/functions/_shared/`: `contract.ts` (added `PurgeExpiredResponse`), `tokens.ts`, `jpeg.ts`, `validate.ts`, `http.ts`, `config.ts`, `ports.ts`, `present.ts`, `supabaseBackend.ts`, `boot.ts`, `testing/`
+- `supabase/functions/{create-museum,get-museum,manage-museum,purge-expired}/` (`index.ts`, `handler.ts`, `deno.json`), `supabase/functions/deno.json`, `supabase/functions/.env.example`
+- `supabase/functions/tests/` (`flow_test.ts`, `purge_test.ts`, `helpers.ts`, `devServer.ts`), `supabase/tests/database/lockdown.test.sql`, `supabase/scripts/smoke-test.mjs`
+- `src/api/` (`index.ts`, `liveClient.ts`, `mockClient.ts`, `mode.ts`, `shared.ts`, `__tests__/`), `docs/api.md`, `supabase/README.md`
+
+**Integration round 1**
+- `supabase/functions/_shared/jpeg.ts`: APP0, APP2 and APP14 rules widened to match what the browser keeps (see Decisions); APP1, APP13 and every other APPn are still rejected
+- `supabase/functions/_shared/testing/jpegFixtures.ts`: added `safariCanvasJpeg({ width, height, stripped })`
+- `supabase/functions/tests/flow_test.ts`: new Deno test, raw Safari output refused and stripped output confirmed
+- `src/api/__tests__/clientCompat.test.ts`: new; runs the browser's real `stripJpegMetadata` over the Safari fixture and checks the server checker and the mock both accept the result
+- `src/api/demoStorage.ts`: new; IndexedDB, localStorage and memory backends behind one interface, automatic choice, cross-tab lock, size capacity
+- `src/api/mockClient.ts`: rebuilt around load, apply, save transactions against `DemoStorage`; new `reset()` (async) and `info()`
+- `src/api/mode.ts`, `src/api/index.ts`: production builds always live unless `VITE_API_MODE=mock`; new exports `clearDemoData()`, `getDemoDataInfo()`, storage types
+- `src/api/__tests__/`: `demoStorage.test.ts`, `mockPersistence.test.ts`, `fakes.ts` (fake IndexedDB and localStorage), `liveConfigGuard.test.ts`, updated `mode.test.ts` and `mockClient.test.ts`
+- `supabase/scripts/check-live-config.mjs` and `.d.mts`: new; deploy guard as a command and an optional Vite plugin
+- `docs/api.md` (sections 9 and 12, change log), `supabase/README.md` (mock and production rules, step 9, tests, troubleshooting)
 
 ## Decisions
-- **Error shape follows `contract.ts`, not the api-conventions skill.** Responses are `{ error: <code>, message, field? }`, not `{ error: { code, message, details } }`. The frontend and stores already code against `ApiError`, and changing it would break them. All deviations from the skill (no `/api/v1`, no 401 or 403 for access problems, 200 for delete, no list endpoints) are tabled in `docs/api.md` section 1.
-- **`src/api` implements the frontend's existing `MuseumApi` port** (`src/lib/apiPort.ts`) and reuses its `ApiRequestError`, so `instanceof` checks in the stores keep working. This means `src/api` imports from `@/lib`, a small step outside the import table in architecture section 4 (the ESLint config allows it).
-- **Mock mode is faithful, not a stub.** It runs the same validators, the same JPEG checker on the uploaded bytes, the same limits, expiry and uniform `not_found`. It is in-memory only: a reload or a second tab starts empty.
-- **Shared server modules import only `@contract`** (no sibling imports). That lets the same files resolve in Deno (import map), Vite and `tsc` without file extensions, which is how the mock and Vitest reuse the server rules without editing root config.
-- **JPEG allow-list, not deny-list.** Only JFIF (no thumbnail), ICC profile and Adobe marker application segments are accepted; every other APPn and every COM segment is rejected, as is anything after EOI. Documented in `docs/api.md` section 9.
-- **`facialHair` must be `none` for the Visitor avatar**, as `contract.ts` says ("always none for the Visitor in v1"), and is enforced on publish.
-- **Rate-limit key:** `cf-connecting-ip` (not forgeable), then `x-real-ip`, then the first `x-forwarded-for` entry; IPv6 counts by /64. After 20 not-found lookups in 10 minutes a client gets 429 on every lookup, including valid ones, until the window ends.
-- **Cross-origin refusal:** an `Origin` not in `ALLOWED_ORIGINS` gets 403 and no work is done; requests with no `Origin` (cron, curl) pass.
-- **Status codes:** 201 for `create-museum` and `reserve-photo`; 200 for other actions; 405, 413, 415 and the 403 above use the `bad_request` code. Contract additions are listed in `docs/api.md` section 13.
-- **`remove-photo`** is idempotent, and refuses (409) to remove a photo that is part of the published museum.
-- **`confirm-photo` on failure** deletes both objects but keeps the photo reserved and `pending`, so `renew-upload` works for a retry.
-- **Publish is one database function** (`publish_museum`), so photo order, captions and avatars change atomically; retention comes from the first publish only.
+- **Error shape follows `contract.ts`, not the api-conventions skill** (`{ error: <code>, message, field? }`). Deviations from the skill are tabled in `docs/api.md` section 1.
+- **`src/api` implements the frontend's `MuseumApi` port** (`src/lib/apiPort.ts`) and reuses its `ApiRequestError`, so `instanceof` checks in the stores keep working.
+- **Shared server modules import only `@contract`**, so the same files resolve in Deno, Vite and `tsc`, and the mock reuses the server's validators and JPEG checker.
+- **JPEG allow-list (round 1 wording).** Accepted: APP0 `JFIF\0` up to 14 bytes (a thumbnail size, if present, must be 0 by 0); APP2 `ICC_PROFILE\0` with any body; APP14 `Adobe` up to 12 bytes. Rejected: APP1 (Exif, XMP), APP13 (Photoshop, IPTC), every other APPn, COM, anything after EOI. I widened the lower bounds (a short JFIF header or a header-only ICC chunk now pass) because the frontend's own fixtures use them and they leave no room for personal data. The browser keeps APP0, APP2 and APP14 by marker only, so `clientCompat.test.ts` fails if the two sides ever drift.
+- **Production builds are always live** unless `VITE_API_MODE=mock` is set explicitly. Blank means live in a production build, so a missing variable produces loud `unconfigured` errors instead of a silent demo. In development, blank still means "mock when the Supabase variables are absent".
+- **The guard is opt-in for the Vite plugin** (only when `VITE_API_MODE=live`), so ordinary local builds and QA builds with `VITE_API_MODE=mock` still work. The CLI is what the deploy workflow runs. The flag to read a file is `--file`, because Node itself intercepts `--env-file`.
+- **The guard also rejects a service-role JWT or an `sb_secret_` key in `VITE_SUPABASE_ANON_KEY`**, because that value is published to the world.
+- **Mock persistence design.** Each call loads the latest state from storage, applies the change and saves only if something changed, under the Web Locks API where available plus an in-tab queue. That is what makes a second tab see new data without any messaging. Photo bytes are kept as raw bytes in IndexedDB (not Blobs, which older Safari mishandles). Cap: 200 MiB in IndexedDB, 3 MiB in localStorage (base64 inflates by a third, and the browser limit is about 5 MB). An upload past the cap is refused with status 413 and the existing data stays intact. Expired museums are deleted on the next call, which frees their bytes.
+- **No tokens are stored in demo data.** Museums are keyed by SHA-256 hashes, as on the server.
+- **Other earlier decisions stand:** cross-origin refusal returns 403, rate-limit key is `cf-connecting-ip` then `x-real-ip` then `x-forwarded-for` (IPv6 by /64), `confirm-photo` failures delete the objects but keep the photo reserved, publish is one database function, Visitor `facialHair` must be `none`.
 
 ## Assumptions
-- A request body that is not `{}` is rejected by `create-museum`.
-- Signed upload URLs from supabase-js accept `PUT` with `Content-Type: image/jpeg` and `x-upsert: true` (the contract already says so). The Storage upload path has **not** been exercised against real Storage; the dev server and smoke test model it.
-- Canvas-encoded JPEGs from Chrome, Firefox and Safari contain only JFIF (and possibly an ICC profile or Adobe marker). If a browser writes some other segment, `confirm-photo` will reject its photos.
-- PostgREST returns `setof uuid` as an array of strings (the adapter also accepts objects).
-- The Data API stays enabled with `public` exposed, because the functions use it; safety comes from the revoked privileges and RLS.
+- Safari's canvas output is JFIF plus Exif and Photoshop segments of its own, then an ICC profile. After the browser strips APP1 and APP13 the file passes. This is based on the frontend's description and fixtures; it has not been tested with a file from a real iPhone.
+- Canvas JPEGs from Chrome and Firefox contain only JFIF (and possibly ICC or Adobe).
+- Signed upload URLs from supabase-js accept `PUT` with `Content-Type: image/jpeg` and `x-upsert: true`. Not exercised against real Storage; the dev server and smoke test model it.
+- Web Locks API may be missing (older browsers); then only the in-tab queue protects against two tabs writing at the same instant, which is acceptable for a demo store.
+- The Data API stays enabled with `public` exposed, because the functions use it; safety comes from revoked privileges and RLS.
 
 ## Open questions
-- Supabase plan (the free plan pauses inactive projects and has no backups, which could break a gift link and stop the purge job). Plan, pricing and contract questions go to the Sales team. (user)
-- Should the mock persist across reloads (IndexedDB)? I kept it in-memory as asked; persistence would help manual demos of share links across tabs. (frontend-developer, user)
+- Supabase plan: the free plan pauses inactive projects and has no backups, which could break a gift link and stop the purge job. Plan, pricing and contract questions go to the Sales team. (user)
+- Should the demo banner offer "Clear demo data" and show `getDemoDataInfo()` (storage used)? The functions exist; whether and where to show them is a design decision. (ux-ui-designer, frontend-developer)
 
 ## Requests for other agents
 - **frontend-developer:**
-  - Call `registerApi()` from `@/api` once in `src/main.tsx` before rendering. Until then `getApi()` throws `unconfigured`, because no factory is registered.
-  - Delete `src/lib/httpApi.ts`; `src/api/liveClient.ts` replaces it (same behaviour, plus retries on reads and a fix so a pre-aborted upload rejects with `aborted`).
-  - Use `getApiMode()` from `@/api` to show a "Demo mode, nothing is saved online" notice when it returns `"mock"`. Do not gate features on `isBackendConfigured`; the mock covers everything except cross-tab links.
-  - `confirmPhoto` can return `invalid_image` with `field` `full`, `wall` or `width`, and `bad_request` with `field: "lqip"`. The 24 px placeholder must be a clean JPEG (no metadata) of at most 32 px on its long edge.
-  - Visitor `facialHair` must be `"none"` in the document you publish.
-  - Show the edit token once; the server cannot recover it.
+  - Call `registerApi()` from `@/api` once in `src/main.tsx` before rendering. Until then `getApi()` throws `unconfigured`.
+  - Delete `src/lib/httpApi.ts`; `src/api/liveClient.ts` replaces it.
+  - When `getApiMode()` is `"mock"`, show a "Demo mode, nothing is saved online" notice. A "Clear demo data" control can call `clearDemoData()`; `getDemoDataInfo()` returns `{ storage, museums, photos, usedBytes, capacityBytes }`. Both are exported from `@/api`.
+  - Handle the demo-storage-full case: `server_error` with `status === 413` and a message that already tells the user to clear demo data.
+  - Tighten `src/media/jpeg.ts` if you wish: it keeps any APP0, APP2 and APP14 whatever their content, while the server only accepts JFIF, `ICC_PROFILE` and `Adobe`. The canvas encoders only write those, so this is not a problem today, but keeping by identifier as well as marker would make the two sides match exactly.
+  - Visitor `facialHair` must be `"none"` in the published document. `confirmPhoto` can return `invalid_image` with `field` `full`, `wall` or `width`, and `bad_request` with `field: "lqip"`; the 24 px placeholder must be a metadata-free JPEG of at most 32 px.
+- **devops-engineer (workflow changes):**
+  - In the Pages deploy workflow, before `npm run build`, add a step running `node supabase/scripts/check-live-config.mjs` with `VITE_API_MODE=live`, `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` taken from repository variables (ready-to-paste YAML in `docs/api.md` section 12 and `supabase/README.md` step 9). Set the same three variables on the build step itself.
+  - Add Deno checks to CI: `deno test`, `deno lint` and `deno check` with `--config supabase/functions/deno.json` (the root `npm test` does not run them).
+  - The Supabase deploy workflow needs `npx supabase db push` then `npx supabase functions deploy --no-verify-jwt`, and can run `node supabase/scripts/smoke-test.mjs` afterwards.
 - **architect:**
-  - Add `VITE_API_MODE` (`mock`, `live` or blank for automatic) to `.env.example` and `vite-env.d.ts`.
-  - Update `docs/architecture.md` section 7.3 to match `docs/api.md` (201 on create and reserve, `purge-expired` returns `{ purged, retried, failed }`, 403 for a disallowed origin).
-  - Optionally make `supabase/functions/_shared/**/*.ts` linted: the current ESLint ignore list skips it, so those files rely on `tsc` (via `src/api`) and `deno lint`.
-- **devops-engineer:**
-  - Add a CI job for the Deno checks (`deno test`, `deno lint`, `deno check` with `--config supabase/functions/deno.json`). The root `npm test` does not run them.
-  - The deploy workflow needs `npx supabase db push` then `npx supabase functions deploy --no-verify-jwt`, and can run `node supabase/scripts/smoke-test.mjs` afterwards against the live project.
-  - `npx supabase test db` runs the pgTAP file but needs Docker.
+  - Add `VITE_API_MODE` (`mock`, `live` or blank) to `.env.example` and `vite-env.d.ts`, with the rule that production builds are live unless `mock` is explicit.
+  - Optionally add a `check:live` script (`node supabase/scripts/check-live-config.mjs`) to `package.json`, and wire `requireLiveBackend()` from `supabase/scripts/check-live-config.mjs` into `vite.config.ts` as a second line of defence (the `.d.mts` file types the import).
+  - Update `docs/architecture.md` section 7.3 to match `docs/api.md`.
 - **qa-engineer:**
-  - Mock mode is the default when no env vars exist, so end-to-end tests run without Supabase. A reload loses mock data, so keep a flow in one page load.
-  - Test real devices: a photo from iOS Safari and from Chrome must pass `confirm-photo` (see the JPEG assumption above).
-  - Add a post-deployment run of `supabase/scripts/smoke-test.mjs`.
+  - `playwright.config.ts` runs `npm run build`, which is a production build, so it now needs `VITE_API_MODE=mock` set on that command or the app will report `unconfigured`. Demo data now persists across reloads and tabs within a test browser profile, so tests that want a clean start should call `clearDemoData()` or use a fresh context.
+  - Test a photo from a real iPhone (Safari) end to end against the real backend after the first deploy.
+  - Add `node supabase/scripts/smoke-test.mjs` to the post-deploy checks.
 
 ## Verification
 | Check | Result |
 |---|---|
 | `npm run typecheck` | Pass |
+| `npm run lint` | Pass (exit 0) for the whole repo |
+| `npm test` | Pass: 532 tests in 40 files; 188 of them in `src/api` |
 | `npm run build` | Pass |
-| `npm test` (whole repo) | Pass, 274 tests across 20 files, 102 of them in `src/api` |
-| `npm run lint` | Fails, 11 errors, **none in my files**: 9 in `src/scene/...` (type-only imports, owner: scene-developer and technical-artist) and 2 in `src/ui/...` (owner: frontend-developer). `src/api` is clean. `supabase/functions` is excluded from ESLint by the root config |
-| Deno: `test`, `lint`, `check` | Pass, 25 tests, 24 files, 4 entry points |
-| Migrations | Applied twice (idempotent) to real Postgres via PGlite with stubbed Supabase schemas; atomic reserve, publish, expire, delete, rate-limit and the Vault job function all tested; anon and authenticated denied on every table and function |
-| pgTAP file | All 21 assertions pass against PGlite using a stand-in for pgTAP's functions; **not** run under real pgTAP |
-| Server starts | Each `index.ts` boots under Deno: JSON 500 when unconfigured, then preflight, origin refusal and safe failure with config set. `supabase functions serve` was not run (no Docker) |
-| Smoke test | 15 of 15 steps pass over real HTTP against the real handlers with the in-memory store |
+| Deno `test`, `lint`, `check` | Pass: 26 tests, 24 files, four entry points type-check against supabase-js 2.118.0 |
+| Safari regression | Raw fixture refused (`exif_or_xmp`, then `metadata_segment`), stripped fixture accepted by the checker, the mock and the Deno `confirm-photo` handler. The Vitest test uses the real `stripJpegMetadata` from `src/media/jpeg.ts` and proves its output equals the stripped fixture byte for byte |
+| Mock persistence | Tested on all three backends (memory, localStorage fake, IndexedDB fake): publish in tab A and read in tab B, survive a reload, delete in one tab seen by the other, 24 concurrent reserves across two tabs give exactly 20 successes, clear demo data, expiry frees bytes, cap refusal with 413, replacement not double counted, corrupt or old-version state ignored, IndexedDB-to-localStorage-to-memory fallback |
+| Production guard | Unit tests plus the command run as a child process; the Vite plugin run in a real `vite build`: an ordinary build passes, `VITE_API_MODE=live` with missing variables fails with a clear list, a configured live build and a `mock` QA build pass |
+| Migrations and pgTAP file | Applied twice to real Postgres (PGlite) with stubbed Supabase schemas (unchanged this round); 21 lockdown assertions pass against a pgTAP stand-in |
+| Smoke test | 15 of 15 steps pass over real HTTP against the real handlers with the in-memory store (re-run after the JPEG change) |
+| Server starts | Each `index.ts` boots under Deno (earlier this build). `supabase functions serve` was not run (no Docker) |
 
 ## Risks
-- **Not yet run against a live Supabase project.** The Supabase adapter (`_shared/supabaseBackend.ts`) is type-checked against the real `supabase-js` 2.118.0 types but has no live test. Run `supabase/scripts/smoke-test.mjs` straight after the first deploy; that is the first real proof of the Storage upload, signed URLs and RPC calls.
-- **`confirm-photo` strictness** may reject photos from a browser that writes an unexpected JPEG segment. The failure is safe (clear message, retry possible), but it would block publishing on that device until the allow-list is widened.
-- **Storage signed-upload semantics** (`x-upsert`, 2 MiB limit, MIME check) rely on Supabase's behaviour and are untested live.
-- **Rate limiting by IP** depends on `cf-connecting-ip`; behind a shared NAT many people share one limit.
-- **Free-plan pause** would also pause the purge job (ADR 0010).
-- **Mock data is lost on reload**, so a share link cannot be tested across tabs in mock mode.
+- **Not yet run against a live Supabase project.** The Supabase adapter is type-checked but has no live test. Run `supabase/scripts/smoke-test.mjs` straight after the first deploy; that is the first real proof of Storage uploads, signed URLs and RPC calls.
+- **The IndexedDB backend is tested against a hand-written fake**, because the repo has no IndexedDB test library and root `package.json` is not mine. It exercises the same calls the real database sees, but it should be checked once in a real browser (Chrome, Safari, Firefox): publish, open the share link in a new tab, reload, clear demo data.
+- **`confirm-photo` strictness.** A browser that writes an unexpected JPEG segment would have its photos refused until the allow-list is widened. The failure is safe and retryable. Test a real iPhone photo.
+- **Production builds changed behaviour.** Any build that previously relied on "no variables means mock" (QA preview builds, `playwright.config.ts`) must now set `VITE_API_MODE=mock`, or the app shows `unconfigured`. This is intended, but the QA and devops changes above are needed.
+- **localStorage fallback is small** (3 MiB of photo bytes, a handful of photos). A tester in a browser that blocks IndexedDB will hit the cap quickly; the error message says what to do.
+- **Demo data is per browser profile and origin**, so `localhost:5173` and `localhost:4173` do not share it.
+- **IP rate limiting** depends on `cf-connecting-ip`; people behind a shared NAT share one limit. A free-plan pause also pauses the purge job (ADR 0010).
