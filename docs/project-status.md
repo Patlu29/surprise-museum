@@ -24,7 +24,8 @@
 - Q-7: edit link only, no accounts
 - Remaining questions: PM's recommended defaults
 - Hosting: frontend on GitHub Pages; backend on Supabase (storage + database, Sydney region). User creates the Supabase project and adds keys as repo secrets.
-- Repo: public `Patlu29/surprise-museum` (https://github.com/Patlu29/surprise-museum), created 27/10/2026, local remote `origin` set. Nothing pushed yet. The user has approved hosting there; the devops engineer may push and enable Pages at delivery.
+- Repo: public `Patlu29/surprise-museum` (https://github.com/Patlu29/surprise-museum), created 27/10/2026. Remote `origin` uses HTTPS with the `gh` credential helper (repo-local config; no SSH key on this machine). The user has approved hosting there; the devops engineer may enable Pages at delivery.
+- Git tracking (user request 28/10/2026): the tech lead commits and pushes to `main` after each phase or integration round. Agents do not commit.
 
 ## Open questions (awaiting user)
 
