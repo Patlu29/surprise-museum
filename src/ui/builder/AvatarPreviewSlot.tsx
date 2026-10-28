@@ -1,32 +1,17 @@
-import {
-  Component,
-  lazy,
-  Suspense,
-  useEffect,
-  useState,
-  type ComponentType,
-  type ReactNode,
-} from 'react';
+import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import type { AvatarConfig } from '@contract';
 import { isWebGLAvailable } from '@/lib/webgl';
-import type { AvatarPreviewProps } from '@/state/avatarPreview';
 import { Button } from '@/ui/components/Button';
 import { NameLabel } from '@/ui/components/NameLabel';
 
 /**
- * The live 3D preview slot (design spec 9.4). The preview canvas is built by the scene-developer
- * at `src/scene/preview/AvatarPreview.tsx` (default export, props in `@/state/avatarPreview`).
- * It is found with `import.meta.glob`, so this file builds and works whether or not that module
- * exists yet: without it, or without WebGL, the text description is shown and every option
- * still works.
+ * The live 3D preview slot (design spec 9.4). The preview canvas is built by the scene-developer at
+ * `src/scene/preview/AvatarPreview.tsx` (default export, props in `@/state/avatarPreview`). It is
+ * loaded lazily, as the only scene entry point besides `Experience` (ADR 0017), so three.js stays
+ * out of the builder's first chunk. If WebGL is unavailable or the canvas fails, the text
+ * description is shown and every option still works.
  */
-type PreviewModule = { default: ComponentType<AvatarPreviewProps> };
-const previewLoaders = import.meta.glob('../../scene/preview/AvatarPreview.tsx') as Record<
-  string,
-  () => Promise<PreviewModule>
->;
-const firstLoader = Object.values(previewLoaders)[0];
-const LazyPreview = firstLoader ? lazy(firstLoader) : null;
+const LazyPreview = lazy(() => import('@/scene/preview/AvatarPreview'));
 
 class PreviewBoundary extends Component<
   { onError: () => void; children: ReactNode },
@@ -81,7 +66,7 @@ export function AvatarPreviewSlot({
     return () => window.clearTimeout(timer);
   }, [attempt]);
 
-  const canRender = LazyPreview !== null && webgl && !failed;
+  const canRender = webgl && !failed;
 
   return (
     <div className="preview-slot">
@@ -91,7 +76,7 @@ export function AvatarPreviewSlot({
           role={canRender ? 'img' : undefined}
           aria-label={canRender ? label : undefined}
         >
-          {canRender && LazyPreview ? (
+          {canRender ? (
             <PreviewBoundary key={attempt} onError={() => setFailed(true)}>
               <Suspense fallback={null}>
                 <LazyPreview
@@ -125,9 +110,7 @@ export function AvatarPreviewSlot({
             <p className="preview-slot__message">
               {!webgl
                 ? "3D preview isn't available on this device. Your choices are still saved."
-                : failed
-                  ? "We couldn't show the 3D preview. Your choices are still saved."
-                  : 'The 3D preview is not available in this version. Your choices are still saved.'}
+                : "We couldn't show the 3D preview. Your choices are still saved."}
             </p>
             {failed && webgl ? (
               <Button
