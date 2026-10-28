@@ -1,0 +1,54 @@
+# Supabase CLI configuration for local development (`supabase start`).
+# The hosted project (Sydney, ap-southeast-2) is configured in the dashboard; see supabase/README.md.
+# Keys left out here take the CLI defaults.
+
+project_id = "surprise-museum"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 100
+
+[db]
+port = 54322
+major_version = 17
+
+[studio]
+enabled = true
+port = 54323
+
+[storage]
+enabled = true
+file_size_limit = "2MiB"
+
+[auth]
+# No accounts in the MVP (FR-1, Q-7). Sign-ups are off so nobody can obtain the
+# 'authenticated' role. All access goes through Edge Functions.
+enabled = true
+enable_signup = false
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = false
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+deno_version = 2
+
+# Every function authenticates the caller itself (share token, edit token or cron secret).
+# JWT verification is off because the browser holds no user JWT, and because the newer
+# publishable keys are not JWTs.
+[functions.create-museum]
+verify_jwt = false
+
+[functions.get-museum]
+verify_jwt = false
+
+[functions.manage-museum]
+verify_jwt = false
+
+[functions.purge-expired]
+verify_jwt = false

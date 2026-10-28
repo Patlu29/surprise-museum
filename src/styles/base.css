@@ -1,0 +1,247 @@
+/*
+ * Base page styles for Surprise Museum.
+ * Owner: ux-ui-designer. Reads tokens from tokens.css. Behaviour is specified in docs/design-spec.md.
+ *
+ * This file holds only resets, element defaults, the focus ring, accessibility helpers and the
+ * layer rules that every screen shares. Component styling belongs to the frontend-developer
+ * and must use tokens, not raw values.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Room for sticky bars so a focused control is never hidden behind them (WCAG 2.4.11). */
+  scroll-padding-block: calc(var(--touch-target-lg) + var(--space-4));
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+  /* Stop pull-to-refresh and rubber-banding from fighting the touch joystick. */
+  overscroll-behavior: none;
+  /* The tap flash looks wrong on a game-like surface. Focus and pressed states replace it. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------------------------------------------------------------- Type defaults */
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: var(--text-2xl);
+}
+h2 {
+  font-size: var(--text-xl);
+}
+h3 {
+  font-size: var(--text-lg);
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+a {
+  color: var(--color-accent);
+  text-underline-offset: 0.2em;
+}
+a:hover {
+  color: var(--color-accent-hover);
+}
+
+/* Names and messages typed by the Creator keep emoji, accents and line breaks exactly as typed. */
+.user-text {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------- Focus (WCAG 2.4.7, 1.4.11)
+ * Two-tone ring: 2px gold inside, 2px ink outside. Gold shows on night surfaces, ink shows on
+ * paper surfaces, so the ring is visible everywhere without per-surface overrides.
+ */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus-edge);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--color-focus);
+  border-radius: var(--radius-sm);
+}
+
+/* Elements with their own radius keep it: the ring follows via border-radius: inherit on the control. */
+button:focus-visible,
+[role='button']:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  border-radius: inherit;
+}
+
+/* The 3D canvas takes keyboard focus for movement, so its ring sits inside the viewport edge. */
+canvas:focus-visible {
+  outline-offset: -4px;
+  box-shadow: inset 0 0 0 2px var(--color-focus);
+  border-radius: 0;
+}
+
+/* ---------------------------------------------------------------- Accessibility helpers */
+
+/* Content for screen readers only: live regions, the scene description, skip links. */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.skip-link {
+  position: fixed;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: var(--z-toast);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: var(--border-control) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  transform: translateY(-200%);
+}
+.skip-link:focus-visible {
+  transform: none;
+}
+
+/* ---------------------------------------------------------------- UI over the 3D canvas
+ * The canvas fills the viewport at --z-canvas. The UI layer sits above it with pointer events
+ * off, so empty space still reaches the canvas for look-around. Each interactive element opts
+ * back in with .ui-hit (or sets pointer-events: auto itself).
+ */
+.scene-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--color-night);
+  /* The canvas handles its own touch gestures; the page must not scroll or zoom under it. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.scene-root > canvas {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-canvas);
+}
+
+.ui-layer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-hud);
+  pointer-events: none;
+  padding: calc(var(--safe-top) + var(--hud-margin)) calc(var(--safe-right) + var(--hud-margin))
+    calc(var(--safe-bottom) + var(--hud-margin)) calc(var(--safe-left) + var(--hud-margin));
+}
+
+.ui-hit {
+  pointer-events: auto;
+}
+
+/* Joystick and look-around surfaces: no browser gestures, no text selection, no long-press menu. */
+.ui-gesture {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* ---------------------------------------------------------------- Surface helpers
+ * Optional helpers so panels get the right fill, text colour and glass in one class.
+ */
+.surface-paper {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel), var(--shadow-inset-frame);
+}
+
+.surface-night {
+  background: var(--color-hud);
+  color: var(--color-on-night);
+  -webkit-backdrop-filter: blur(var(--blur-panel));
+  backdrop-filter: blur(var(--blur-panel));
+  box-shadow: var(--shadow-hud);
+}
+
+.surface-night a {
+  color: var(--color-accent-on-night);
+}
+
+/* ---------------------------------------------------------------- Forced colours (Windows High Contrast)
+ * Shadows and fills disappear, so panels and controls get real borders, and focus uses a system colour.
+ */
+@media (forced-colors: active) {
+  .surface-paper,
+  .surface-night {
+    border: var(--border-control) solid CanvasText;
+    box-shadow: none;
+  }
+
+  :focus-visible {
+    outline: 3px solid Highlight;
+    box-shadow: none;
+  }
+}
+
+/* ---------------------------------------------------------------- Motion safety net
+ * Tokens already zero the durations. This also stops any stray CSS animation that forgot to use them.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) *,
+  :root:not([data-motion='full']) *::before,
+  :root:not([data-motion='full']) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:root[data-motion='reduce'] *,
+:root[data-motion='reduce'] *::before,
+:root[data-motion='reduce'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}

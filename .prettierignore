@@ -1,0 +1,13 @@
+dist
+coverage
+playwright-report
+test-results
+package-lock.json
+public/models
+public/textures
+public/env
+assets/source
+supabase/.temp
+
+# Hand-written documents owned by several agents; do not reflow them.
+*.md

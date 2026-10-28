@@ -1,0 +1,594 @@
+/*
+ * Shared UI components. Uses tokens from src/styles/tokens.css only: no raw colours, spacing or
+ * fonts. The few geometry values the design spec gives in pixels (bar thickness, ring size) are
+ * named below, in one place.
+ */
+:root {
+  --ui-bar-height: 6px; /* design spec 5.16: the visible stepper and progress bar */
+  --ui-swatch-size: 44px; /* design spec 5.3 */
+  --ui-swatch-cell: 52px;
+}
+
+/* ------------------------------------------------------------------ Icons and spinner */
+.icon {
+  flex: none;
+  display: inline-block;
+}
+.icon--sm {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.icon--md {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+.icon--lg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}
+
+.spinner {
+  flex: none;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  border: var(--border-control) solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--radius-pill);
+  animation: spin 900ms linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ------------------------------------------------------------------ Buttons (design spec 5.1) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  min-width: var(--touch-target);
+  padding: var(--space-2) var(--space-5);
+  border: var(--border-control) solid transparent;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-instant) var(--ease-standard);
+  -webkit-user-select: none;
+  user-select: none;
+}
+.btn:active {
+  transform: scale(var(--press-scale));
+}
+.btn--large {
+  min-height: var(--touch-target-lg);
+  padding-inline: var(--space-8);
+  font-size: var(--text-lg);
+}
+.btn--icon {
+  padding: var(--space-2);
+}
+.btn[aria-disabled='true'],
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn[aria-busy='true'] {
+  cursor: progress;
+  opacity: 1;
+}
+
+.btn--primary {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.btn--primary:hover {
+  background: var(--color-accent-hover);
+  color: var(--color-on-accent);
+}
+.btn--primary:active {
+  background: var(--color-accent-active);
+}
+
+.btn--secondary {
+  background: var(--color-surface);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.btn--secondary:hover {
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+}
+
+.btn--tertiary {
+  background: transparent;
+  color: var(--color-accent);
+}
+.btn--tertiary:hover {
+  background: var(--color-accent-tint);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.btn--danger {
+  background: var(--color-danger);
+  color: var(--color-on-danger);
+}
+.btn--danger:hover {
+  background: var(--color-danger-hover);
+  color: var(--color-on-danger);
+}
+
+/* Night variants: HUD glass over the 3D scene. */
+.btn--night {
+  background: var(--color-hud);
+  color: var(--color-on-night);
+  border-color: color-mix(in srgb, var(--color-on-night) 25%, transparent);
+  -webkit-backdrop-filter: blur(var(--blur-panel));
+  backdrop-filter: blur(var(--blur-panel));
+  box-shadow: var(--shadow-hud);
+}
+.btn--night:hover {
+  background: var(--color-night-raised);
+  color: var(--color-on-night);
+}
+.btn--night.btn--icon {
+  border-radius: var(--radius-pill);
+  width: var(--touch-target);
+  height: var(--touch-target);
+  padding: 0;
+}
+.btn--night-primary {
+  background: var(--color-brass);
+  color: var(--color-text);
+}
+.btn--night-primary:hover {
+  background: var(--color-brass-hover);
+  color: var(--color-text);
+}
+
+/* ------------------------------------------------------------------ Alerts (design spec 5.14) */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--hairline) solid currentColor;
+  border-radius: var(--radius-md);
+}
+.alert__body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.alert__title {
+  font-weight: var(--weight-semibold);
+}
+.alert__icon {
+  margin-top: 2px;
+}
+.alert ul {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+.alert--info {
+  background: var(--color-info-tint);
+  color: var(--color-text);
+}
+.alert--warning {
+  background: var(--color-warning-tint);
+  color: var(--color-warning-text);
+  border-color: var(--color-warning-border);
+}
+.alert--danger {
+  background: var(--color-danger-tint);
+  color: var(--color-danger);
+}
+.alert--success {
+  background: var(--color-success-tint);
+  color: var(--color-success);
+}
+.alert .btn--tertiary {
+  color: inherit;
+}
+.alert:focus-visible {
+  border-radius: var(--radius-md);
+}
+
+/* Link-style buttons inside alerts and summaries. */
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  text-align: left;
+  min-height: var(--touch-target);
+}
+
+/* ------------------------------------------------------------------ Fields (design spec 5.2) */
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+.field__label {
+  font-weight: var(--weight-semibold);
+}
+.field__required {
+  font-weight: var(--weight-regular);
+  color: var(--color-text-muted);
+}
+.field__control {
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-control) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+}
+textarea.field__control {
+  resize: vertical;
+}
+.field--error .field__control {
+  border-color: var(--color-danger);
+}
+.field__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+.field__messages {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.field__helper,
+.field__counter,
+.field__limit {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+.field__limit:empty {
+  display: none;
+}
+.field__counter {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.field__error {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-danger);
+}
+
+/* ------------------------------------------------------------------ Radio groups (design spec 5.3) */
+.radio-group {
+  display: grid;
+  gap: var(--space-2);
+}
+.radio-group__label {
+  font-weight: var(--weight-semibold);
+}
+.radio-group__value {
+  font-weight: var(--weight-regular);
+  color: var(--color-text-muted);
+}
+.radio-group__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.radio-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-control) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+.radio-option.is-selected {
+  background: var(--color-accent-tint);
+  border: var(--border-selected) solid var(--color-accent);
+  font-weight: var(--weight-semibold);
+}
+.radio-group--swatches .radio-options,
+.radio-group--swatches .radio-group__options {
+  gap: var(--space-1);
+}
+.radio-group--swatches .radio-option {
+  width: var(--ui-swatch-cell);
+  height: var(--ui-swatch-cell);
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-pill);
+}
+.radio-option__swatch {
+  display: grid;
+  place-items: center;
+  width: var(--ui-swatch-size);
+  height: var(--ui-swatch-size);
+  border-radius: var(--radius-pill);
+  background: var(--swatch);
+  border: var(--border-control) solid var(--color-border-strong);
+  color: var(--color-text);
+  /* The check sits on any swatch colour: ink with a paper halo. */
+  filter: drop-shadow(0 0 1px var(--color-surface));
+}
+.radio-group--swatches .radio-option.is-selected .radio-option__swatch {
+  border: var(--border-selected) solid var(--color-accent);
+  box-shadow: 0 0 0 var(--border-control) var(--color-surface);
+}
+.radio-group--segmented .radio-group__options {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0;
+}
+.radio-group--segmented .radio-option {
+  border-radius: 0;
+  margin-inline-start: calc(var(--border-control) * -1);
+}
+.radio-group--segmented .radio-option:first-child {
+  border-start-start-radius: var(--radius-md);
+  border-end-start-radius: var(--radius-md);
+  margin-inline-start: 0;
+}
+.radio-group--segmented .radio-option:last-child {
+  border-start-end-radius: var(--radius-md);
+  border-end-end-radius: var(--radius-md);
+}
+.radio-group--segmented .radio-option.is-selected {
+  position: relative;
+}
+
+/* ------------------------------------------------------------------ Progress (design spec 7.1) */
+.progress {
+  position: relative;
+  overflow: hidden;
+  height: var(--ui-bar-height);
+  border: var(--hairline) solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+}
+.progress__fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-normal) var(--ease-standard);
+}
+.progress--indeterminate .progress__fill {
+  width: 35%;
+  animation: sweep 1.8s var(--ease-standard) infinite;
+}
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+/* ------------------------------------------------------------------ Dialogs and sheets (design spec 5.14) */
+.dialog {
+  max-width: min(32rem, calc(100vw - var(--space-8)));
+  max-height: calc(100dvh - var(--space-8));
+  margin: auto;
+  padding: var(--space-6);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-panel), var(--shadow-inset-frame);
+  overflow: auto;
+}
+.dialog::backdrop {
+  background: var(--color-scrim);
+}
+.dialog[open] {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+.dialog__title {
+  font-size: var(--text-xl);
+}
+.dialog__description {
+  color: var(--color-text-muted);
+}
+.dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
+.dialog--sheet {
+  margin: auto 0 0;
+  width: 100%;
+  max-width: none;
+  max-height: var(--sheet-max-height);
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+  padding: var(--space-4) var(--space-4) calc(var(--space-6) + var(--safe-bottom));
+}
+.dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.sheet__body {
+  display: grid;
+  gap: var(--space-4);
+  padding-top: var(--space-1);
+}
+@media (orientation: landscape) and (max-height: 500px), (min-width: 640px) {
+  .dialog--sheet {
+    margin: 0 0 0 auto;
+    width: 22rem;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+    padding-right: calc(var(--space-4) + var(--safe-right));
+  }
+}
+
+/* ------------------------------------------------------------------ Frame mark and illustration */
+.frame-mark,
+.illustration {
+  display: block;
+  width: min(100%, 120px);
+  height: auto;
+  margin-inline: auto;
+}
+.illustration {
+  width: min(100%, 320px);
+}
+.frame-mark__outer {
+  fill: var(--scene-frame);
+}
+.frame-mark__mat {
+  fill: var(--scene-mat);
+}
+.frame-mark__edge {
+  fill: none;
+  stroke: var(--color-brass);
+  stroke-width: 2;
+}
+.frame-mark__hill {
+  fill: var(--color-brass-deep);
+}
+.frame-mark__sun {
+  fill: var(--color-brass);
+}
+.frame-mark__light {
+  fill: var(--color-brass);
+}
+.frame-mark--crooked .frame-mark__frame {
+  transform: rotate(-6deg);
+  transform-origin: 60px 22px;
+}
+.frame-mark--crooked .frame-mark__hill,
+.frame-mark--crooked .frame-mark__sun {
+  display: none;
+}
+.frame-mark--sweeping .frame-mark__edge {
+  stroke-dasharray: 40 400;
+  animation: dash 3s linear infinite;
+}
+@keyframes dash {
+  to {
+    stroke-dashoffset: -440;
+  }
+}
+
+/* ------------------------------------------------------------------ Link field (design spec 5.15) */
+.link-field {
+  display: grid;
+  gap: var(--space-3);
+}
+.link-field__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* ------------------------------------------------------------------ Page furniture shared by screens */
+.page {
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+.page__main {
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-4);
+  display: grid;
+  gap: var(--space-6);
+  align-content: start;
+}
+.stack {
+  display: grid;
+  gap: var(--space-4);
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+.muted {
+  color: var(--color-text-muted);
+}
+.eyebrow {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.offline-bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-toast);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-warning-tint);
+  color: var(--color-warning-text);
+  border-bottom: var(--hairline) solid var(--color-warning-border);
+  text-align: center;
+  font-weight: var(--weight-semibold);
+}
+
+/* ------------------------------------------------------------------ Focus rings keep each control's own shape
+ * base.css sets `border-radius: inherit` on focused buttons and fields, which takes the PARENT's
+ * radius and squares off a pill button the moment it is focused. These rules restore each
+ * control's own radius (the ring itself is unchanged). Reported to the designer in the handoff.
+ */
+.btn:focus-visible,
+.arrow-pad__button:focus-visible,
+.radio-group--swatches .radio-option:focus-visible {
+  border-radius: var(--radius-pill);
+}
+.field__control:focus-visible,
+.radio-option:focus-visible,
+.picture-row:focus-visible,
+.photo-row__grip:focus-visible,
+.stepper__item:focus-visible {
+  border-radius: var(--radius-md);
+}
+.tabs__tab:focus-visible {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+.radio-group--segmented .radio-option:focus-visible {
+  border-radius: 0;
+}

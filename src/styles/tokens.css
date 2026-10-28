@@ -1,0 +1,319 @@
+/*
+ * Surprise Museum design tokens.
+ * Owner: ux-ui-designer. Source of truth: docs/design-spec.md (section 4).
+ *
+ * Rules
+ *  - Developers use these tokens, never raw values. If a token is missing, ask the designer.
+ *  - Every text/background pair below was checked against WCAG 2.2 AA (4.5:1 text, 3:1 large text
+ *    and UI components). Ratios are recorded in docs/design-spec.md, section 4.2. Do not mix
+ *    pairs that are not listed there.
+ *  - Two surface families: "paper" (builder, welcome, panels, caption card) and "night" (HUD
+ *    glass floating over the 3D scene). Text and icons use the matching --color-on-* token.
+ *  - Code identifiers use US spelling (color); visible copy uses Australian English.
+ *
+ * Breakpoints cannot be custom properties inside @media. Use these literals everywhere:
+ *   phone portrait   360px to 639px wide        (design floor: 360px; content must still reflow at 320px)
+ *   tablet           640px to 1023px wide
+ *   desktop          1024px and wider
+ *   phone landscape  (orientation: landscape) and (max-height: 500px)
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ------------------------------------------------------------------ Colour: paper (2D UI) */
+  --color-bg: #f3ebdf; /* page background, "parchment" */
+  --color-surface: #fbf6ee; /* cards, panels, caption card, dialogs ("paper") */
+  --color-surface-sunken: #efe5d6; /* wells, thumbnails, inactive tabs */
+  --color-text: #2a1f26; /* ink. 14.7:1 on surface */
+  --color-text-muted: #6b5a62; /* 6.0:1 on surface, 5.2:1 on sunken */
+  --color-border: #d9c9b4; /* decorative dividers only (not a control boundary) */
+  --color-border-strong: #7a6870; /* control boundaries, 4.8:1 on surface (needs 3:1) */
+
+  --color-accent: #8a2b45; /* claret: primary actions, links, selected state. 7.8:1 on surface */
+  --color-accent-hover: #6f2036;
+  --color-accent-active: #5a1a2d;
+  --color-accent-tint: #f4dde3; /* selected tile background (never the only selected cue) */
+  --color-on-accent: #fbf6ee; /* text on claret. 7.8:1 */
+
+  --color-brass: #c9a15b; /* decorative on paper (2.2:1, never text); text/icons on night (7.3:1) */
+  --color-brass-hover: #d8b471;
+  --color-brass-deep: #9c7637; /* decorative lines, frame art */
+
+  /* States (text on surface: danger 6.1:1, success 5.9:1, warning 6.9:1) */
+  --color-danger: #b3261e;
+  --color-danger-hover: #8f1d17;
+  --color-on-danger: #fbf6ee;
+  --color-danger-tint: #fbe4e1;
+  --color-success: #2f6b3f;
+  --color-success-tint: #e1f0e4;
+  --color-warning-text: #7a4b00;
+  --color-warning-tint: #fff1cc;
+  --color-warning-border: #b07a10;
+  --color-info-tint: #ece6f4;
+
+  /* ------------------------------------------------------------------ Colour: night (HUD glass over the scene) */
+  --color-night: #1f1620; /* deep aubergine */
+  --color-night-raised: #2d212d; /* hover/pressed on night */
+  --color-hud: rgba(31, 22, 32, 0.84); /* HUD glass. Worst case over white scene: text 8.7:1 */
+  --color-hud-solid: #1f1620; /* fallback when backdrop-filter is unsupported */
+  --color-on-night: #f6eee4; /* text and icons on night. 15.3:1 on solid, 8.7:1 worst case */
+  --color-on-night-muted: #cdbfc4; /* 9.9:1 on solid night */
+  --color-accent-on-night: #f0a6b8; /* rose, links on night. 9.1:1 */
+  --color-danger-on-night: #ff9c92; /* 8.7:1 */
+  --color-scrim: rgba(31, 22, 32, 0.6); /* behind modal dialogs and sheets */
+  --color-viewer-bg: #120c14; /* full-screen photo viewer */
+
+  /* Focus: a two-tone ring that is visible on paper and on night. See base.css :focus-visible. */
+  --color-focus: #ffd166; /* inner ring, 12:1 on night */
+  --color-focus-edge: #2a1f26; /* outer ring, 14.7:1 on paper */
+
+  /* ------------------------------------------------------------------ Name labels (FR-17, NFR-12, ADR 0011) */
+  --label-bg: #1f1620; /* solid, never translucent */
+  --label-fg: #fbf6ee; /* 16.3:1 on --label-bg */
+  --label-ring: rgba(251, 246, 238, 0.92); /* hairline so the pill reads on dark walls */
+  --label-ring-width: 1.5px;
+  --label-dot-visitor: #f0a6b8; /* decorative role marker (heart shape), not relied upon */
+  --label-dot-guide: #c9a15b; /* decorative role marker (diamond shape), not relied upon */
+  --label-font-size: 0.9375rem; /* 15px; names never smaller */
+  --label-max-width: 11rem;
+  --label-padding-y: 6px;
+  --label-padding-x: 12px;
+
+  /* ------------------------------------------------------------------ Scene palette (reference for src/scene; three.js cannot read CSS tokens directly).
+     The technical-artist mirrors these in src/scene/materials/palette.ts with a comment pointing here. */
+  --scene-wall: #e6d7c3; /* warm linen plaster */
+  --scene-wall-shade: #cdb89e; /* vertex-colour gradient towards the ceiling */
+  --scene-skirting: #f3eadc;
+  --scene-floor: #b88a5f; /* oak boards */
+  --scene-floor-grain: #8f6643;
+  --scene-ceiling: #3b2c33; /* dark, so rooms feel lit by the pictures */
+  --scene-runner: #7a2e43; /* claret carpet runner along the route */
+  --scene-runner-edge: #c9a15b;
+  --scene-frame: #4a3226; /* walnut */
+  --scene-mat: #f3ebdd; /* cream mount */
+  --scene-brass: #c9a15b;
+  --scene-brass-deep: #9c7637;
+  --scene-plaque: #f6eee2;
+  --scene-plaque-ink: #2a1f26;
+  --scene-light-warm: #ffe9c9; /* key light colour, about 3000 K */
+  --scene-light-sky: #fff2de; /* hemisphere sky */
+  --scene-light-ground: #7a5844; /* hemisphere ground */
+  --scene-pool: #ffd9a0; /* floor and wall light pools (additive, low alpha) */
+  --scene-finale-wall: #5a2236; /* deep claret */
+  --scene-finale-floor: #2e2229;
+  --scene-podium: #f1e8da;
+  --scene-spot: #ffe2b0; /* finale light cone */
+  --scene-blob-shadow: rgba(30, 20, 25, 0.35);
+  --scene-hint-glow: #ffd166;
+
+  /* ------------------------------------------------------------------ Avatar swatches (ids from supabase/functions/_shared/contract.ts AVATAR_OPTIONS).
+     Used by builder swatches and mirrored by the avatar kit. Names are in docs/design-spec.md, section 9. */
+  --avatar-skin-01: #fbe3d0;
+  --avatar-skin-02: #f4cfb0;
+  --avatar-skin-03: #ebb68f;
+  --avatar-skin-04: #dda073;
+  --avatar-skin-05: #c98858;
+  --avatar-skin-06: #b06f44;
+  --avatar-skin-07: #8f5733;
+  --avatar-skin-08: #70412a;
+  --avatar-skin-09: #52301f;
+  --avatar-skin-10: #3a2218;
+  --avatar-skin-blush: rgba(229, 143, 176, 0.32); /* cheek discs */
+
+  --avatar-hair-black: #1c1618;
+  --avatar-hair-dark-brown: #3b2820;
+  --avatar-hair-brown: #5e3e2b;
+  --avatar-hair-auburn: #8b3a22;
+  --avatar-hair-ginger: #c2652a;
+  --avatar-hair-blonde: #ddb45e;
+  --avatar-hair-platinum: #eee3c6;
+  --avatar-hair-grey: #a19da3;
+  --avatar-hair-white: #f2efea;
+  --avatar-hair-pink: #e487a9;
+  --avatar-hair-blue: #4d7bd6;
+
+  --avatar-outfit-red: #c23b3b;
+  --avatar-outfit-coral: #ee7b66;
+  --avatar-outfit-orange: #e98a2e;
+  --avatar-outfit-mustard: #d9a82b;
+  --avatar-outfit-green: #4f9a5e;
+  --avatar-outfit-teal: #2f8f8f;
+  --avatar-outfit-sky: #6db2e0;
+  --avatar-outfit-navy: #263a66;
+  --avatar-outfit-purple: #7b55a6;
+  --avatar-outfit-pink: #e58fb0;
+  --avatar-outfit-charcoal: #3a3a44;
+  --avatar-outfit-cream: #efe3cc;
+
+  /* Fixed secondary garment colours (not customisable) */
+  --avatar-denim: #3e5c8a;
+  --avatar-trousers: #2f2d36;
+  --avatar-joggers: #4a4752;
+  --avatar-shoes: #3a2a2a;
+  --avatar-sole: #f4efe8;
+  --avatar-eye: #2a1f26;
+  --avatar-badge-guide: #c9a15b; /* brass badge on the Guide's chest */
+  --avatar-badge-visitor: #fbf6ee; /* cream sticker with a rose heart on the Visitor */
+  --avatar-badge-heart: #e0607e;
+
+  /* ------------------------------------------------------------------ Typography */
+  /* Display serif: Fraunces (SIL Open Font Licence), self-hosted, Latin subset, weights 400 and 600.
+     The fallback stack is metrically close enough that nothing reflows badly if the font is late. */
+  --font-display:
+    'Fraunces Variable', 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia,
+    serif;
+  /* Body and controls: the device's own UI font. Zero download, best legibility on phones. */
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
+  --font-body: var(--font-sans); /* alias kept from the scaffold */
+
+  --text-xs: 0.8125rem; /* 13px: counters, legal */
+  --text-sm: 0.875rem; /* 14px: helper text, tertiary buttons */
+  --text-md: 1rem; /* 16px: body, inputs (16px stops iOS zooming into fields) */
+  --text-lg: 1.125rem; /* 18px: captions, lead text */
+  --text-xl: 1.375rem; /* 22px: section headings */
+  --text-2xl: 1.75rem; /* 28px: screen headings */
+  --text-3xl: 2.25rem; /* 36px: home heading */
+  --text-display: clamp(1.875rem, 1.2rem + 3.4vw, 3.25rem); /* welcome title */
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-reading: 1.6; /* captions and the closing message */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --tracking-eyebrow: 0.14em; /* small-caps eyebrow text */
+  --measure-reading: 60ch;
+
+  /* Caption text size follows the Visitor's setting (FR-65): 1, 1.25 or 1.5. */
+  --caption-scale: 1;
+  --caption-size: calc(var(--text-lg) * var(--caption-scale));
+
+  /* ------------------------------------------------------------------ Spacing (4px scale) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ------------------------------------------------------------------ Sizes */
+  --touch-target: 44px; /* minimum for every interactive element (NFR-10) */
+  --touch-target-lg: 56px; /* primary calls to action */
+  --icon-sm: 20px;
+  --icon-md: 24px;
+  --icon-lg: 32px;
+  --hairline: 1px;
+  --border-control: 2px; /* control outlines: 3:1 non-text contrast */
+  --border-selected: 3px;
+
+  --joystick-size: 128px; /* visible base */
+  --joystick-knob: 56px;
+  --joystick-hit: 176px; /* invisible enlarged touch area around the base */
+  --joystick-travel: 48px; /* knob travel radius */
+  --joystick-dead-zone: 0.12; /* fraction of travel ignored */
+  --hud-margin: var(--space-3); /* gap from screen edge, added to the safe-area inset */
+
+  --panel-max-width: 26rem; /* caption card width on tablet and desktop */
+  --panel-peek-height: 4rem; /* collapsed one-line strip */
+  --sheet-max-height: 70dvh; /* picture list and settings sheets */
+  --content-max-width: 44rem; /* builder text steps */
+  --content-wide-max-width: 72rem; /* builder grid and home */
+  --preview-bar-height: 44px; /* "Preview" strip above the HUD */
+
+  /* Safe areas (notches, home indicator). Fall back to zero. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  /* ------------------------------------------------------------------ Shape and depth */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+  --radius-2: var(--radius-md); /* alias kept from the scaffold */
+
+  --shadow-card: 0 1px 2px rgba(42, 31, 38, 0.08), 0 4px 14px rgba(42, 31, 38, 0.1);
+  --shadow-panel: 0 2px 6px rgba(42, 31, 38, 0.18), 0 12px 32px rgba(42, 31, 38, 0.28);
+  --shadow-hud: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow-label: 0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow-inset-frame: inset 0 0 0 1px rgba(201, 161, 91, 0.55); /* brass hairline, the "picture frame" motif */
+  --blur-panel: 14px;
+
+  /* ------------------------------------------------------------------ Layers */
+  --z-canvas: 0;
+  --z-labels: 5; /* name labels (drei Html zIndexRange={[5, 0]}), below every panel (ADR 0011) */
+  --z-hud: 10; /* joystick, top bar, hint chips */
+  --z-preview-bar: 14;
+  --z-panel: 20; /* caption card, finale card */
+  --z-sheet: 22; /* picture list, settings */
+  --z-fade: 24; /* teleport and replay fade-through veil */
+  --z-viewer: 26; /* full-screen photo */
+  --z-screen: 28; /* loading, welcome, error screens that cover the scene */
+  --z-modal: 30; /* dialogs: delete confirmation, context lost */
+  --z-toast: 40;
+
+  /* ------------------------------------------------------------------ Motion */
+  --duration-instant: 80ms;
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+  --duration-camera: 450ms; /* reset view, teleport settle */
+  --duration-fade-through: 400ms; /* replay and jump-to-picture veil */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasised: cubic-bezier(0.3, 0, 0, 1.2);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --press-scale: 0.96;
+}
+
+/*
+ * Reduced motion (FR-62, WCAG 2.3.3 guidance).
+ * The frontend sets <html data-motion="reduce"> when the effective setting is reduced
+ * (settingsStore: "system" with the OS asking for it, or "on"), and data-motion="full" when
+ * the Visitor has explicitly chosen full motion. Both paths are covered below, so the tokens
+ * work even before JavaScript runs. Scene code reads the same effective value from settingsStore.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) {
+    --duration-instant: 0ms;
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+    --duration-camera: 0ms;
+    --duration-fade-through: 0ms;
+    --press-scale: 1;
+  }
+}
+
+:root[data-motion='reduce'] {
+  --duration-instant: 0ms;
+  --duration-fast: 0ms;
+  --duration-normal: 0ms;
+  --duration-slow: 0ms;
+  --duration-camera: 0ms;
+  --duration-fade-through: 0ms;
+  --press-scale: 1;
+}
+
+/* Caption text size setting (FR-65), set by the frontend on <html data-caption-size="...">. */
+:root[data-caption-size='large'] {
+  --caption-scale: 1.25;
+}
+:root[data-caption-size='xlarge'] {
+  --caption-scale: 1.5;
+}
+
+/* Browsers without backdrop-filter get a solid HUD so contrast never depends on the blur. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --color-hud: var(--color-hud-solid);
+  }
+}

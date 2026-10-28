@@ -1,0 +1,31 @@
+# Dependencies and build output
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+
+# Environment files: never commit real values. .env.example is the template.
+.env
+.env.local
+.env.*.local
+.env.production
+supabase/functions/.env
+supabase/functions/.env.local
+
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log

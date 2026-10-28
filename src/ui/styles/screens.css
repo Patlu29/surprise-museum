@@ -1,0 +1,178 @@
+/* Full screens: home, messages (not found, couldn't open, WebGL), loading, legal and edit. */
+
+/* ------------------------------------------------------------------ Home */
+.home__header,
+.builder__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  padding-top: calc(var(--space-3) + var(--safe-top));
+  max-width: var(--content-wide-max-width);
+  width: 100%;
+  margin-inline: auto;
+}
+.home__brand {
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-lg);
+  color: var(--color-text);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-target);
+}
+.home__main {
+  width: 100%;
+  max-width: var(--content-wide-max-width);
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-4) var(--space-10);
+  display: grid;
+  gap: var(--space-8);
+  align-content: center;
+}
+.home__art {
+  display: grid;
+  place-items: center;
+}
+.home__art .frame-mark {
+  width: min(70%, 220px);
+}
+.home__intro {
+  gap: var(--space-5);
+  max-width: 40rem;
+}
+.home__heading {
+  font-size: var(--text-3xl);
+}
+.home__body {
+  font-size: var(--text-lg);
+  line-height: var(--leading-reading);
+}
+.home__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.home__steps li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: var(--weight-medium);
+}
+.home__step-number {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-inset-frame);
+  color: var(--color-accent);
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+}
+.home__footer {
+  width: 100%;
+  max-width: var(--content-wide-max-width);
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-4);
+  padding-bottom: calc(var(--space-6) + var(--safe-bottom));
+  display: grid;
+  gap: var(--space-2);
+  border-top: var(--hairline) solid var(--color-border);
+}
+.home__footer-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+}
+.home__footer-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-target);
+}
+@media (min-width: 1024px) {
+  .home__main {
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+  }
+  .home__art {
+    order: 2;
+  }
+}
+
+/* ------------------------------------------------------------------ Message screens */
+.message-screen {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6) var(--space-4);
+  background: var(--color-bg);
+}
+.message-screen--overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-screen);
+  overflow: auto;
+}
+.message-screen__card {
+  width: 100%;
+  max-width: 32rem;
+  display: grid;
+  gap: var(--space-5);
+  text-align: center;
+  justify-items: center;
+}
+.message-screen__card .stack {
+  justify-items: center;
+}
+.message-screen__card ul {
+  text-align: left;
+}
+.message-screen__actions {
+  justify-content: center;
+}
+.message-screen h1:focus-visible {
+  outline-offset: var(--space-1);
+}
+.loading-bar {
+  width: min(100%, 16rem);
+}
+
+/* ------------------------------------------------------------------ Legal and edit pages */
+.legal h2 {
+  margin-top: var(--space-2);
+}
+.legal .stack {
+  line-height: var(--leading-reading);
+}
+.edit-photos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
+  gap: var(--space-2);
+}
+.edit-photos__thumb {
+  display: block;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+  background-size: cover;
+  overflow: hidden;
+}
+.edit-photos__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}

@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cdb89e"/>
+      <stop offset="1" stop-color="#e6d7c3"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8f6643"/>
+      <stop offset="1" stop-color="#b88a5f"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffd9a0" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#ffd9a0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="pool" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffd9a0" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#ffd9a0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="door" cx="0.5" cy="0.9" r="0.9">
+      <stop offset="0" stop-color="#ffe2b0"/>
+      <stop offset="0.55" stop-color="#b8845a"/>
+      <stop offset="1" stop-color="#5a2236"/>
+    </radialGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9cc4e0"/>
+      <stop offset="1" stop-color="#e9f1f2"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Room -->
+  <rect x="24" y="24" width="432" height="232" rx="6" fill="url(#wall)"/>
+  <rect x="24" y="24" width="432" height="26" rx="6" fill="#3b2c33"/>
+  <rect x="24" y="44" width="432" height="6" fill="#3b2c33"/>
+  <path d="M24 256h432v66a6 6 0 0 1-6 6H30a6 6 0 0 1-6-6z" fill="url(#floor)"/>
+  <rect x="24" y="244" width="432" height="12" fill="#f3eadc"/>
+  <g stroke="#7a5238" stroke-opacity="0.35" stroke-width="1.5">
+    <path d="M110 256 70 328M170 256 140 328M240 256v72M310 256l30 72M370 256l70 72"/>
+  </g>
+
+  <!-- Doorway with a warm light beyond -->
+  <path d="M206 244V122a34 34 0 0 1 68 0v122z" fill="#f3eadc"/>
+  <path d="M214 244V124a26 26 0 0 1 52 0v120z" fill="url(#door)"/>
+  <circle cx="240" cy="50" r="10" fill="#c9a15b"/>
+  <circle cx="240" cy="50" r="6" fill="#fff0d2"/>
+
+  <!-- Runner -->
+  <path d="M222 256h36l62 72H160z" fill="#7a2e43"/>
+  <path d="M222 256l-62 72h6l58-68zM258 256l62 72h-6l-58-68z" fill="#c9a15b"/>
+
+  <!-- Left picture: hills and sun -->
+  <g>
+    <ellipse cx="114" cy="140" rx="96" ry="84" fill="url(#glow)"/>
+    <rect x="62" y="104" width="104" height="82" rx="3" fill="#4a3226"/>
+    <rect x="68" y="110" width="92" height="70" fill="#f3ebdd"/>
+    <rect x="76" y="118" width="76" height="54" fill="url(#sky)"/>
+    <circle cx="134" cy="134" r="8" fill="#f7c85c"/>
+    <path d="M76 172v-14q16-14 30-4t46-8v26z" fill="#4f9a5e"/>
+    <path d="M76 172v-8q22-8 36 0t40-6v14z" fill="#2f6b3f"/>
+    <rect x="94" y="88" width="40" height="6" rx="3" fill="#c9a15b"/>
+    <rect x="112" y="94" width="4" height="10" fill="#9c7637"/>
+  </g>
+
+  <!-- Right picture: a heart -->
+  <g>
+    <ellipse cx="366" cy="140" rx="96" ry="84" fill="url(#glow)"/>
+    <rect x="314" y="104" width="104" height="82" rx="3" fill="#4a3226"/>
+    <rect x="320" y="110" width="92" height="70" fill="#f3ebdd"/>
+    <rect x="328" y="118" width="76" height="54" fill="#f4dde3"/>
+    <path d="M366 160c-20-12-24-22-18-30 5-7 14-6 18 2 4-8 13-9 18-2 6 8 2 18-18 30z" fill="#e0607e"/>
+    <rect x="344" y="88" width="40" height="6" rx="3" fill="#c9a15b"/>
+    <rect x="362" y="94" width="4" height="10" fill="#9c7637"/>
+  </g>
+
+  <!-- Floor pools of light -->
+  <ellipse cx="122" cy="276" rx="52" ry="12" fill="url(#pool)"/>
+  <ellipse cx="366" cy="276" rx="52" ry="12" fill="url(#pool)"/>
+
+  <!-- The Guide (brass badge) and the Visitor (heart sticker), seen from the front -->
+  <g>
+    <ellipse cx="226" cy="318" rx="22" ry="5" fill="#1e1419" fill-opacity="0.3"/>
+    <rect x="212" y="292" width="8" height="24" rx="4" fill="#2f2d36"/>
+    <rect x="224" y="292" width="8" height="24" rx="4" fill="#2f2d36"/>
+    <rect x="207" y="262" width="30" height="36" rx="10" fill="#263a66"/>
+    <rect x="202" y="266" width="9" height="26" rx="4.5" fill="#263a66"/>
+    <rect x="233" y="266" width="9" height="26" rx="4.5" fill="#263a66"/>
+    <circle cx="206" cy="293" r="4.5" fill="#dda073"/>
+    <circle cx="238" cy="293" r="4.5" fill="#dda073"/>
+    <circle cx="228" cy="274" r="4" fill="#c9a15b"/>
+    <circle cx="222" cy="250" r="14" fill="#dda073"/>
+    <path d="M208 248q2-16 14-16t14 16q-6-8-14-8t-14 8z" fill="#3b2820"/>
+    <circle cx="217" cy="251" r="1.6" fill="#2a1f26"/>
+    <circle cx="227" cy="251" r="1.6" fill="#2a1f26"/>
+    <path d="M218 257q4 3 8 0" fill="none" stroke="#7d3b45" stroke-width="1.4" stroke-linecap="round"/>
+  </g>
+  <g>
+    <ellipse cx="262" cy="318" rx="22" ry="5" fill="#1e1419" fill-opacity="0.3"/>
+    <rect x="253" y="294" width="8" height="22" rx="4" fill="#ee7b66"/>
+    <rect x="265" y="294" width="8" height="22" rx="4" fill="#ee7b66"/>
+    <rect x="248" y="264" width="30" height="36" rx="10" fill="#ee7b66"/>
+    <rect x="243" y="268" width="9" height="26" rx="4.5" fill="#ee7b66"/>
+    <rect x="274" y="268" width="9" height="26" rx="4.5" fill="#ee7b66"/>
+    <circle cx="247" cy="295" r="4.5" fill="#dda073"/>
+    <circle cx="279" cy="295" r="4.5" fill="#dda073"/>
+    <circle cx="257" cy="276" r="5" fill="#fbf6ee"/>
+    <path d="M257 280c-4-2.4-5-4.4-3.6-6 1-1.4 2.8-1.2 3.6.4.8-1.6 2.6-1.8 3.6-.4 1.4 1.6.4 3.6-3.6 6z" fill="#e0607e"/>
+    <path d="M247 254q-2-22 16-22t16 22v8h-8v-6h-16v6h-8z" fill="#5e3e2b"/>
+    <circle cx="263" cy="251" r="14" fill="#dda073"/>
+    <path d="M250 246q2-14 13-14t13 14q-6-6-13-6t-13 6z" fill="#5e3e2b"/>
+    <circle cx="258" cy="252" r="1.6" fill="#2a1f26"/>
+    <circle cx="268" cy="252" r="1.6" fill="#2a1f26"/>
+    <circle cx="255" cy="257" r="2.6" fill="#e58fb0" fill-opacity="0.5"/>
+    <circle cx="271" cy="257" r="2.6" fill="#e58fb0" fill-opacity="0.5"/>
+    <path d="M259 258q4 3 8 0" fill="none" stroke="#7d3b45" stroke-width="1.4" stroke-linecap="round"/>
+  </g>
+</svg>
