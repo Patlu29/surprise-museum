@@ -6,6 +6,7 @@ import { FIELD_IDS } from '@/state/draft';
 import { addFiles } from '@/state/uploadQueue';
 import { Alert } from '@/ui/components/Alert';
 import { Button } from '@/ui/components/Button';
+import { DemoNotice } from '@/ui/components/DemoNotice';
 import { PhotoRow } from './PhotoRow';
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif';
@@ -43,6 +44,8 @@ export function PhotosStep() {
         You can add 1 to {LIMITS.maxPhotos} photos. JPEG, PNG, WebP or HEIC, up to{' '}
         {Math.round(LIMITS.maxSourceFileBytes / (1024 * 1024))} MB each.
       </p>
+
+      <DemoNotice context="builder" />
 
       {rejections.length > 0 ? (
         <Alert

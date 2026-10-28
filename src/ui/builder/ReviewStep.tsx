@@ -1,4 +1,3 @@
-import { getApiMode } from '@/api';
 import { describeAvatar } from '@/lib/avatars';
 import { useBuilderStore } from '@/state/builderStore';
 import type { BuilderStep, DraftIssue } from '@/state/draft';
@@ -135,7 +134,7 @@ export function ReviewStep({ issues, onEditStep, onPreview, onPublish }: ReviewS
         ) : null}
       </div>
 
-      {getApiMode() === 'mock' ? <DemoNotice /> : null}
+      <DemoNotice context="builder" />
 
       {publish.phase === 'failed' && publish.error ? (
         <Alert tone="danger" title="Publishing didn't work">

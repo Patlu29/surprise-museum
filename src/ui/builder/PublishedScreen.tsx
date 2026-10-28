@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
-import { getApiMode } from '@/api';
 import { editUrl, shareUrl } from '@/lib/links';
 import { useBuilderStore } from '@/state/builderStore';
 import { effectiveTitle } from '@/state/draft';
@@ -55,7 +54,7 @@ export function PublishedScreen() {
         </p>
       </div>
 
-      {getApiMode() === 'mock' ? <DemoNotice /> : null}
+      <DemoNotice context="published" />
 
       <section className="stack" aria-labelledby="share-heading">
         <h2 id="share-heading">Share link</h2>

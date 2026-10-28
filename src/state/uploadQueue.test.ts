@@ -7,7 +7,10 @@ import {
   addFiles,
   configureUploads,
   discardDraft,
+  MSG_DEMO_FULL,
   MSG_HEIC,
+  MSG_TOO_LARGE,
+  reuploadAfterDemoReset,
   MSG_PHOTO_LIMIT,
   removePhoto,
   replacePhoto,
@@ -119,6 +122,7 @@ describe('uploadQueue', () => {
     configureUploads({
       process: async () => processed(),
       backendConfigured: () => true,
+      demoMode: () => true,
       createObjectUrl: () => `blob:${(urlCounter += 1)}`,
       revokeObjectUrl: (url) => revoked.push(url),
     });
@@ -273,6 +277,50 @@ describe('uploadQueue', () => {
     await vi.waitFor(() => expect(photos()[0]?.status).toBe('ready'));
     expect(photos()[0]?.photoId).toBeNull();
     expect(api.calls).toEqual([]);
+  });
+
+  it('explains a full demo store (413) and points to Clear demo data', async () => {
+    api.uploadPhotoFile = async () => {
+      throw new ApiRequestError('server_error', 'full', { status: 413 });
+    };
+    await addFiles([file('a.jpg')]);
+    await vi.waitFor(() => expect(photos()[0]?.status).toBe('failed'));
+    expect(photos()[0]).toMatchObject({ error: MSG_DEMO_FULL, errorKind: 'quota' });
+    expect(MSG_DEMO_FULL).toContain('Clear demo data');
+  });
+
+  it('says a photo is too large when a live backend answers 413', async () => {
+    configureUploads({
+      process: async () => processed(),
+      backendConfigured: () => true,
+      demoMode: () => false,
+      createObjectUrl: () => 'blob:x',
+      revokeObjectUrl: () => undefined,
+    });
+    api.uploadPhotoFile = async () => {
+      throw new ApiRequestError('server_error', 'too big', { status: 413 });
+    };
+    await addFiles([file('a.jpg')]);
+    await vi.waitFor(() => expect(photos()[0]?.status).toBe('failed'));
+    expect(photos()[0]).toMatchObject({ error: MSG_TOO_LARGE, errorKind: 'rejected' });
+  });
+
+  it('uploads everything again into a new draft after the demo data is cleared', async () => {
+    await addFiles([file('a.jpg'), file('b.jpg')]);
+    await vi.waitFor(() => expect(photos().length === 2 && settled()).toBe(true));
+    const firstIds = photos().map((p) => p.photoId);
+    const firstToken = useBuilderStore.getState().editToken;
+    expect(firstToken).toBe(EDIT_TOKEN);
+
+    reuploadAfterDemoReset();
+    expect(useBuilderStore.getState().editToken).toBeNull();
+    await vi.waitFor(() =>
+      expect(photos().every((p) => p.status === 'ready' && p.photoId)).toBe(true),
+    );
+    expect(photos().map((p) => p.photoId)).not.toEqual(firstIds);
+    expect(api.calls.filter((call) => call === 'create')).toHaveLength(2);
+    expect(useBuilderStore.getState().editToken).toBe(EDIT_TOKEN);
+    expect(photos().map((p) => p.fileName)).toEqual(['a.jpg', 'b.jpg']);
   });
 
   it('discarding the draft clears photos and the edit token', async () => {

@@ -83,6 +83,72 @@ describe('stripJpegMetadata', () => {
   });
 });
 
+describe('identifiers: kept and dropped exactly like the server', () => {
+  const file = (...segments: number[][]) =>
+    Uint8Array.from([
+      0xff,
+      0xd8,
+      ...segments.flat(),
+      ...segment(0xdb, [0, 1]),
+      ...segment(0xda, [1, 1, 0]),
+      ...SCAN_DATA,
+    ]);
+  const markers = (...segments: number[][]) =>
+    listJpegMarkers(stripJpegMetadata(file(...segments)));
+  const jfif14 = (thumbW: number, thumbH: number) => [
+    ...text('JFIF\0'),
+    1,
+    1,
+    0,
+    0,
+    1,
+    0,
+    1,
+    thumbW,
+    thumbH,
+  ];
+
+  it('keeps a full 14-byte JFIF header with no thumbnail, and a short one', () => {
+    expect(markers(segment(0xe0, jfif14(0, 0)))).toContain(0xe0);
+    expect(markers(segment(0xe0, text('JFIF\0')))).toContain(0xe0);
+  });
+
+  it('drops an APP0 that is not JFIF (for example JFXX or AVI1)', () => {
+    expect(markers(segment(0xe0, text('JFXX\0\x10')))).not.toContain(0xe0);
+    expect(markers(segment(0xe0, text('AVI1\0')))).not.toContain(0xe0);
+    expect(markers(segment(0xe0, text('JFIF')))).not.toContain(0xe0); // missing the terminator
+  });
+
+  it('drops a JFIF header with a thumbnail, or one longer than 14 bytes', () => {
+    expect(markers(segment(0xe0, jfif14(2, 2)))).not.toContain(0xe0);
+    expect(markers(segment(0xe0, [...jfif14(0, 0), 1, 2, 3]))).not.toContain(0xe0);
+  });
+
+  it('keeps APP2 only for ICC_PROFILE, and drops MPF and other APP2 data', () => {
+    expect(markers(segment(0xe2, [...text('ICC_PROFILE\0'), 1, 1, 9, 9]))).toContain(0xe2);
+    expect(markers(segment(0xe2, text('ICC_PROFILE\0')))).toContain(0xe2);
+    expect(markers(segment(0xe2, [...text('MPF\0'), 1, 2, 3]))).not.toContain(0xe2);
+    expect(markers(segment(0xe2, text('FPXR\0')))).not.toContain(0xe2);
+    expect(markers(segment(0xe2, text('ICC_PROFILE')))).not.toContain(0xe2); // missing the terminator
+  });
+
+  it('keeps APP14 only for a short Adobe block, and drops any other', () => {
+    expect(markers(segment(0xee, [...text('Adobe'), 0, 100, 0, 0, 0, 0, 1]))).toContain(0xee);
+    expect(markers(segment(0xee, text('Adobe')))).toContain(0xee);
+    expect(markers(segment(0xee, [...text('Adobe'), 0, 100, 0, 0, 0, 0, 1, 7]))).not.toContain(
+      0xee,
+    ); // 13 bytes
+    expect(markers(segment(0xee, text('Photoshop 3.0\0')))).not.toContain(0xee);
+    expect(markers(segment(0xee, text('Adob')))).not.toContain(0xee);
+  });
+
+  it('still produces a file that has its picture data and no stray bytes', () => {
+    const out = stripJpegMetadata(file(segment(0xe0, text('JFXX\0')), segment(0xe0, jfif14(0, 0))));
+    expect(listJpegMarkers(out)).toEqual([0xe0, 0xdb, 0xda]);
+    expect([...out.subarray(out.length - SCAN_DATA.length)]).toEqual(SCAN_DATA);
+  });
+});
+
 describe('listJpegMarkers', () => {
   it('lists header segments in order and stops at the scan', () => {
     expect(listJpegMarkers(safariLike())).toEqual([0xe0, 0xe1, 0xed, 0xfe, 0xe2, 0xdb, 0xc0, 0xda]);

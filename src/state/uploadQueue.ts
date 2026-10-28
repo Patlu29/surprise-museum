@@ -1,5 +1,6 @@
 import type { PhotoUploadTicket } from '@contract';
 import { LIMITS } from '@contract';
+import { getApiMode } from '@/api';
 import { describeApiError, getApi, isApiError } from '@/lib/apiPort';
 import { newLocalId } from '@/lib/id';
 import type { FileCheck, ProcessedPhoto } from '@/media';
@@ -29,11 +30,17 @@ const PROGRESS_STEP = 0.02;
 export const MSG_PHOTO_LIMIT = 'You can add up to 20 photos. Remove one to add another.';
 export const MSG_HEIC = "We couldn't open this HEIC photo. Try exporting it as a JPEG.";
 export const MSG_UPLOAD_FAILED = 'Upload failed: check your connection.';
+/** The mock backend's 413 (demo storage full): says where the fix is (the Demo copy notice). */
+export const MSG_DEMO_FULL =
+  'The demo storage on this device is full. Choose Clear demo data in the demo notice, then your photos will upload again.';
+export const MSG_TOO_LARGE = 'This photo is too large to upload. Try a smaller one.';
 
 export interface UploadDeps {
   process: (file: File) => Promise<ProcessedPhoto>;
   validate: (file: File) => Promise<FileCheck>;
   backendConfigured: () => boolean;
+  /** True when the backend is the in-memory demo mock, whose 413 means "demo storage full". */
+  demoMode: () => boolean;
   createObjectUrl: (blob: Blob) => string;
   revokeObjectUrl: (url: string) => void;
 }
@@ -42,6 +49,7 @@ const defaultDeps: UploadDeps = {
   process: processPhoto,
   validate: validateSourceFile,
   backendConfigured: () => true,
+  demoMode: () => getApiMode() === 'mock',
   createObjectUrl: (blob) => URL.createObjectURL(blob),
   revokeObjectUrl: (url) => URL.revokeObjectURL(url),
 };
@@ -65,6 +73,8 @@ const uploadQueue: string[] = [];
 let processing = false;
 let uploading = 0;
 let museumPromise: Promise<string> | null = null;
+/** Bumped when the demo backend is wiped, so a draft created before the wipe is never adopted. */
+let generation = 0;
 
 function store() {
   return useBuilderStore.getState();
@@ -107,6 +117,12 @@ function mediaFailure(error: unknown): { message: string; kind: PhotoErrorKind }
 
 function uploadFailure(error: unknown): { message: string; kind: PhotoErrorKind } {
   if (isApiError(error)) {
+    if (error.status === 413) {
+      // Demo storage full (mock), or a file over the Storage limit (live).
+      return deps.demoMode()
+        ? { message: MSG_DEMO_FULL, kind: 'quota' }
+        : { message: MSG_TOO_LARGE, kind: 'rejected' };
+    }
     switch (error.code) {
       case 'network':
       case 'timeout':
@@ -135,10 +151,11 @@ function ensureMuseum(): Promise<string> {
   const existing = store().editToken;
   if (existing) return Promise.resolve(existing);
   if (!museumPromise) {
+    const started = generation;
     museumPromise = getApi()
       .createMuseum()
       .then((response) => {
-        store().setEditToken(response.editToken);
+        if (started === generation) store().setEditToken(response.editToken);
         return response.editToken;
       })
       .finally(() => {
@@ -387,6 +404,34 @@ export function retryNetworkFailures(): void {
   for (const photo of store().photos) {
     if (photo.status === 'failed' && photo.errorKind === 'network') retryPhoto(photo.localId);
   }
+}
+
+/**
+ * Called after "Clear demo data" wiped the mock backend, which also removed this draft's museum
+ * and its uploads on the (pretend) server. Everything the Creator did is still here: this forgets
+ * the old server ids and the edit token, and uploads every processed photo again into a new draft.
+ * Photos that had not finished processing carry on as they were.
+ */
+export function reuploadAfterDemoReset(): void {
+  for (const entry of entries.values()) entry.controller?.abort();
+  uploadQueue.length = 0;
+  museumPromise = null;
+  generation += 1;
+  store().setEditToken(null);
+  store().setPublish({ phase: 'idle', error: null, shareToken: null, expiresAt: null });
+  for (const photo of store().photos) {
+    const entry = entries.get(photo.localId);
+    if (!entry?.processed) continue;
+    store().patchPhoto(photo.localId, {
+      photoId: null,
+      status: 'uploading',
+      progress: 0,
+      error: null,
+      errorKind: null,
+    });
+    uploadQueue.push(photo.localId);
+  }
+  pump();
 }
 
 /** Ends every job, frees every blob and clears the draft. */

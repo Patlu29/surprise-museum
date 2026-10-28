@@ -2,8 +2,6 @@ import type { AvatarConfig } from '@contract';
 import { AVATAR_OPTIONS } from '@contract';
 import {
   BODY_TYPE_LABELS,
-  DEFAULT_GUIDE_APPEARANCE,
-  DEFAULT_VISITOR_APPEARANCE,
   FACIAL_HAIR_LABELS,
   HAIR_COLOR_LABELS,
   HAIR_STYLE_LABELS,
@@ -19,17 +17,17 @@ import {
  * scene's avatar kit; this file only re-exports them under the builder's names and adds the few
  * helpers that are about the builder's controls.
  */
-export { describeAvatar } from '@/domain/characters/avatarOptions';
+export {
+  describeAvatar,
+  DEFAULT_GUIDE_APPEARANCE as DEFAULT_GUIDE_AVATAR,
+  DEFAULT_VISITOR_APPEARANCE as DEFAULT_VISITOR_AVATAR,
+} from '@/domain/characters/avatarOptions';
 
 /** The role a character plays. The Guide resembles the Creator; the Visitor resembles the recipient. */
 export type AvatarRole = 'guide' | 'visitor';
 
 /** The options the builder lets the Creator change (accessories are Release 2). */
 export type AvatarOptionKey = Exclude<keyof AvatarConfig, 'v' | 'glasses' | 'hat'>;
-
-/** Defaults for a new draft (design spec 9.3). */
-export const DEFAULT_GUIDE_AVATAR: AvatarConfig = DEFAULT_GUIDE_APPEARANCE;
-export const DEFAULT_VISITOR_AVATAR: AvatarConfig = DEFAULT_VISITOR_APPEARANCE;
 
 /** Display text and accessible names (design spec 9.2), keyed by option. */
 export const AVATAR_LABELS = {
