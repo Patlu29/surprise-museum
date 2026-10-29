@@ -9,7 +9,9 @@
  *
  * Designed by the architect (docs/architecture.md, section 7). Owner from here on:
  * backend-developer. Changes need a matching update to docs/api.md (and docs/architecture.md where
- * it differs), and the version below must be bumped when a stored shape changes.
+ * it differs). Bump the version below (and the avatar `v`) only for a change that an existing
+ * reader would misread: a renamed or removed id, a changed meaning, or a new required field. An
+ * optional field whose absence means exactly the old behaviour is not a bump (ADR 0020).
  */
 
 export const CONTRACT_VERSION = 1;
@@ -146,9 +148,46 @@ export const AVATAR_OPTIONS = {
 
 type OptionOf<K extends keyof typeof AVATAR_OPTIONS> = (typeof AVATAR_OPTIONS)[K][number];
 
+// ---------------------------------------------------------------------------
+// Gender styling (FR-72 to FR-75, ADR 0020)
+//
+// Sets each character's base body shape, proportions and face, and nothing else. It is a visual
+// styling choice for a cartoon character, not a record about a person (A-20).
+//
+// It is NOT in AVATAR_OPTIONS on purpose: every AVATAR_OPTIONS key must be present in a v1 avatar,
+// while `gender` is optional. Avatars saved before requirements v0.3 have no `gender`, and a
+// missing value means 'neutral', which is exactly the shape used before v0.3 (FR-75).
+//
+// Ids describe the shape; display labels are Woman, Man and Neutral (design spec section 9.2).
+// The array order is the display order.
+// ---------------------------------------------------------------------------
+
+export const AVATAR_GENDERS = ['feminine', 'masculine', 'neutral'] as const;
+export type AvatarGender = (typeof AVATAR_GENDERS)[number];
+/** What a missing `gender` means. Also the value for both characters on a new draft (FR-72). */
+export const DEFAULT_AVATAR_GENDER: AvatarGender = 'neutral';
+
+export function isAvatarGender(value: unknown): value is AvatarGender {
+  return typeof value === 'string' && (AVATAR_GENDERS as readonly string[]).includes(value);
+}
+
+/**
+ * The gender to render. Missing (pre-v0.3 data) and unrecognised values both give 'neutral', so a
+ * stored document is never rendered with an unknown value. Validators must reject unknown values
+ * with `isAvatarGender` instead of calling this.
+ */
+export function avatarGender(config: { readonly gender?: unknown }): AvatarGender {
+  return isAvatarGender(config.gender) ? config.gender : DEFAULT_AVATAR_GENDER;
+}
+
 /** Stored as JSON in museums.visitor_avatar and museums.guide_avatar. */
 export interface AvatarConfig {
   v: 1;
+  /**
+   * Optional (ADR 0020). Absent means 'neutral'. Writers (builder, publish validator) always set
+   * it; readers must go through `avatarGender(config)` and never compare `config.gender` directly.
+   */
+  gender?: AvatarGender;
   skinTone: OptionOf<'skinTone'>;
   hairStyle: OptionOf<'hairStyle'>;
   hairColor: OptionOf<'hairColor'>;
@@ -156,7 +195,7 @@ export interface AvatarConfig {
   outfitColor: OptionOf<'outfitColor'>;
   bodyType: OptionOf<'bodyType'>;
   height: OptionOf<'height'>;
-  /** The builder offers this for the Guide only (FR-14). Always 'none' for the Visitor in v1. */
+  /** Offered for both characters from requirements v0.3 (FR-13, FR-14, ADR 0020). */
   facialHair: OptionOf<'facialHair'>;
   /** Release 2 (FR-20). Accepted now so that adding the UI needs no migration. */
   glasses: OptionOf<'glasses'>;

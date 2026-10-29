@@ -1,8 +1,8 @@
 # Architecture: Surprise Museum
 
-Version 1.2 | 29/10/2026 | Owner: architect | Based on requirements v0.2 and user stories v0.2
+Version 1.3 | 29/10/2026 | Owner: architect | Based on requirements v0.3 and user stories v0.3
 
-Version 1.1 synced this document with what was built in the build phase and integration round 1. Version 1.2 adds the QA phase 6 changes (ADRs 0018 and 0019). Changes are listed in section 17.
+Version 1.1 synced this document with what was built in the build phase and integration round 1. Version 1.2 adds the QA phase 6 changes (ADRs 0018 and 0019). Version 1.3 adds change request CR-1, the per-character gender option and facial hair for both characters (ADR 0020). Changes are listed in section 17.
 
 ## 1. Summary
 
@@ -18,6 +18,7 @@ Version 1.1 synced this document with what was built in the build phase and inte
 | Live-readiness (NFR-25) | `CharacterStateSource` abstraction and a pure `src/domain` layer | 0006 |
 | Guide navigation | Waypoint graph with A* and 2D circle-versus-box collision. No physics engine, no navmesh | 0007 |
 | Avatars | Procedural stylised figure built in code: one skinned body mesh and one skinned hair mesh with rigid weights. The domain produces animation timing; the kit's `applyPose` turns it into joints | 0008 (amended) |
+| Avatar gender (CR-1) | Optional `gender` on each `AvatarConfig` (`feminine`, `masculine`, `neutral`); missing means Neutral, read through `avatarGender()`; no version bump. Gender reshapes the same meshes, adding no triangles. Facial hair for both characters | 0020 |
 | Museum layout | Deterministic linear chain: entrance hall (7.5 m), 1 to 5 gallery rooms (4 photos each), finale room. 65.5 m at most | 0009 (amended) |
 | Camera | Composition from screen-space targets (design spec 3.4); partition walls fade to 0.25 opacity instead of shortening the boom | 0014 |
 | Graphics tier | Automatic: `low` on phones and weak GPUs, `high` otherwise; the Visitor's setting wins | 0016 |
@@ -352,14 +353,15 @@ Defined in `src/domain/characters/characterState.ts` (architect; unchanged in th
 | Topic | Approach |
 |---|---|
 | Construction | A hierarchy of groups (hips, spine, neck, head, upper and lower arms and legs, hands, feet) made of shared primitive geometries (capsules, spheres, rounded boxes, lathes). Stylised, friendly proportions |
-| Options | `AvatarConfig` in the contract: skin tone (10), hair style (12), hair colour (11), outfit style (6) with colour (12), body type (4), height (3), facial hair (5, Guide only), glasses and hat (Release 2). Body type scales torso and hip widths; height scales the rig uniformly (0.91, 1.00, 1.09) |
+| Options | `AvatarConfig` in the contract: gender (3, optional, ADR 0020), skin tone (10), hair style (12), hair colour (11), outfit style (6) with colour (12), body type (4), height (3), facial hair (5, both characters from v0.3), glasses and hat (Release 2). Gender sets the base shape and face first (design spec 9.1); body type multiplies on top and scales torso and hip widths; height scales the rig uniformly (0.91, 1.00, 1.09) |
+| Gender (ADR 0020) | Read only through `avatarGender(config)` from `@contract`: missing or unknown is `neutral`. Neutral is today's shape, bit for bit. Gender changes ring radii, joint positions, the head ellipsoid's jaw and cheek displacement, and the brow, eye and mouth parameters of existing parts. **Same topology for all three genders**: no new mesh, part or segment, so triangle and draw-call counts do not depend on gender. A gender change rebuilds the body and hair meshes and the bind pose of the active character only. The builder's 250 ms morph (design spec 9.5) is preview-only; the visit builds the final shape once |
 | Parts kit | `src/scene/characters/kit/`: one function per hair style, facial-hair style and outfit that returns primitive parts per bone, and a palette that maps option ids to colours. Owner: technical-artist |
 | Construction (as built) | The kit builds one skinned body mesh and one skinned hair mesh with **rigid weights** on 13 bones (hips, spine, neck, head, hairBack, both arms and forearms, both legs and shins), plus a blob shadow. Hair is designed back-first; `hairBack` lets long hair swing (ADR 0008 amendment) |
 | Animation | **Driven by the kit.** `src/domain/characters/animation.ts` (scene-developer, pure) turns `locomotion`, `speed` and `gesture` into timing only: walk phase, walk blend, idle clock and present level. The kit's `applyPose` (technical-artist) turns that into joint rotations. The scene never drives bones itself. The presenting arm is the character's anatomical right arm (-X in rig space) |
 | Reduced motion | The walk cycle stays (it shows the movement the user asked for, FR-18); idle sway, breathing and the present gesture are off |
 | Rig interface | `AvatarRig` (`src/scene/characters/avatarRig.ts`): `root`, `height`, `labelHeight`, `scale`, `applyPose`, `setOpacity`, `dispose`. Built through `src/scene/seams.ts`; used by `CharacterView` and the builder preview |
 | Option labels | `src/domain/characters/avatarOptions.ts`: labels, defaults and `describeAvatar`, re-exported by the kit and `src/lib/avatars.ts` (one source of truth) |
-| Budget per character | 6,000 triangles or fewer; 10 draw calls or fewer. As built: 4,274 to 5,750 triangles and at most 3 draw calls |
+| Budget per character | 6,000 triangles or fewer; 10 draw calls or fewer. As built: 4,274 to **5,878** triangles (worst: `slim`, `curly-short`, `suit`, `full-beard`, `skin-10`; deep skin tones add eye whites, which the old 5,750 figure missed) and at most 3 draw calls. Headroom is 122 triangles, so gender must not add any |
 | Update speed | Option changes rebuild only the affected part, well within 1 s (FR-15) |
 | Swappable | `AvatarRig` is the stable interface. A modular glTF kit with a shared skeleton can replace the internals later without touching sources, labels or UI |
 
@@ -421,7 +423,7 @@ The tier is published as `<html data-graphics-quality>`. Rendering is capped at 
 | `opening_greeting` | text, up to 500 | Release 2 |
 | `closing_message` | text, up to 1,000 | |
 | `theme` | text | `default` |
-| `visitor_avatar`, `guide_avatar` | jsonb | `AvatarConfig`, validated in the Edge Function |
+| `visitor_avatar`, `guide_avatar` | jsonb | `AvatarConfig`, validated in the Edge Function. Rows published before v0.3 have no `gender`; responses fill `neutral` and the row is not rewritten (ADR 0020) |
 | `content_version` | smallint | Contract version |
 | `photo_reservations` | smallint, 0 to 100 | Abuse cap |
 | `created_at`, `updated_at`, `published_at` | timestamptz | |
@@ -477,7 +479,7 @@ All calls: `POST {VITE_SUPABASE_URL}/functions/v1/<name>` with headers `Content-
 | `renew-upload` | `photoId` | New upload URLs for a `pending` photo (retry, FR-4) | 200 `PhotoUploadTicket` |
 | `confirm-photo` | `photoId, width, height, lqip` | Checks the `lqip` (JPEG data URL, at most 32 px), then downloads both objects and verifies them (section 10.3). Repeating on a `ready` photo is safe | 200 `{ photoId, status: "ready" }` |
 | `remove-photo` | `photoId` | Deletes the objects and the row. A photo in the published museum cannot be removed this way (409 `conflict`) | 200 `{ photoId, removed: true }` (also when already gone) |
-| `publish` | `document: MuseumDocument` | Validates all fields and avatars (`visitorAvatar.facialHair` must be `none`); requires 1 to 20 `ready` photos of this museum; sets positions and captions in one transaction; deletes photos not in the document; sets `published`, `published_at` (first time only) and `expires_at` | 200 `{ shareToken, publishedAt, expiresAt }` |
+| `publish` | `document: MuseumDocument` | Validates all fields and avatars (`gender` optional, absent stored as `neutral`, unknown rejected; facial hair allowed for both characters, ADR 0020); requires 1 to 20 `ready` photos of this museum; sets positions and captions in one transaction; deletes photos not in the document; sets `published`, `published_at` (first time only) and `expires_at` | 200 `{ shareToken, publishedAt, expiresAt }` |
 | `delete` | — | `delete_museum_rows()`, then removes the storage prefix; on storage failure the queue retries hourly | 200 `{ deleted: true }` |
 
 Errors use `ApiError { error, message, field? }`; `field` is a JSON path and appears on `bad_request`, `conflict` and `invalid_image`.
@@ -606,7 +608,7 @@ Builder and preview photos are `blob:` URLs, which `img-src` allows; this was ch
 | Photos, 20-picture museum | About 3.5 MB of wall renditions | |
 | Draw calls | 120 or fewer | 18 to 21 for the museum shell and dressing, plus 3 or fewer per character (headless Chromium) |
 | Triangles | 150,000 or fewer | About 40,000 for a 20-picture museum; 12,000 measured for 9 pictures with both characters |
-| Triangles per character | 6,000 or fewer | 4,274 to 5,750 |
+| Triangles per character | 6,000 or fewer, identical across the three genders | 4,274 to 5,878 (29/10/2026, all body types, hair styles, outfits, facial hair and both skin-tone extremes) |
 | GPU texture memory | 100 MB or less | |
 | Frame time | 16.7 ms on the reference laptop, 33 ms on the reference phone (NFR-1) | Not yet measured on real devices |
 
@@ -678,6 +680,8 @@ Deployment (devops-engineer): one workflow builds on push to `main` (`npm ci`, `
 | Procedural avatars may not look enough like the person | Emotional payoff weaker | Strong palette and hair kit; `Avatar` interface lets a glTF kit replace it |
 | Edit link sits in browser history | Someone on a shared device could delete the museum | Warn on the publish screen; Release 2 could add a passcode |
 | A deploy build without `VITE_API_MODE=live` and without Supabase variables builds successfully | The published site fails every call with `unconfigured` | `check:live` and `VITE_API_MODE=live` in the deploy workflow (devops-engineer, ADR 0015) |
+| Avatar triangle headroom is 122 (5,878 of 6,000) and the three.js chunk, which holds the avatar kit, is at 969 of 1000 kB | Gender variants (CR-1) or a new face part push a character or the chunk over budget | ADR 0020: gender reuses the same topology, adds at most 8 kB to the chunk and no new three.js classes; the budget test covers every gender, body type and skin-tone extreme |
+| A new app bundle reaches GitHub Pages before the new Edge Functions (CR-1) | Live publish fails: the old validator rejects `gender` and a Visitor beard | Run the manual functions deploy before merging the frontend change (ADR 0020, devops-engineer) |
 | Visit welcome JS is at 111 of 120 kB gzipped | A few more UI features will break NFR-2's budget | Performance-optimiser to review the shared `index` chunk (82 kB) before Release 2 |
 | The automatic graphics tier relies on screen size and renderer-name heuristics | A capable device gets the plain look, or a weak one the full look | Real-device checks of thresholds; Visitor override (ADR 0016) |
 | R3F 9.8.2 constructs the deprecated `THREE.Clock` | One deprecation warning in the production console | Accepted (ADR 0018); e2e allowlists only that message; upgrade when a stable R3F uses `THREE.Timer` |
@@ -706,6 +710,7 @@ Deployment (devops-engineer): one workflow builds on push to `main` (`npm ci`, `
 | [0017](decisions/0017-builder-preview-scene-entry-point.md) | The builder's avatar preview is the second lazy scene entry point |
 | [0018](decisions/0018-accept-three-clock-deprecation-warning.md) | Accept the `THREE.Clock` deprecation warning from react-three-fiber |
 | [0019](decisions/0019-separate-e2e-typescript-project.md) | End-to-end tests are a separate TypeScript project, outside the production build |
+| [0020](decisions/0020-avatar-gender-field.md) | Avatar gender is an optional field with a read-time default, and facial hair is open to both characters |
 
 ADRs 0008 and 0009 carry dated amendments (28/10/2026).
 
@@ -716,3 +721,4 @@ ADRs 0008 and 0009 carry dated amendments (28/10/2026).
 | 1.0 | 27/10/2026 | First approved architecture |
 | 1.1 | 28/10/2026 | Synced with the build phase and integration round 1, all deviations accepted by the tech lead. Entrance hall 7.5 m, spawn (0, -4.9), 65.5 m for 20 photos, same-side test from the wall surface (6.2, 6.4, ADR 0009). Camera composition from design spec 3.4 and fading partitions, collision unchanged (6.3, 6.9, ADR 0014). Skinned rigid rig and kit-driven animation (6.7, ADR 0008). Graphics tiers (6.11, ADR 0016). Photo load queue in the domain (6.10). Section 7.3 summarised from `docs/api.md`. Stores (8). Client-side stripping of Safari's APP1 and APP13 and the server's allow-list (10.3). `VITE_API_MODE`, `check:live`, the live build guard and the persistent mock (13, ADR 0015). Two scene entry points enforced by lint (4, ADR 0017). `interactive-widget=resizes-content` (13). Per-chunk size budgets (12) |
 | 1.2 | 29/10/2026 | QA phase 6. BUG-5 `THREE.Clock` warning accepted, no stable R3F or drei release removes it (2, 15, ADR 0018). `@axe-core/playwright` 4.14.0 added as a devDependency (2, 11). `tsconfig.e2e.json`; `build` no longer type-checks e2e tests, `typecheck` still does (11, 13, ADR 0019) |
+| 1.3 | 29/10/2026 | Change request CR-1 (requirements v0.3). Optional `gender` on `AvatarConfig` (`feminine`, `masculine`, `neutral`), `AVATAR_GENDERS`, `DEFAULT_AVATAR_GENDER`, `isAvatarGender` and `avatarGender` added to the contract; no `v`, contract or draft version bump; facial hair for both characters (1, 6.7, 7.1, 7.3, ADR 0020). Character triangle worst case re-measured at 5,878 (6.7, 12). Two new risks (15) |

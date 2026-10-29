@@ -268,6 +268,7 @@
   --duration-slow: 500ms;
   --duration-camera: 450ms; /* reset view, teleport settle */
   --duration-fade-through: 400ms; /* replay and jump-to-picture veil */
+  --duration-gender-morph: 250ms; /* customiser preview shape change (design spec 9.5); scene mirrors this */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-emphasised: cubic-bezier(0.3, 0, 0, 1.2);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
@@ -289,6 +290,7 @@
     --duration-slow: 0ms;
     --duration-camera: 0ms;
     --duration-fade-through: 0ms;
+    --duration-gender-morph: 0ms;
     --press-scale: 1;
   }
 }
@@ -300,6 +302,7 @@
   --duration-slow: 0ms;
   --duration-camera: 0ms;
   --duration-fade-through: 0ms;
+  --duration-gender-morph: 0ms;
   --press-scale: 1;
 }
 

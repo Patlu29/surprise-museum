@@ -1,6 +1,8 @@
 # API contract: Surprise Museum
 
-Version 1.0 (contract version 1) | 28/10/2026 | Owner: backend-developer
+Version 1.1 (contract version 1) | 29/10/2026 | Owner: backend-developer
+
+> **v1.1 (CR-1, ADR 0020), written by the architect:** avatars gain an optional `gender`, and facial hair is allowed for the Visitor. The types are in `contract.ts`. **The Edge Functions and the mock do not implement the v1.1 rules yet** (backend-developer, `docs/handoffs/architect.md`): until then `publish` still rejects `gender` as an unknown key and still requires `visitorAvatar.facialHair` to be `"none"`.
 Types: `supabase/functions/_shared/contract.ts` (imported in the browser as `@contract`). Design: `docs/architecture.md` sections 7 and 10, ADRs 0003, 0004, 0010 and 0012.
 
 ## 1. Overview
@@ -180,8 +182,8 @@ The Visitor's read-only view.
     "openingGreeting": "",
     "closingMessage": "Happy birthday!\nLove always.",
     "theme": "default",
-    "visitorAvatar": { "v": 1, "skinTone": "skin-03", "hairStyle": "bob", "hairColor": "brown", "outfitStyle": "hoodie", "outfitColor": "teal", "bodyType": "regular", "height": "medium", "facialHair": "none", "glasses": "none", "hat": "none" },
-    "guideAvatar": { "v": 1, "skinTone": "skin-05", "hairStyle": "short-crop", "hairColor": "black", "outfitStyle": "shirt-trousers", "outfitColor": "navy", "bodyType": "broad", "height": "tall", "facialHair": "stubble", "glasses": "none", "hat": "none" },
+    "visitorAvatar": { "v": 1, "gender": "feminine", "skinTone": "skin-03", "hairStyle": "bob", "hairColor": "brown", "outfitStyle": "hoodie", "outfitColor": "teal", "bodyType": "regular", "height": "medium", "facialHair": "none", "glasses": "none", "hat": "none" },
+    "guideAvatar": { "v": 1, "gender": "masculine", "skinTone": "skin-05", "hairStyle": "short-crop", "hairColor": "black", "outfitStyle": "shirt-trousers", "outfitColor": "navy", "bodyType": "broad", "height": "tall", "facialHair": "stubble", "glasses": "none", "hat": "none" },
     "photos": [
       {
         "id": "0b1a3c5e-7d9f-4a21-8c3b-5e7f9a1b3d5c",
@@ -200,6 +202,7 @@ The Visitor's read-only view.
 ```
 
 - An empty `title` means the default title "A museum for <visitorName>" (FR-7). The client composes it.
+- Both avatars always include `gender` (v1.1). A museum published before v1.1 has none stored; the response fills `"neutral"` and the stored row is not changed (FR-75). Clients still read it through `avatarGender()` (section 9, "Avatar settings").
 - `photos` are in route order (`position` is 0-based and contiguous). `wallUrl` is the 1024 px texture; `fullUrl` (2048 px) is fetched only for the full-screen viewer.
 - After `urlsExpireAt`, call `get-museum` again to refresh the URLs. The Storage URLs also return 400 or 403 once expired.
 
@@ -244,6 +247,8 @@ Common errors for every action: 400 `bad_request` (invalid body; unknown `action
   "expiresAt": "2027-01-26T01:00:00.000Z"
 }
 ```
+
+As in `get-museum`, both avatars in `document` always include `gender`, filled with `"neutral"` for a museum published before v1.1. Saving that document again stores `"neutral"` and changes nothing else (US-47).
 
 For a draft that has never been published: `status: "draft"`, `shareToken: null`, `document: null`, `publishedAt: null`, and `expiresAt` is the draft expiry. `photos` lists only `ready` photos; ones not yet published have no stored position, so they are numbered in upload order.
 
@@ -360,8 +365,8 @@ Sent whole. All text, avatars and the photo order are stored in one database tra
     "openingGreeting": "",
     "closingMessage": "Happy birthday!\nLove always.",
     "theme": "default",
-    "visitorAvatar": { "v": 1, "skinTone": "skin-03", "hairStyle": "bob", "hairColor": "brown", "outfitStyle": "hoodie", "outfitColor": "teal", "bodyType": "regular", "height": "medium", "facialHair": "none", "glasses": "none", "hat": "none" },
-    "guideAvatar": { "v": 1, "skinTone": "skin-05", "hairStyle": "short-crop", "hairColor": "black", "outfitStyle": "shirt-trousers", "outfitColor": "navy", "bodyType": "broad", "height": "tall", "facialHair": "stubble", "glasses": "none", "hat": "none" },
+    "visitorAvatar": { "v": 1, "gender": "feminine", "skinTone": "skin-03", "hairStyle": "bob", "hairColor": "brown", "outfitStyle": "hoodie", "outfitColor": "teal", "bodyType": "regular", "height": "medium", "facialHair": "none", "glasses": "none", "hat": "none" },
+    "guideAvatar": { "v": 1, "gender": "masculine", "skinTone": "skin-05", "hairStyle": "short-crop", "hairColor": "black", "outfitStyle": "shirt-trousers", "outfitColor": "navy", "bodyType": "broad", "height": "tall", "facialHair": "stubble", "glasses": "none", "hat": "none" },
     "photos": [
       { "photoId": "0b1a3c5e-7d9f-4a21-8c3b-5e7f9a1b3d5c", "caption": "Our first trip" },
       { "photoId": "5d3f1b9a-2c4e-4f60-9a8b-7c6d5e4f3a2b", "caption": "" }
@@ -381,8 +386,23 @@ Rules:
 - Photos of this museum that are **not** in the document are deleted, with their files.
 - `visitorName` and `guideName` are required (1 to 24). `title`, `openingGreeting`, `closingMessage` and captions may be empty.
 - `theme` must be `"default"`.
-- Each avatar must be exactly the keys of `AvatarConfig` with `v: 1` and an option from `AVATAR_OPTIONS`. `visitorAvatar.facialHair` must be `"none"` (facial hair is for the Guide only, FR-14).
+- Each avatar follows "Avatar settings" below.
 - `publishedAt` and `expiresAt` are set by the first publish. Publishing again updates the content but never extends `expiresAt` (90 days from the first publish).
+
+#### Avatar settings (`AvatarConfig`, v1.1)
+
+The same rules apply to `visitorAvatar` and `guideAvatar`; there are no per-character differences.
+
+| Key | Required | Allowed values | Notes |
+|---|---|---|---|
+| `v` | Yes | `1` | Not bumped by v1.1 (ADR 0020) |
+| `gender` | **No** | `AVATAR_GENDERS`: `"feminine"`, `"masculine"`, `"neutral"` | Labels Woman, Man, Neutral. Absent means `"neutral"` and is stored as `"neutral"` |
+| `skinTone`, `hairStyle`, `hairColor`, `outfitStyle`, `outfitColor`, `bodyType`, `height`, `facialHair`, `glasses`, `hat` | Yes | The ids in `AVATAR_OPTIONS` | `facialHair` may be any option for **both** characters (FR-13, FR-14 v0.3) |
+
+- Any other key is rejected: 400 `bad_request`, `field` `document.<avatar>.<key>`, message "Unknown avatar setting."
+- A `gender` that is present but not one of the three ids (including `null`, `""`, a number, `"Woman"` or `"female"`) is rejected: 400 `bad_request`, `field` `document.visitorAvatar.gender` or `document.guideAvatar.gender`, message "Choose one of the available options." The value is never echoed.
+- Removed in v1.1: the rule that `visitorAvatar.facialHair` must be `"none"`, and its error "Facial hair is available for the Guide only."
+- Reading: missing or unrecognised `gender` renders as Neutral. Use `avatarGender(config)` from `contract.ts`; do not compare `config.gender` directly.
 
 Errors: 400 `bad_request` with `field` such as `document.visitorName` or `document.photos[3].caption`; 409 `conflict` with `field: "document.photos[1].photoId"` when that photo is unknown, belongs to another museum, or is not `ready`.
 
@@ -507,3 +527,4 @@ It follows every rule in this document: the same validators, the same JPEG check
 |---|---|
 | 28/10/2026 | First full contract. Differences from `docs/architecture.md` section 7.3: `create-museum` and `reserve-photo` return 201; `field` may also appear on `conflict` and `invalid_image`; 403, 405, 413 and 415 are sent with the `bad_request` code; `purge-expired` returns `{ purged, retried, failed }` (`failed` is new, type `PurgeExpiredResponse` added to `contract.ts`); `remove-photo` of a published photo returns `conflict`; `lqip` bytes are checked at `confirm-photo`; `visitorAvatar.facialHair` must be `none` |
 | 28/10/2026 | Integration round 1. `confirm-photo` accepts every segment the browser keeps (JFIF up to 14 bytes, ICC with any body, Adobe up to 12 bytes) and still rejects APP1 and APP13; Safari regression fixtures added. The mock persists in IndexedDB (else `localStorage`) with a size cap, `clearDemoData()` and `getDemoDataInfo()`. Production builds are always live unless `VITE_API_MODE=mock`; `supabase/scripts/check-live-config.mjs` fails a deploy build with missing or unsafe configuration |
+| 29/10/2026 | v1.1, CR-1 (ADR 0020, written by the architect). Optional `gender` on both avatars (`feminine`, `masculine`, `neutral`; absent means and is stored as `neutral`; unknown values rejected); responses always include `gender`. Facial hair allowed for the Visitor. New contract exports `AVATAR_GENDERS`, `AvatarGender`, `DEFAULT_AVATAR_GENDER`, `isAvatarGender`, `avatarGender`. No contract or avatar version bump, no database migration. Deploy the functions before the frontend (ADR 0020, section 6). Implementation pending (backend-developer) |

@@ -26,8 +26,12 @@ export {
 /** The role a character plays. The Guide resembles the Creator; the Visitor resembles the recipient. */
 export type AvatarRole = 'guide' | 'visitor';
 
-/** The options the builder lets the Creator change (accessories are Release 2). */
-export type AvatarOptionKey = Exclude<keyof AvatarConfig, 'v' | 'glasses' | 'hat'>;
+/**
+ * The options the builder lets the Creator change (accessories are Release 2).
+ * `gender` is excluded until the frontend-developer adds the Gender control: it is optional and
+ * lives in `AVATAR_GENDERS`, not `AVATAR_OPTIONS` (ADR 0020, docs/handoffs/architect.md).
+ */
+export type AvatarOptionKey = Exclude<keyof AvatarConfig, 'v' | 'glasses' | 'hat' | 'gender'>;
 
 /** Display text and accessible names (design spec 9.2), keyed by option. */
 export const AVATAR_LABELS = {

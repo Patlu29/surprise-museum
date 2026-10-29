@@ -1,6 +1,58 @@
 # Handoff: ux-ui-designer
 
-## Summary
+## Update v1.1: CR-1 gender option (29/10/2026)
+
+Design spec is now v1.1 (change note at the top of `docs/design-spec.md`). Nothing was built or run; no code, architecture or API files were touched.
+
+### Files changed (v1.1)
+- `docs/design-spec.md`: v1.1 and change note; 9.1 gender shape table and revised body types; 9.2 Gender labels, body type label review, facial hair for both; 9.3 defaults; 9.4 tab order and groups, live description; new 9.5 (control and preview change), 9.6 (art guidance), 9.7 (inclusive combinations); copy deck additions; new 10.1 FR-76 audit; 8.4, 6.11, 5.3, 4.1 and coverage table updated; 14 pronoun sentences reworded
+- `src/styles/tokens.css`: new `--duration-gender-morph` (250 ms, 0 ms under both reduced-motion paths)
+- `docs/handoffs/ux-ui-designer.md`: this section
+
+### Decisions (v1.1)
+- Gender is the first group of the **Body** tab, and the **Body** tab moves to first position and opens by default. Reason: gender sets the base shape, and the current default tab (Face) would bury it. Cost: it changes tab order that existing tests may rely on
+- Text-tile radiogroup, label "Gender (optional)", order Woman, Man, Neutral, Neutral selected by default, no icons, one row of three tiles on every device
+- Preview change is a 250 ms parametric morph of the active character only, instant under reduced motion; no rebuild, so the triangle and draw-call budget is unchanged
+- Body type labels: `curvy` becomes "Wider hips" and `broad` becomes "Wider shoulders" (ids unchanged). "Curvy" and "Broad" read as gendered and clash with a Man or Woman choice
+- Kept the legacy 1.04 chest depth on Wider hips so published Neutral museums look identical (FR-75). Chest shape from gender is a separate depth scale
+- Gender differences are about 10% in shoulder-to-hip ratio, proportion only; no props, colours, lashes, lips or clothing tied to gender; every option stays available for every gender
+- Preview description names Woman or Man only when chosen, never anywhere the Visitor sees (A-20); recommend announcing only the changed character's description
+
+### Assumptions (v1.1)
+- Stored ids `feminine`, `masculine`, `neutral` as suggested by the product-manager; the architect confirms
+- Singular "their" and "your" are acceptable under FR-76
+- The Reset button returns the character to the starting look including Neutral; choosing a gender never resets anything
+
+### Open questions (v1.1)
+- FR-76 and US-46 conflict slightly: the preview description must name the gender ("man", "woman") while FR-76 lists gendered nouns. I read the FR-76 list as she, her, he, him, girlfriend and boyfriend, and allowed "woman" and "man" only as the Creator's own Gender choice in the builder. Please confirm (product-manager)
+- Is the Body-first tab order acceptable, or should Gender sit on the Face tab to keep tab order unchanged? (product-manager, frontend-developer)
+
+### Requests for other agents (v1.1)
+- frontend-developer (`src/ui/builder/CharactersStep.tsx`, `src/lib/avatars.ts`):
+  - Add a `gender` group as a text-tile `RadioGroup` (label "Gender (optional)", helper text linked with `aria-describedby`, options Woman, Man, Neutral) as the first group of the Body tab; reorder `SECTIONS` to Body, Face, Hair, Outfit and start on `body`
+  - Remove `guideOnly` from facial hair so both characters show it; default None
+  - Change the display labels for `curvy` and `broad` to "Wider hips" and "Wider shoulders" (ids unchanged); use a two-column grid for body type tiles
+  - Update `describeAvatar` to the 9.4 template (gender word only when not Neutral, facial hair when not None, build phrases from 9.2) and announce only the changed character's description
+  - Use `repeat(auto-fit, minmax(5rem, 1fr))` for the gender row; no pictograms; focus order puts Gender first after the tabs
+  - Load drafts and museums without a gender value as Neutral; add the FR-76 guard test from 10.1 (do not ban "woman" or "man")
+  - Reword the pronoun code comments when passing by (optional)
+- technical-artist (`src/scene/characters/kit/`, materials):
+  - Add the gender parameters in 9.1 and build to 9.6 and 9.7; Neutral must be vertex-identical to today (snapshot test); no extra geometry
+  - Run the combination checks in 9.7 (outfits, hair, facial hair, skin tones, both views) and the 120 px silhouette check; report any value tuned beyond 0.03
+  - Apply the revised body type rules in 9.1 (bust removed everywhere except the legacy Wider hips value); unit-test the 12 gender and body type combinations against the shoulder and hip limits
+  - Make facial hair attach to the jaw parameter; make outfit, hair and badge follow shoulder, waist, hip and chest parameters
+- scene-developer:
+  - Read `gender` for every character (builder preview, Visitor preview, visit); treat missing as Neutral
+  - Tween shape parameters over 250 ms with `--ease-standard` (mirror the constant with a comment pointing to 9.5); retarget on rapid changes with no queue; set it to 0 ms when the effective reduced-motion setting is on; no per-frame cost when idle
+  - Confirm name labels do not move when gender changes (height and head are constant)
+  - Keep the skeleton silhouettes gender-free
+- qa-engineer: add checks for the Body-first tab order, the Gender radiogroup keyboard path, default Neutral, label text, facial hair on the Visitor, the new body type labels, the helper text, reduced-motion instant change, and the FR-76 string scan; update tests that assume the Face tab opens first
+- product-manager: see the open questions above and the story prose with "her" and "she" in US-7 and US-8 (not UI copy)
+- architect: nothing needed beyond the schema work already in progress; ids in 9.2 are provisional
+
+---
+
+## Summary (v1.0, unchanged)
 I wrote the design spec for Surprise Museum (`docs/design-spec.md`) and replaced the placeholder tokens and base styles. The direction is "A private view": a warm, intimate after-hours gallery (linen walls, oak, a claret runner, brass picture lights, a spotlit finale podium) with a catalogue-style 2D UI. The spec covers all Creator and Visitor flows, the HUD and controls for phone and desktop, camera behaviour, name labels, the caption card, the avatar kit and customiser, error states, and WCAG 2.2 AA behaviour. Every colour pair has a calculated contrast ratio recorded in the spec. Nothing was built or run; ratios were calculated by hand from the hex values, so QA should re-verify them with a tool.
 
 ## Files changed

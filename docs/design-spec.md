@@ -1,6 +1,16 @@
 # Design spec: Surprise Museum
 
-Version 1.0 | 27/10/2026 | Owner: ux-ui-designer | Based on requirements v0.2, user stories v0.2 and architecture v1.0
+Version 1.1 | 29/10/2026 | Owner: ux-ui-designer | Based on requirements v0.3, user stories v0.3 and architecture v1.0
+
+**Change note, v1.1 (CR-1: gender option, approved 29/10/2026).**
+- 9.4: new **Gender** radiogroup (Woman, Man, Neutral; default Neutral; optional) is the first group of the customiser. The **Body** tab moves to first position and becomes the opening tab, so the base shape is chosen before the details.
+- 9.4: Facial hair is now shown for both characters (it was Guide only).
+- 9.5 (new): preview behaviour when gender changes: a 250 ms shape morph (instant under reduced motion), nothing else changes.
+- 9.1 and 9.2: gender shape table; body type labels reworded to **Wider hips** and **Wider shoulders** (ids `curvy` and `broad` unchanged); the bust parameter is removed from body type (chest shape now belongs only to gender).
+- 9.6 (new): art guidance for the technical-artist. 9.7 (new): inclusive-combination rules.
+- 9.3, 9.4 and 10: defaults, live description and copy deck updated. New token `--duration-gender-morph`.
+- 10.1 (new): audit of gendered wording (FR-76). Fourteen spec sentences used "she" or "her" for the Visitor and were reworded. No app-written UI string was found that uses a gendered pronoun or noun.
+- Mobile and desktop layouts, the stepper and the 3D visit are otherwise unchanged.
 
 Tokens live in `src/styles/tokens.css` (values) and `src/styles/base.css` (shared rules). This document is the source of truth for look, layout, behaviour and accessibility. Developers build from it and must use tokens, never raw values.
 
@@ -106,7 +116,7 @@ Full kit, labels and rules are in Appendix A. In short:
 
 - "Designer toy" proportions: about 5.5 heads tall, large head, soft rounded limbs, mitten hands, simple rounded shoes. Friendly, not cartoonish and not uncanny.
 - Flat, bold colour blocking, no outlines. Hair, skin and outfit contrast clearly so each reads at 120 px tall.
-- **The Visitor mostly sees her character from behind**, so hair and the back of the outfit carry identity. Hair styles are designed back-first (ponytail, bun, braids, bob length and afro volume must read from behind). The customiser has a "Back view" button for this reason.
+- **The Visitor mostly sees their own character from behind**, so hair and the back of the outfit carry identity. Hair styles are designed back-first (ponytail, bun, braids, bob length and afro volume must read from behind). The customiser has a "Back view" button for this reason.
 - Face: two dark oval eyes, thin brows in the hair colour, a small smile, soft rose cheek blush. No nose geometry beyond a tiny bump in a slightly deeper skin tone.
 - The Guide wears a small brass round badge on the left chest; the Visitor wears a cream "visitor sticker" with a rose heart in the same spot. This quietly signals roles without relying on name labels, and the Guide's badge is the slot for the Creator's face photo in a later release (FR-21).
 
@@ -173,13 +183,13 @@ flowchart LR
 | Stage | What the Visitor sees and does |
 |---|---|
 | Loading data | Paper screen with the brass frame mark and "Opening your surprise". Never blank (FR-57) |
-| Welcome | Eyebrow "A private view", the museum title, "For {name}", "Your guide today: {Guide}", a large **Start** button with focus, a small Privacy link. The 3D chunk and the nearest photos download in the background while she reads |
+| Welcome | Eyebrow "A private view", the museum title, "For {name}", "Your guide today: {Guide}", a large **Start** button with focus, a small Privacy link. The 3D chunk and the nearest photos download in the background while the Visitor reads |
 | Start before ready | The button shows "Getting the gallery ready" with real progress and the screen waits, then cross-fades into the scene. If already ready, the cross-fade is immediate (500 ms, cut under reduced motion) |
-| Arrival | The Visitor stands at the entrance facing the route, the Guide beside her, both labelled. Controls work at once. One quiet coaching hint appears (section 6.1) |
+| Arrival | The Visitor stands at the entrance facing the route, the Guide beside the Visitor, both labelled. Controls work at once. One quiet coaching hint appears (section 6.1) |
 | Free roaming | Walk anywhere. No Next button, no fixed order |
 | Presentation | After about 1 s near a picture the Guide walks over and the caption card appears. Walking away or tapping Close ends it, and the Guide follows again |
 | Full-screen photo | Tap or click a picture. Zoom, read the caption, Close returns to the same spot |
-| Finale | Step onto the podium. The Guide stands beside her and the closing note appears with **Keep exploring** and **Replay** |
+| Finale | Step onto the podium. The Guide stands beside the Visitor and the closing note appears with **Keep exploring** and **Replay** |
 
 ### 2.3 Error states (Epic E6, E7)
 
@@ -263,7 +273,7 @@ The Help sheet (MVP) is a short, non-blocking sheet: "How to explore" with the t
 
 ### 3.4 Camera composition targets (for the scene-developer)
 
-The architecture gives a starting boom of 3.5 m at 2.2 m height. At that setting the Visitor fills about half of a portrait screen and hides the picture she is looking at, so tune to these screen-space targets instead. Full camera behaviour is in 6.3.
+The architecture gives a starting boom of 3.5 m at 2.2 m height. At that setting the Visitor fills about half of a portrait screen and hides the picture being looked at, so tune to these screen-space targets instead. Full camera behaviour is in 6.3.
 
 | Viewport | Visitor height on screen | Feet at (from top) | Notes |
 |---|---|---|---|
@@ -352,7 +362,7 @@ All tokens are CSS custom properties in `src/styles/tokens.css`. Scene tokens (`
 | Size | `--touch-target` (44), `--touch-target-lg` (56), `--icon-sm/md/lg`, `--hairline`, `--border-control` (2), `--border-selected` (3), `--joystick-*`, `--hud-margin`, `--panel-max-width`, `--panel-peek-height`, `--sheet-max-height`, `--content-max-width`, `--content-wide-max-width`, `--preview-bar-height`, `--safe-*` | |
 | Shape and depth | `--radius-sm/md/lg/xl/pill`, `--radius-2` (alias), `--shadow-card/panel/hud/label`, `--shadow-inset-frame`, `--blur-panel` | |
 | Layers | `--z-canvas` 0, `--z-labels` 5, `--z-hud` 10, `--z-preview-bar` 14, `--z-panel` 20, `--z-sheet` 22, `--z-fade` 24, `--z-viewer` 26, `--z-screen` 28, `--z-modal` 30, `--z-toast` 40 | Name labels sit below every panel (ADR 0011). Pass `zIndexRange={[5, 0]}` to drei `Html` |
-| Motion | `--duration-instant/fast/normal/slow/camera/fade-through`, `--ease-standard/emphasised/out`, `--press-scale` | All durations are 0 ms under reduced motion |
+| Motion | `--duration-instant/fast/normal/slow/camera/fade-through/gender-morph`, `--ease-standard/emphasised/out`, `--press-scale` | All durations are 0 ms under reduced motion |
 
 Scaffold names kept for compatibility: `--font-body`, `--radius-2`, `--touch-target`, `--color-accent`, `--color-surface`, `--color-text`, `--space-2`, `--space-4`.
 
@@ -426,7 +436,7 @@ Prefer enabled buttons that explain what is missing on press (inline error plus 
 | Component | Spec |
 |---|---|
 | Swatch (skin, hair colour, outfit colour) | 44 px circle in a 52 px cell, 2 px `--color-border-strong` ring so the lightest swatches show on paper, selected: 3 px `--color-accent` ring plus a check mark inside, name in `aria-label` and a tooltip-free visible label for the group's current value ("Hair colour: Auburn") |
-| Text tile (hair style, outfit, body type, height, facial hair) | 44 px minimum height, label centred, radius `--radius-md`, selected: `--color-accent-tint` fill, `--border-selected` accent ring, and a check icon |
+| Text tile (gender, hair style, outfit, body type, height, facial hair) | 44 px minimum height, label centred, radius `--radius-md`, selected: `--color-accent-tint` fill, `--border-selected` accent ring, and a check icon. Gender tiles are text only, with no pictograms or silhouettes (9.4) |
 | Group | `role="radiogroup"` with a visible group label. Arrow keys move and select within the group (roving `tabindex`), Tab leaves the group |
 | Tabs (Guide or Visitor; Face, Hair, Outfit, Body) | `role="tablist"`, automatic activation, arrow keys, `aria-selected`, 44 px tall, active tab has a 3 px accent underline plus bold weight |
 
@@ -515,7 +525,7 @@ Same shell as the caption card with these differences.
 
 | Part | Spec |
 |---|---|
-| Surface | `--color-viewer-bg`, `--z-viewer`, modal dialog (`role="dialog"`, `aria-modal`, labelled "Photo n of N"), focus moves to Close, focus returns to the canvas on close (the Visitor is exactly where she was, FR-35) |
+| Surface | `--color-viewer-bg`, `--z-viewer`, modal dialog (`role="dialog"`, `aria-modal`, labelled "Photo n of N"), focus moves to Close, focus returns to the canvas on close (the Visitor is exactly where they were, FR-35) |
 | Photo | `<img>` at the `full.jpg` URL with `alt` equal to the caption, or "Photo n of N" if there is none (FR-63). `object-fit: contain`, never cropped. Shows the blurred LQIP while loading |
 | Caption | Beneath the photo on its own band in `--color-on-night` (not over the photo). Fraunces, `--caption-size`. Scrolls if long |
 | Controls | Close (top-right, 44 px). Zoom in, zoom out, Reset zoom (bottom-right cluster, 44 px, for keyboard and switch users) |
@@ -556,7 +566,7 @@ The canvas wrapper is focusable (`tabindex="0"`, `role="application"`, `aria-rol
 |---|---|
 | Container | Phone portrait: bottom sheet up to `--sheet-max-height`, drag handle plus Close, scrim. Landscape and desktop: right drawer 22 rem wide. `role="dialog"`, `aria-modal`, focus trapped, Escape closes, focus returns to the canvas |
 | Row | 56 px tall button: thumbnail 48 px (`object-fit: contain` on sunken fill), "Photo 3" plus the first line of the caption (ellipsis), and a "Viewed" text with a check icon when viewed (not colour alone). Final row: "Finale: a note from {Guide}" |
-| Action | Pressing a row closes the sheet and walks the Visitor to stand in front of that picture. The jump is a cut hidden by a `--duration-fade-through` fade veil at `--z-fade` (instant under reduced motion). The camera snaps behind the Visitor facing the picture, the Guide relocates beside her, and the presentation starts as usual (US-44) |
+| Action | Pressing a row closes the sheet and walks the Visitor's character to stand in front of that picture. The jump is a cut hidden by a `--duration-fade-through` fade veil at `--z-fade` (instant under reduced motion). The camera snaps behind the Visitor facing the picture, the Guide relocates beside the Visitor, and the presentation starts as usual (US-44) |
 | Announcement | "Moved to photo 3 of 12" |
 
 ### 5.13 Settings sheet (R2)
@@ -608,9 +618,9 @@ Every interaction is specified as Trigger, Feedback, Camera, Exit, Touch, Keyboa
 ### 6.1 Interaction: Move
 
 - **Trigger:** touch joystick; W A S D or arrow keys; (R2) arrow buttons.
-- **Feedback:** the Visitor walks (walk cycle only while moving, FR-18) and turns to face the direction of travel; footsteps are silent (no audio in MVP). Maximum speed 1.6 m/s (a leisurely gallery pace; the longest museum, 64 m, takes about 40 s). Keyboard has a 150 ms acceleration ease; the joystick scales speed with deflection (5.9). Walls and frames stop her and she slides along them (FR-34).
+- **Feedback:** the Visitor walks (walk cycle only while moving, FR-18) and turns to face the direction of travel; footsteps are silent (no audio in MVP). Maximum speed 1.6 m/s (a leisurely gallery pace; the longest museum, 64 m, takes about 40 s). Keyboard has a 150 ms acceleration ease; the joystick scales speed with deflection (5.9). Walls and frames stop the character, which slides along them (FR-34).
 - **Camera:** follows the Visitor's translation. It never rotates on its own (6.3).
-- **Exit:** release the stick or keys; she stops at once and idles.
+- **Exit:** release the stick or keys; the character stops at once and idles.
 - **Touch:** joystick bottom-left, hit area 176 px.
 - **Keyboard:** focus the canvas (it takes focus after Start). Movement is camera-relative. Tab always leaves the canvas; arrow and letter keys are only captured while it has focus.
 - **Coaching:** after Start, one hint at a time, each shown once per session, never modal, auto-hidden on first use or after 8 s:
@@ -633,7 +643,7 @@ Every interaction is specified as Trigger, Feedback, Camera, Exit, Touch, Keyboa
 ### 6.3 Interaction: Camera follow
 
 - **Style:** third-person follow (A-4). Composition targets are in 3.4. Distance (boom) is adjustable only on desktop (wheel, plus and minus keys): 2.5 to 6.0 m, 0.4 m per wheel notch.
-- **Follow:** the camera's position follows the Visitor's translation with 120 ms critical damping. Yaw and pitch change only from user input. Movement is camera-relative, so there is no need to swing the camera behind her as she turns, which avoids unexpected rotation.
+- **Follow:** the camera's position follows the Visitor's translation with 120 ms critical damping. Yaw and pitch change only from user input. Movement is camera-relative, so there is no need to swing the camera behind the character as it turns, which avoids unexpected rotation.
 - **Occlusion:** when a wall blocks the line to the Visitor the boom shortens, down to 1.2 m, easing over 150 ms.
 - **Never moves on its own.** The camera does not move because of the Guide, a presentation, a hint, a picture list jump or the finale. The only non-input changes are (a) following the Visitor's own movement and (b) a cut to the default pose after Replay or a jump-to-picture, which the user caused.
 - **Reduced motion:** the same, with no damping (the camera is rigidly attached), no eased boom change, no eased Reset, and no fade-through (hard cuts). The camera never auto-moves.
@@ -658,7 +668,7 @@ Every interaction is specified as Trigger, Feedback, Camera, Exit, Touch, Keyboa
 - **Trigger:** click (desktop) or tap (touch, under 8 px and 350 ms) on a picture from anywhere it is visible; Enter on a focused picture in the Pictures list (R2).
 - **Feedback:** frame highlight within 100 ms, then the viewer (5.8) opens within 200 ms. The picture counts as viewed (A-17).
 - **Camera:** does not move. Rendering pauses behind the viewer.
-- **Exit:** Close, Escape, or the background. The Visitor is exactly where she was.
+- **Exit:** Close, Escape, or the background. The Visitor is exactly where they were.
 - **Touch:** same as click; no hover.
 - **Keyboard:** pictures live in the 3D world, not the DOM, so they have no tab stops. Every picture that is being presented has a keyboard path through a **Look closer** button (44 px): it is in the caption card header (5.6), and for a picture with no caption, where no card appears (FR-71), it appears as a small night-glass chip, "Look closer at photo 3", at the bottom-centre above the joystick zone while that presentation is active. This gives FR-61 a complete path in the MVP without the Pictures list. In R2 the Pictures list adds a path to any picture, not only the one being presented.
 - **Failed photo:** tapping a failed frame retries it (6.10).
@@ -668,7 +678,7 @@ Every interaction is specified as Trigger, Feedback, Camera, Exit, Touch, Keyboa
 - **Trigger:** the Visitor stays within 3 m of a picture's presentation zone for 1 s (FR-26). Values are tunable (A-16); the design does not depend on the numbers.
 - **Feedback sequence:**
   1. Approaching: the standing-spot pool brightens with proximity (continuous cue).
-  2. Dwell complete: the Guide stops following, turns, and walks to a spot beside the Visitor facing the picture. It never stands between her and the picture and never hides her from the camera (FR-30).
+  2. Dwell complete: the Guide stops following, turns, and walks to a spot beside the Visitor facing the picture. It never stands between the Visitor and the picture and never hides the Visitor from the camera (FR-30).
   3. Arrival, or 1.5 s at most: the Guide's presenting gesture plays once (R2), a soft brass ring (0.55 m radius, 200 ms fade) appears under the Guide's feet, and the caption card appears (5.6). A polite announcement is made (8.3).
   4. Leaving: past 4.5 m or Close, the ring and card fade out in `--duration-fast` and the Guide resumes following (FR-27).
 - **Camera:** does not move.
@@ -682,7 +692,7 @@ Every interaction is specified as Trigger, Feedback, Camera, Exit, Touch, Keyboa
 | Cue | When | Spec |
 |---|---|---|
 | Name label | Always on screen | 5.5 |
-| Follow behaviour | Roaming | Guide stays 2 to 5 m away and idles when she stops. It never stands in the camera-to-Visitor corridor (yield: sidestep, or fade to 35% opacity, FR-30) |
+| Follow behaviour | Roaming | Guide stays 2 to 5 m away and idles when the Visitor stops. It never stands in the camera-to-Visitor corridor (yield: sidestep, or fade to 35% opacity, FR-30) |
 | Floor ring | During a presentation | Brass ring under the Guide's feet |
 | Card header | During a presentation | Guide badge and name |
 | Relocate | More than 8 m away or stuck for 3 s | 250 ms fade out, reappear beside the Visitor, 250 ms fade in. Reduced motion: opacity changes instantly, no fade |
@@ -692,9 +702,9 @@ Every interaction is specified as Trigger, Feedback, Camera, Exit, Touch, Keyboa
 ### 6.9 Interaction: Finale
 
 - **Trigger:** the Visitor steps into the podium zone (radius 1.8 m, FR-29). Per the assumed default (Q-21), this triggers the closing message whatever has been viewed. In R2 (FR-70), if pictures are unviewed, the Guide first asks "You haven't seen everything yet. Show the note now?" with **Show the note** and **Keep exploring**.
-- **Feedback:** the podium ring brightens (300 ms). The Guide walks (or fades in) beside her on the podium. The finale card appears within 1.5 s.
+- **Feedback:** the podium ring brightens (300 ms). The Guide walks (or fades in) beside the Visitor on the podium. The finale card appears within 1.5 s.
 - **Camera:** does not move.
-- **Exit:** **Keep exploring** closes the card and suppresses it until she leaves the zone plus 1 m. **Replay from the start** returns the Visitor and Guide to the entrance (a `--duration-fade-through` veil with a hard cut under reduced motion), clears the viewed count, resets the camera behind her, and announces "Back at the entrance. Viewed pictures have been cleared."
+- **Exit:** **Keep exploring** closes the card and suppresses it until the Visitor leaves the zone plus 1 m. **Replay from the start** returns the Visitor and Guide to the entrance (a `--duration-fade-through` veil with a hard cut under reduced motion), clears the viewed count, resets the camera behind the Visitor, and announces "Back at the entrance. Viewed pictures have been cleared."
 - **Touch and keyboard:** the two footer buttons; Escape equals Keep exploring.
 - **Reduced motion:** no dust motes, no pulse, no confetti.
 
@@ -707,7 +717,7 @@ Every interaction is specified as Trigger, Feedback, Camera, Exit, Touch, Keyboa
 ### 6.11 Interaction: Customiser preview (builder)
 
 - **Trigger:** change any option; drag the preview to turn the characters (yaw only, 0.4 degrees per px); **Turn left**, **Turn right** and **Back view** buttons (44 px) for keyboard and switch users; click a character to switch the active tab.
-- **Feedback:** the changed part updates within 1 s (FR-15), with no flicker.
+- **Feedback:** the changed part updates within 1 s (FR-15), with no flicker. A gender change morphs the shape over 250 ms (instant under reduced motion), section 9.5.
 - **Camera:** fixed framing; only the characters turn. Default angle is a three-quarter front view. There is no auto-spin (an optional slow idle turn is allowed only with full motion).
 - **Exit:** not applicable.
 
@@ -787,7 +797,7 @@ Heading "We couldn't open your surprise". Body: "It looks like the connection dr
 
 ### 7.9 Failed photo (MVP)
 
-Three places, as 6.10: the in-scene glyph, the DOM Retry chip, and the viewer's error state. The Guide still presents the caption and she keeps roaming (FR-58).
+Three places, as 6.10: the in-scene glyph, the DOM Retry chip, and the viewer's error state. The Guide still presents the caption and the Visitor keeps roaming (FR-58).
 
 ### 7.10 Builder errors (MVP)
 
@@ -879,6 +889,7 @@ Effective setting: Settings (R2) over the operating system's `prefers-reduced-mo
 | Panels, sheets, toasts, hover tints | `--duration-*` eased | Instant (durations are 0 ms) |
 | Hint glow | Pulses 3 times | Steady |
 | Joystick knob return | Eased | Instant |
+| Customiser gender change (9.5) | 250 ms shape morph | Instant, same end state |
 
 Reduced motion never removes information: every effect above has a still equivalent.
 
@@ -934,8 +945,29 @@ Test plan for QA: automated axe checks on every builder step and overlay; manual
 | Arms | 0.62 m including the mitten hand |
 | Feet | Rounded boxes 0.26 m long |
 | Heights | Shorter 0.91 (about 1.55 m), Medium 1.00 (1.70 m), Taller 1.09 (about 1.85 m), uniform scale |
-| Body types | Slim: torso and hips 0.90. Regular: 1.00. Curvy: hips 1.12, waist 0.96, bust 1.04. Broad: shoulders 1.15, torso 1.08, hips 1.00. Head size never changes with body type |
+| Gender shape (v1.1) | Multipliers on the Neutral values above, applied first. Full table below. Neutral is all 1.00 and is exactly the shape every museum had before v1.1 (FR-72, FR-75). Gender never changes head size, overall height, or hair, outfit, skin, facial hair, body type or height choices |
+| Body types | Applied on top of the gender shape (multiplied). Slim: torso and hips 0.90. Regular: 1.00. Wider hips (`curvy`): hips 1.12, waist 0.96, chest depth 1.04. Wider shoulders (`broad`): shoulders 1.15, torso 1.08, hips 1.00. Head size never changes with body type. The 1.04 chest depth on Wider hips is a legacy value kept so published Neutral museums look identical (FR-75); do not add chest changes to any other body type |
 | Budget | 6,000 triangles and 10 draw calls per character (architecture 6.7). Prefer a few clean shapes to many small ones |
+
+**Gender shape table (v1.1).** Values are multipliers on Neutral, so Neutral renders exactly as before. Gender and body type multiply. The technical-artist may tune each value by up to 0.03 to read well, but must keep the ordering Woman < Neutral < Man for shoulders, waist, neck, limbs and brow, and the reverse for hips, jaw softness and eye size.
+
+| Parameter | Woman | Neutral | Man | Why |
+|---|---|---|---|---|
+| Shoulder width | 0.95 (0.38 m) | 1.00 (0.40 m) | 1.07 (0.43 m) | Main back-view cue |
+| Waist width | 0.92 | 1.00 | 1.02 | Taper between shoulders and hips |
+| Hip width | 1.06 (0.32 m) | 1.00 (0.30 m) | 0.97 (0.29 m) | Main back-view cue |
+| Shoulder to hip ratio (result) | about 1.19 | about 1.33 | about 1.47 | Neighbours differ by 10% or more |
+| Torso length | 0.98 | 1.00 | 1.02 | Legs scale 1.01, 1.00, 0.99 so the total height is identical |
+| Chest depth | 1.04 | 1.00 | 1.02 | Soft front curve inside the torso scale; no separate shape |
+| Neck width | 0.92 | 1.00 | 1.12 | Neck length is unchanged |
+| Arm and leg thickness | 0.94 | 1.00 | 1.06 | Hands 0.95, 1.00, 1.05 |
+| Head width and height | 1.00 | 1.00 | 1.00 | Never changes; name labels and hair never move |
+| Jaw (lower-head width) | 0.94 | 1.00 | 1.06 | Rounder or squarer, same head mesh |
+| Brow thickness | 0.90 | 1.00 | 1.15 | Still a thin stroke |
+| Eye size | 1.06 | 1.00 | 0.97 | Eyes stay two dark ovals |
+| Mouth, nose bump, cheek blush | same | same | same | Identical on every shape |
+
+Combined extremes stay inside these limits, so no runtime clamp should fire: shoulders 0.34 to 0.50 m (Man with Wider shoulders is 0.49 m), hips 0.26 to 0.36 m (Woman with Wider hips is 0.36 m). Unit-test the 12 gender and body type combinations against these limits.
 
 ### 9.2 Option labels and swatches
 
@@ -948,9 +980,10 @@ Option ids are the stable storage keys in `contract.ts`. The labels below are th
 | Hair colour (11) | `black` `#1C1618`, `dark-brown` `#3B2820`, `brown` `#5E3E2B`, `auburn` `#8B3A22`, `ginger` `#C2652A`, `blonde` `#DDB45E`, `platinum` `#EEE3C6`, `grey` `#A19DA3`, `white` `#F2EFEA`, `pink` `#E487A9`, `blue` `#4D7BD6`. Labels: Black, Dark brown, Brown, Auburn, Ginger, Blonde, Platinum, Grey, White, Pink, Blue |
 | Outfit style (6) | `tee-jeans` T-shirt and jeans (top in the outfit colour, fixed denim `--avatar-denim`), `hoodie` Hoodie (hoodie in the outfit colour, fixed joggers), `shirt-trousers` Shirt and trousers (shirt in the outfit colour, fixed charcoal trousers), `dress` Dress (all in the outfit colour, skin-tone legs), `suit` Suit (jacket and trousers in the outfit colour, cream shirt), `jumpsuit` Jumpsuit (all in the outfit colour) |
 | Outfit colour (12) | `red` `#C23B3B`, `coral` `#EE7B66`, `orange` `#E98A2E`, `mustard` `#D9A82B`, `green` `#4F9A5E`, `teal` `#2F8F8F`, `sky` `#6DB2E0` (Sky blue), `navy` `#263A66`, `purple` `#7B55A6`, `pink` `#E58FB0`, `charcoal` `#3A3A44`, `cream` `#EFE3CC` |
-| Body type (4) | Slim, Regular, Curvy, Broad |
+| Gender (3, optional, v1.1) | `feminine` **Woman**, `masculine` **Man**, `neutral` **Neutral** (default). Ids are the architect's to confirm in the schema decision; the labels are fixed. Display order is Woman, Man, Neutral |
+| Body type (4) | `slim` Slim, `regular` Regular, `curvy` **Wider hips**, `broad` **Wider shoulders**. Ids are unchanged, only the display text and accessible names change (see the review below) |
 | Height (3) | Shorter (about 1.55 m), Medium (about 1.70 m), Taller (about 1.85 m) |
-| Facial hair (5, Guide only) | None, Stubble, Moustache, Goatee, Full beard (in the hair colour) |
+| Facial hair (5, both characters, v1.1) | None, Stubble, Moustache, Goatee, Full beard (in the hair colour). Available with every gender |
 | Glasses (R2) | None, Round, Square (thin walnut frames) |
 | Hat (R2) | None, Beanie, Cap (in the outfit colour) |
 
@@ -964,31 +997,44 @@ How options read in the scene:
 | Hair style | Silhouette first, designed from the back. Volume and length are exaggerated slightly so styles differ at 120 px tall |
 | Hair colour | Applies to hair, brows and facial hair |
 | Outfit | Large flat colour block plus one fixed contrasting garment, so it reads from behind |
+| Gender | Silhouette (shoulders, waist, hips, neck, limbs) and a small change to the jaw, brows and eye size. Head size, height and every other choice stay as they are |
 | Body type, height | Silhouette only; the head stays constant |
+
+**Review of the body type labels beside Gender (v1.1).**
+
+| Old label | Problem next to Gender | New label (id unchanged) |
+|---|---|---|
+| Slim | None. Describes size only | Slim |
+| Regular | None | Regular |
+| Curvy | Reads as a word about women's bodies, so "Man, Curvy" and "Woman, Broad" look like contradictions or jokes. It is also a judgement about a body rather than a description of the shape | **Wider hips** (`curvy`) |
+| Broad | Reads as a word about men's bodies, with the same problem | **Wider shoulders** (`broad`) |
+
+The new labels describe where the shape is wider, which is what the model actually does, so they can sit under any gender. The group label stays **Body type**. In the preview description they read "slim build", "regular build", "wider hips" and "wider shoulders". Tiles are in a two-column grid, so "Wider shoulders" (about 120 px at `--text-md`) fits at 320 px and wraps to two lines at larger text sizes without clipping.
 
 ### 9.3 Defaults for a new draft
 
 | | Guide | Visitor |
 |---|---|---|
+| Gender | Neutral | Neutral |
 | Skin tone | `skin-04` | `skin-04` |
 | Hair style, colour | `short-crop`, `dark-brown` | `bob`, `brown` |
 | Outfit, colour | `shirt-trousers`, `navy` | `jumpsuit`, `coral` |
 | Body type, height | Regular, Medium | Regular, Medium |
-| Facial hair | None | Not offered |
+| Facial hair | None | None (now offered, v1.1) |
 
-Defaults avoid assuming anyone's gender and keep the two characters visibly different at a glance.
+Defaults avoid assuming anyone's gender and keep the two characters visibly different at a glance. Neutral is a middle shape, not a "default man": a draft or museum with no gender value always loads as Neutral and looks exactly as before (FR-75), and the customiser then shows Neutral selected. The Creator is never asked to choose.
 
 ### 9.4 Customiser layout and behaviour
 
 **Phone portrait.** The live preview is the top 42 dvh. One canvas shows both characters side by side on a shared round plinth (Guide left, Visitor right), each with its name label, so the Creator sees both together (US-7). The active character has a brass ring on its plinth. Below the preview:
 
 1. Tabs: **Guide: {name}** and **Visitor: {name}** (just "Guide" and "Visitor" until names are entered).
-2. A second tab row: **Face**, **Hair**, **Outfit**, **Body**.
+2. A second tab row: **Body**, **Face**, **Hair**, **Outfit** (v1.1: Body moves from last to first and is the tab selected when the step opens, because gender sets the base shape the other choices sit on).
 3. The options for the chosen tab, each group labelled:
-   - Face: Skin tone; Facial hair (Guide only).
+   - Body: **Gender (optional)**; Body type; Height. Gender is always the first group, so it is the first control after the tabs in the tab order.
+   - Face: Skin tone; Facial hair (both characters, v1.1).
    - Hair: Hair style; Hair colour.
    - Outfit: Outfit style; Outfit colour.
-   - Body: Body type; Height.
 4. Preview controls on the preview itself: **Turn left**, **Turn right**, **Back view** (44 px, night glass, top-right of the preview), and **Shuffle** and **Reset** under the tabs (tertiary buttons; R2 or Could).
 
 **Phone landscape.** Preview takes the left 45% at full height; the controls scroll in the right 55%.
@@ -999,10 +1045,78 @@ Defaults avoid assuming anyone's gender and keep the two characters visibly diff
 - Selecting an option updates the preview within 1 s (FR-15), rebuilding only the affected part. There is no "Apply" button.
 - Selections persist in the draft; coming back to the step shows them (US-6).
 - All option groups are radiogroups with arrow-key navigation. Tabs use automatic activation.
-- The preview is `role="img"` with a live text description that updates (debounced 400 ms, polite): "{Guide}: medium height, regular build, short crop dark brown hair, navy shirt and trousers."
+- The preview is `role="img"` with a live text description that updates (debounced 400 ms, polite). Template: "{Name}: [woman or man, only when not Neutral, ]{height} height, {build}, {hair style} {hair colour} hair[, {facial hair}], {outfit}." Examples: "Tom: man, medium height, regular build, short crop dark brown hair, goatee, navy shirt and trousers." and, for Neutral, "Sam: medium height, regular build, bob brown hair, coral jumpsuit." The gender word is the label of the option the Creator chose and appears only here and in the Gender group, never in any Visitor-facing text (A-20). Announce only the description of the character that changed, not both, to keep screen-reader chatter low.
+- Gender, facial hair and the reset button are scoped to the active character: the Guide and the Visitor each keep their own value, and switching the Character tab shows that character's selection.
+- **Reset** returns the active character to the starting look (9.3), including Neutral. Choosing a gender never resets anything else.
 - Drag-to-turn is an enhancement; the Turn buttons are the keyboard and switch path.
 - **Loading:** a skeleton silhouette pair and "Getting your characters ready". **Failure:** "We couldn't show the 3D preview. Your choices are still saved." and **Try again**; the option lists stay usable (US-6). **No WebGL:** the text description replaces the preview.
 - Lighting in the preview is neutral and slightly cool-white on a soft cream backdrop, so skin and hair colours read true while they are chosen.
+
+### 9.5 The Gender control and the preview change (v1.1)
+
+**Control.**
+
+| Item | Spec |
+|---|---|
+| Type | Text-tile `role="radiogroup"` (5.3), the same as Body type and Height. Roving `tabindex`, Arrow keys move and select, Space selects, Tab leaves the group. No new component |
+| Label | Group label **Gender (optional)** (visible, `--text-sm`, `--weight-semibold`, as the other groups). The radiogroup is `aria-labelledby` that label and `aria-describedby` the helper text |
+| Options | **Woman**, **Man**, **Neutral**, in that order. Text only; no icons, pictograms or silhouettes, so the tiles cannot stereotype |
+| Default | Neutral is selected on a new draft for both characters and for any older draft or museum with no value. It is shown selected (accent ring and check), not as an empty state. Nothing is required and there is no "skip" control |
+| Helper text | "Changes the shape and face. Your other choices stay as they are." Below the tiles, `--text-sm`, `--color-text-muted` (contrast as the other helper text, 4.2). Always visible, not a tooltip |
+| Layout, all sizes | One row of three equal tiles: `grid-template-columns: repeat(auto-fit, minmax(5rem, 1fr))`, gap `--space-2`, tiles 44 px tall (`--touch-target`). Down to 320 px they stay in one row; at 200% zoom they may wrap, never clip. Phone portrait, phone landscape and desktop use the same row: it sits at the top of the Body tab, then Body type (two columns), then Height (one row of three) |
+| States | Default, hover (`--color-accent-tint` at half strength, desktop only), focus (two-tone ring from `base.css`), selected (tint, `--border-selected` ring, check), disabled never (the control stays usable while the preview loads or fails, US-46) |
+| Announcement | The radio's own "Woman, radio button, 2 of 3, selected" is enough. The debounced preview description follows 400 ms later (9.4) |
+
+**Preview behaviour on change (FR-15, US-46).**
+
+| Case | Behaviour |
+|---|---|
+| Trigger | Selecting a Gender tile by click, tap, Arrow key or Space |
+| What changes | Only the active character. Shoulders, waist, hips, torso, neck, limbs, hands, jaw, brows and eye size move to the values in 9.1. Hair, outfit, facial hair, badge, name label, camera and the other character do not move |
+| Motion | One 250 ms morph (`--duration-gender-morph`, `--ease-standard`): every shape parameter interpolates linearly from its current value to the target in the same tween. No pop, sparkle, spin, scale overshoot or sound |
+| Timing | The first changed frame appears within 100 ms of the change and the final shape within 350 ms, well inside the 1 s limit |
+| Reduced motion | The target shape appears in one frame, with no tween (`--duration-gender-morph` is 0 ms; the scene must read the effective setting from `settingsStore`, 8.4) |
+| Rapid changes | A new choice retargets the tween from the current values. There is no queue, so sweeping Arrow keys across the three tiles never lags and ends on the selected shape |
+| Parts that depend on shape | Outfit, hair, facial hair and the badge are attached to the same shape parameters, so they follow the morph. If a part must be rebuilt, rebuild it in the first frame and tween only transforms. Never show an unclothed, hairless or empty frame |
+| Loading and failure | The choice is saved at once. While the preview is loading, the skeleton silhouettes are generic and do not depend on gender. If the preview fails, the Gender group stays usable and the preview shows the saved choice when it recovers (Try again) |
+| Visit and Visitor preview | The same kit and parameters render the characters in the Visitor preview and the visit, so the shape matches the builder on every device |
+
+### 9.6 Art guidance: how Woman, Man and Neutral differ (for the technical-artist)
+
+Principle: **one body, three proportion sets.** The three shapes are the same mesh with different parameters (9.1). They must look like three members of one family within the "designer toy" style (1.6), not three different characters. Differences are in proportion, never in props, colour or clothing.
+
+| Area | Woman | Neutral | Man | Notes |
+|---|---|---|---|---|
+| Silhouette from behind (most important, the Visitor is seen from behind) | Narrower shoulders, a clear waist, fuller hips | Today's shape | Broader shoulders, straighter taper, narrower hips | Render each shape as a flat single-colour silhouette at 120 px tall. The shoulder to hip ratio must differ by 10% or more between neighbouring shapes, or raise the shoulder and hip values by up to 0.02 each |
+| Shoulders | 0.38 m, rounded | 0.40 m | 0.43 m, a little squarer | Keep the soft rounded form; no hard edges |
+| Waist | Gentle waist | Straight | Straight | Never an exaggerated hourglass |
+| Hips | 0.32 m | 0.30 m | 0.29 m | |
+| Neck and limbs | Slightly slimmer | Today's | Slightly thicker | The mitten hands scale with the limbs |
+| Face | Rounder jaw, slightly larger eyes, thinner brows | Today's | Squarer jaw, thicker brows, slightly smaller eyes | Same two dark oval eyes, tiny nose bump, small smile and rose blush on all three. No eyelashes, no lips, no eye shadow, no stubble by default |
+| Head, height, name label | Identical | Identical | Identical | Gender never makes a character taller or shorter |
+
+Do not add: separate bust geometry (the chest change is a depth scale only), heels or different shoes, gendered colours, gendered accessories, or different badge and sticker designs. The brass Guide badge and the Visitor sticker stay on the left chest and follow the chest depth so they never float or clip.
+
+Keep the budget: no new geometry for gender, so the 6,000 triangle and 10 draw-call limits are unchanged. If the budget is tight, the product-manager's fallback applies: ship the shape and proportion changes and defer the face changes to Release 2.
+
+**Neutral is unchanged.** All Neutral multipliers are 1.00, so it must be vertex-identical to today's character. Add a snapshot test of a Neutral character against the v1.0 build, because FR-75 requires older museums to look the same.
+
+### 9.7 Inclusive combinations
+
+Every option works with every gender. The customiser never hides, reorders, pre-selects or disables an option because of the gender chosen, and the Creator can build any look, for example a Man in a dress, a Woman with a full beard, or a Neutral character with a bun and a suit.
+
+Technical-artist check list (extends 9.2; run in the builder preview and in the visit):
+
+| Check | Range |
+|---|---|
+| No clipping or gaps between outfit, body and hair | All 6 outfits by 3 genders by 4 body types by 3 heights (216 combinations), with the outfit sleeves, collars, skirt and trouser hems following shoulder, waist and hip values. The dress skirt starts at the waist and flares from the hip value, so it fits all shapes |
+| Hair against shoulders | All 12 hair styles by Man with Wider shoulders (broadest) and Woman with Slim (narrowest). Long, ponytail, braids and afro must not pass through the shoulders or leave a gap at the neck |
+| Facial hair on the jaw | All 4 styles (not None) by 3 genders by the 12 hair styles. Facial hair attaches to the jaw parameter so it follows a rounder or squarer jaw without floating |
+| Skin tone | All 10 skin tones by 3 genders. Brows and blush stay visible: thin Woman brows in black or dark brown on `skin-09` and `skin-10` must still read at the preview's default size; if not, raise the Woman brow value to 1.00 |
+| Hair colour | All 11 hair colours for brows and facial hair, including white and platinum on `skin-01` |
+| Back view and front view | Every shape in both views, since the Visitor sees their own character from behind |
+
+The Visitor-facing experience never shows a gender label (A-20). Name labels, the badge and the sticker are the same for every gender.
 
 ---
 
@@ -1040,6 +1154,39 @@ Defaults avoid assuming anyone's gender and keep the two characters visibly diff
 | Retry chip | "Photo 3 did not load." / "Retry" |
 | Not found | As 7.5 |
 | Context lost | As 7.8 |
+| Customiser, gender (v1.1) | Group label "Gender (optional)"; options "Woman", "Man", "Neutral"; helper "Changes the shape and face. Your other choices stay as they are." |
+| Customiser, body type (v1.1) | Group label "Body type"; options "Slim", "Regular", "Wider hips", "Wider shoulders" |
+| Customiser, tabs (v1.1) | "Body", "Face", "Hair", "Outfit" (in that order) |
+| Customiser, facial hair | Group label "Facial hair"; "None", "Stubble", "Moustache", "Goatee", "Full beard"; shown for the Guide and the Visitor |
+| Preview description | As 9.4: "{Name}: [woman or man, ]{height} height, {build}, {hair}, [{facial hair}, ]{outfit}." Names the gender only when it is not Neutral |
+
+### 10.1 Audit of gendered wording (FR-76, US-48)
+
+Scope: app-written text in this spec. The app never writes a gendered pronoun or noun (she, her, he, him, girlfriend, boyfriend) for the Guide, the Visitor or the Creator. Singular "their" and "your" are allowed. The words "woman" and "man" appear only as the Creator's own Gender choice in the builder (labels and the preview description) and never in the Visitor experience.
+
+Result of the search: no copy deck entry, no UI string and no screen-reader string in this spec used a gendered word. Fourteen sentences of behaviour prose (which developers copy into code comments and test names) used "she" or "her" for the Visitor. They are reworded here.
+
+| Section | Was | Now |
+|---|---|---|
+| 1.6 | "The Visitor mostly sees her character from behind" | "...sees their own character from behind" |
+| 2.2 Welcome | "while she reads" | "while the Visitor reads" |
+| 2.2 Arrival | "the Guide beside her" | "the Guide beside the Visitor" |
+| 2.2 Finale | "stands beside her" | "stands beside the Visitor" |
+| 3.4 | "the picture she is looking at" | "the picture being looked at" |
+| 5.8 Viewer | "exactly where she was" | "exactly where they were" |
+| 5.12 Picture list | "walks the Visitor to stand...", "relocates beside her" | "walks the Visitor's character to stand...", "relocates beside the Visitor" |
+| 6.1 Move | "stop her and she slides", "she stops at once" | "stop the character, which slides", "the character stops at once" |
+| 6.3 Follow | "behind her as she turns" | "behind the character as it turns" |
+| 6.6 Viewer exit | "exactly where she was" | "exactly where they were" |
+| 6.7 Presentation | "between her and the picture and never hides her" | "between the Visitor and the picture and never hides the Visitor" |
+| 6.8 Guide cues | "when she stops" | "when the Visitor stops" |
+| 6.9 Finale | "beside her", "until she leaves", "behind her" | "beside the Visitor", "until the Visitor leaves", "behind the Visitor" |
+| 7.9 Failed photo | "and she keeps roaming" | "and the Visitor keeps roaming" |
+
+Remaining watch list for other owners (not in this document):
+- Code comments and test names under `src/` (for example `FinaleSignal.test.ts`, `composition.ts`, `AutonomousGuideSource.ts`, `hair.ts`) use "she" and "her" for the Visitor. They are not app-written text, so they are out of scope for FR-76, but the frontend-developer can reword them when passing by.
+- `docs/requirements/user-stories.md` story text (for example US-7 "walking with her", US-8 "what she will see") uses gendered pronouns in the story prose; this is not UI copy. The product-manager may want to reword it.
+- Guard test: scan app-written strings for the whole-word list she, her, hers, he, him, his, herself, himself, girlfriend, boyfriend. Do not include "woman" or "man", which are the Creator-facing Gender labels.
 
 ---
 
@@ -1049,6 +1196,9 @@ Defaults avoid assuming anyone's gender and keep the two characters visibly diff
 |---|---|
 | FR-1 to FR-8, FR-10 to FR-12 (builder) | 2.1, 3.6, 5.1 to 5.4, 5.15, 5.16, 7.10, 7.11 |
 | FR-13 to FR-16, FR-20 (characters) | 1.6, 9 |
+| FR-72, FR-73 (gender, shape only), FR-15 (preview within 1 s) | 9.1, 9.4, 9.5, 9.6, 9.7 |
+| FR-74, FR-75 (render everywhere, older museums are Neutral) | 9.3, 9.6 (same kit and same parameters in builder, preview and visit) |
+| FR-76 (no gendered pronouns or nouns) | 10.1 |
 | FR-17, FR-18 (labels, animation) | 5.5, 6.1, 6.8 |
 | FR-24, FR-25 (welcome, arrival) | 2.2, 7.2 |
 | FR-26 to FR-31, FR-71 (Guide) | 3.5, 5.6, 6.7, 6.8 |
