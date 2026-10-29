@@ -171,7 +171,8 @@
 }
 .hud__top {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: start;
   gap: var(--space-2);
 }
@@ -194,6 +195,33 @@
 @media (min-width: 400px) {
   .hud-btn__label {
     display: inline;
+    white-space: nowrap;
+  }
+}
+/* At 320 px with Reset view showing, five 44 px buttons and the pill need tighter spacing. */
+@media (max-width: 359px) {
+  .hud__top,
+  .hud__cluster {
+    gap: var(--space-1);
+  }
+  .hud-pill {
+    padding: 0 var(--space-2);
+  }
+}
+/* Between 400 and 479 px the labelled buttons, pill and icon buttons only just fit, so the
+   spacing tightens a little. Touch targets stay at --touch-target (BUG-4). */
+@media (min-width: 400px) and (max-width: 479px) {
+  .hud__top {
+    gap: var(--space-1);
+  }
+  .hud__cluster {
+    gap: var(--space-1);
+  }
+  .hud-btn:has(.hud-btn__label) {
+    padding-inline: var(--space-2);
+  }
+  .hud-pill {
+    padding: 0 var(--space-2);
   }
 }
 .hud-btn:not(:has(.hud-btn__label)) {

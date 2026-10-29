@@ -161,7 +161,6 @@ test.describe('US-16 view a picture full-screen', () => {
   // BUG-2: a pointer press on Try again is treated as a tap on the dark background by the viewer's
   // stage handler, so the viewer closes instead of retrying. Expected to fail until fixed.
   test('US-16 AC-5 (BUG-2): clicking or tapping Try again retries and keeps the viewer open', async ({ page }) => {
-    test.fail(true, 'BUG-2: pressing Try again with a pointer closes the viewer (stage tap-to-close handler)');
     await presentPhoto(page, 0);
     const broken = await breakFullPicture(page);
     await page.getByRole('button', { name: /Look closer/i }).first().click();
@@ -401,7 +400,6 @@ test.describe('US-33 portrait, landscape and small screens', () => {
   ] as const) {
     test(`US-33 AC-1: every HUD control is fully on screen at ${width}x${height}${width === 412 ? ' (BUG-4)' : ''}`, async ({ page, museum }) => {
       // BUG-4: at 412 px wide (Pixel 7, a very common width) the Help button is pushed past the right edge.
-      test.fail(width === 412, 'BUG-4: the HUD top row overflows at 412 px wide; Help is cut off');
       await page.setViewportSize({ width, height });
       await enter(page, museum.shareToken);
       await page.waitForTimeout(600);

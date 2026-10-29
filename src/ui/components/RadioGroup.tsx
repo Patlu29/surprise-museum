@@ -95,6 +95,7 @@ export function RadioGroup<T extends string>({
               }}
               type="button"
               role="radio"
+              value={option.value}
               aria-checked={checked}
               aria-label={variant === 'swatches' ? option.label : undefined}
               tabIndex={checked ? 0 : -1}

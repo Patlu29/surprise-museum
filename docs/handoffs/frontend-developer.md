@@ -1,5 +1,27 @@
 # Handoff: frontend-developer
 
+## Fix round 1 (QA bugs BUG-1 to BUG-4)
+
+| Bug | Fix |
+|---|---|
+| BUG-1 | Draft persistence. New `src/state/draftPersistence.ts` (pure parse and serialise, load, save, clear; key `surprise-museum:draft:v1`, version 1). `builderStore` restores on load and saves on every change to the names, title, closing message, both avatars, `step` and `maxStep`. Not stored: photos, captions (they live on photo rows), consent, edit token. Cleared on publish success (`publish.phase === 'done'`), on `reset()` (Start again) and whenever the draft equals a blank one. Unavailable or full storage, corrupt JSON, wrong or old version, unknown option ids and wrong types are handled silently (unknown values fall back to defaults). 7 new unit tests in `src/state/draftPersistence.test.ts` |
+| BUG-2 | `PhotoViewer.tsx`: stage `onPointerDown` returns early for presses inside `.viewer__error`, so the pointer is not captured (capture retargeted the click away from the button) and the press is not treated as a background tap. Tap outside still closes |
+| BUG-3 | `Tabs` gets an optional `panelId`. The Characters step wraps the Appearance tabs and options in one `role="tabpanel"` with `id="character-panel"` labelled by the selected character tab; both character tabs point `aria-controls` at it |
+| BUG-4 | `visit.css`: HUD labels never wrap; tighter gap and padding between 400 and 479 px and below 360 px. Design-spec breakpoints (labels from 400 px) are unchanged. Touch targets stay at 44 px |
+
+Also: `RadioGroup` option buttons now carry a `value` attribute. The BUG-1 e2e test reads `value` from the checked radio, and without it the test failed before reaching the reload.
+
+`test.fail` markers removed for all four bugs (BUG-1 has two tests, US-6 AC-3 and US-29 AC-1). Verification: typecheck, lint, build clean; `npm test` 44 files, 563 tests passed (before the final CSS tweak, which touches no logic); e2e `builder`, `visit-ui` (US-33 re-run after the final CSS tweak) and `accessibility` pass on desktop-chromium and mobile-chromium.
+
+### Store additions
+`useBuilderStore` persisted subset (localStorage, `surprise-museum:draft:v1`): `title`, `visitorName`, `guideName`, `closingMessage`, `guideAvatar`, `visitorAvatar`, `step`, `maxStep`. No new fields on any store.
+
+### Notes and open points
+- After a reload the builder opens on the saved step even though photos are gone (the BUG-1 test requires this). Steps 3 and 4 with no photos show the usual "Add at least one photo" issues. Product-manager: confirm, or ask for a "photos were not kept" notice (small UI change).
+- US-29 (photos and captions restored) stays Release 2 (IndexedDB). The US-29 e2e test only checks the name, so it passes now.
+- 320 px: not covered by an e2e test; spacing rules were added by calculation. QA could add 320x568 and 400/440 px widths to the US-33 loop.
+- The working tree already had unrelated edits (`package.json`, `package-lock.json`, `tsconfig*.json`, `docs/project-status.md`, `tsconfig.e2e.json`) that are not mine.
+
 ## Summary
 I built the DOM interface and the shared state for Surprise Museum: the four-step builder with the client-side photo pipeline, publish and edit/delete, the Visitor flow (loading, welcome, HUD with joystick and arrow buttons, Pictures list, caption card placed by a unit-tested `chooseCaptionDock`, full-screen viewer, finale card), every error state, the home screen and legal pages, settings and accessibility plumbing, and self-hosted Fraunces (36 kB). The stores are documented below for the scene-developer; the scene already reads them. `npm run typecheck`, `lint`, `test` (543 tests) and `build` passed on my last full run. All four also pass after integration round 1 (`finaleReached`, Exit preview to Review, shared avatar options, Sales line removed) and round 2 (demo-data controls, demo storage full message, JPEG stripper by identifier). Round 2 re-run: typecheck, lint, build clean; 543 tests in 41 files.
 

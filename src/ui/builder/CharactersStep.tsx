@@ -147,6 +147,7 @@ export function CharactersStep() {
         <Tabs<AvatarRole>
           label="Character"
           idPrefix="character"
+          panelId="character-panel"
           value={role}
           onChange={setRole}
           tabs={[
@@ -157,37 +158,44 @@ export function CharactersStep() {
             },
           ]}
         />
-        <Tabs<Section>
-          label="Appearance"
-          idPrefix="section"
-          value={section}
-          onChange={setSection}
-          tabs={SECTIONS.map((item) => ({ id: item.id, label: item.label }))}
-        />
-
         <div
           role="tabpanel"
-          id={`section-panel-${section}`}
-          aria-labelledby={`section-tab-${section}`}
+          id="character-panel"
+          aria-labelledby={`character-tab-${role}`}
           className="stack"
         >
-          {groups.map((group) => (
-            <RadioGroup<string>
-              key={`${role}-${group.key}`}
-              label={group.label}
-              variant={group.variant}
-              showValue={group.variant === 'swatches'}
-              options={optionsFor(group)}
-              value={config[group.key] as string}
-              onChange={(value) => setAvatarOption(role, group.key, value as never)}
-            />
-          ))}
-        </div>
+          <Tabs<Section>
+            label="Appearance"
+            idPrefix="section"
+            value={section}
+            onChange={setSection}
+            tabs={SECTIONS.map((item) => ({ id: item.id, label: item.label }))}
+          />
 
-        <div>
-          <Button variant="tertiary" icon="reset" onClick={() => resetAvatar(role)}>
-            Reset {role === 'guide' ? 'Guide' : 'Visitor'} to the starting look
-          </Button>
+          <div
+            role="tabpanel"
+            id={`section-panel-${section}`}
+            aria-labelledby={`section-tab-${section}`}
+            className="stack"
+          >
+            {groups.map((group) => (
+              <RadioGroup<string>
+                key={`${role}-${group.key}`}
+                label={group.label}
+                variant={group.variant}
+                showValue={group.variant === 'swatches'}
+                options={optionsFor(group)}
+                value={config[group.key] as string}
+                onChange={(value) => setAvatarOption(role, group.key, value as never)}
+              />
+            ))}
+          </div>
+
+          <div>
+            <Button variant="tertiary" icon="reset" onClick={() => resetAvatar(role)}>
+              Reset {role === 'guide' ? 'Guide' : 'Visitor'} to the starting look
+            </Button>
+          </div>
         </div>
       </div>
     </div>

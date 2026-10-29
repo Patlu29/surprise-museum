@@ -413,7 +413,6 @@ test.describe('US-6 and US-7 customise the characters', () => {
   // only (src/state/builderStore.ts says restore is Release 2), so this is expected to fail until
   // BUG-1 is resolved. `test.fail` keeps the suite green and goes red when it is fixed.
   test('US-6 AC-3 (BUG-1): character choices survive a page reload', async ({ page }) => {
-    test.fail(true, 'BUG-1: the draft, including avatar choices, is memory-only and is lost on reload');
     await toCharacters(page);
     await page.getByRole('tab', { name: 'Hair' }).click();
     const group = page.getByRole('radiogroup', { name: 'Hair style' });
@@ -542,7 +541,6 @@ test.describe('US-22 publish', () => {
 test.describe('US-29 draft', () => {
   // The MVP keeps the draft in memory only (FR-12 / US-29 are Should and not built).
   test('US-29 AC-1 (BUG-1): a refresh restores photos, captions, names and characters', async ({ page }) => {
-    test.fail(true, 'BUG-1: the draft is memory-only; restore on refresh is not built');
     await openBuilder(page);
     await addPhotos(page, makePhotos(1));
     await NEXT(page).click();

@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b tsconfig.app.json tsconfig.node.json && vite build",
     "check:live": "node supabase/scripts/check-live-config.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
@@ -31,6 +31,7 @@
     "zustand": "5.0.16"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.64.1",
     "@types/node": "26.6.5",

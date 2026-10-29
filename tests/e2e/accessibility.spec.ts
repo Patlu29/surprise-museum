@@ -106,7 +106,6 @@ test.describe('axe: Creator side', () => {
   });
 
   test('BUG-3: the Guide and Visitor tabs point aria-controls at an element that exists', async ({ page }) => {
-    test.fail(true, 'BUG-3: aria-controls="character-panel-guide" has no matching id (axe aria-valid-attr-value)');
     await page.goto('./#/create');
     await addPhotos(page, makePhotos(1));
     await fillWords(page, {});

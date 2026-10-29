@@ -12,7 +12,7 @@
 | 3. Design | Complete (design-spec v1.0) | Approved 27/10/2026 |
 | 4. Build | Complete: build, typecheck, lint clean; 543 tests pass | — |
 | 5. Performance | Complete (docs/performance.md v1.0); 556 tests pass. Real-device figures unverified (no devices available) | — |
-| 6. QA | In progress | — |
+| 6. QA | Round 1 done: 410 e2e pass, 5 bugs open; fix round 1 in progress | — |
 | 7. Delivery | Not started | — |
 
 ## Approvals given
@@ -44,4 +44,6 @@ Needing legal review before public launch: photo-consent and Privacy Act wording
 
 ## Bug count
 
-QA not yet reported.
+5 open (3 major, 2 minor), see docs/qa-report.md. BUG-1 scope (tech lead, 29/10/2026): persist character choices and text fields per US-6 AC-3 (Must); photo restore stays with US-29 (Should, Release 2).
+
+Open design question: in the presenting view the Visitor and her name label partly cover the picture (camera sits behind her). Intended?

@@ -113,6 +113,9 @@ export function PhotoViewer({ photo, index, total, onClose }: PhotoViewerProps) 
   }, [apply, sizes]);
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    // Presses on the error panel's buttons are not gestures: capturing the pointer would
+    // retarget the click away from the button, and the press is not a tap on the background.
+    if ((event.target as Element).closest('.viewer__error')) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pointers.current.size === 1) tapStart.current = { x: event.clientX, y: event.clientY };

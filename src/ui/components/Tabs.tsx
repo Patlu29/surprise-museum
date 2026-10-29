@@ -12,10 +12,19 @@ interface TabsProps<T extends string> {
   onChange: (value: T) => void;
   /** Prefix for the ids that connect tabs and panels. Panels use `${idPrefix}-panel-${id}`. */
   idPrefix: string;
+  /** When one panel serves every tab, its id. Overrides the per-tab panel ids. */
+  panelId?: string;
 }
 
 /** Tab list with automatic activation, arrow keys and roving tabindex (design spec 5.3). */
-export function Tabs<T extends string>({ label, tabs, value, onChange, idPrefix }: TabsProps<T>) {
+export function Tabs<T extends string>({
+  label,
+  tabs,
+  value,
+  onChange,
+  idPrefix,
+  panelId,
+}: TabsProps<T>) {
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -46,7 +55,7 @@ export function Tabs<T extends string>({ label, tabs, value, onChange, idPrefix 
             role="tab"
             id={`${idPrefix}-tab-${tab.id}`}
             aria-selected={selected}
-            aria-controls={`${idPrefix}-panel-${tab.id}`}
+            aria-controls={panelId ?? `${idPrefix}-panel-${tab.id}`}
             tabIndex={selected ? 0 : -1}
             className={['tabs__tab', selected && 'is-selected'].filter(Boolean).join(' ')}
             onClick={() => onChange(tab.id)}

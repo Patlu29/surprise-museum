@@ -6,10 +6,13 @@ import { DEFAULT_GUIDE_AVATAR, DEFAULT_VISITOR_AVATAR } from '@/lib/avatars';
 import { limitText } from '@/lib/text';
 import type { BuilderStep, DraftFields, DraftPhoto } from './draft';
 import { createInitialFields } from './draft';
+import { clearSavedDraft, loadDraft, saveDraft } from './draftPersistence';
 
 /**
- * The Creator's draft (architecture section 8). Memory only in the MVP (FR-12 restore is
- * Release 2). The edit token lives here and is NEVER persisted (FR-50).
+ * The Creator's draft (architecture section 8). The character choices, text fields and step
+ * are saved to localStorage and restored on load (US-6 AC-3, US-7); see `draftPersistence.ts`.
+ * They are cleared on publish and on Start again. Photos are memory only (full restore with
+ * photos is Release 2, US-29). The edit token lives here and is NEVER persisted (FR-50).
  *
  * Read by: the builder UI and the preview screen. The scene does not read it: preview content
  * reaches the scene through `museumStore.setPreview()`.
@@ -99,8 +102,15 @@ function initialState() {
   };
 }
 
+function restoredState() {
+  const saved = loadDraft();
+  return saved
+    ? { ...initialState(), ...saved.fields, step: saved.step, maxStep: saved.maxStep }
+    : initialState();
+}
+
 export const useBuilderStore = create<BuilderState>()((set) => ({
-  ...initialState(),
+  ...restoredState(),
 
   setStep: (step) =>
     set((state) => ({ step, maxStep: Math.max(state.maxStep, step) as BuilderStep })),
@@ -169,8 +179,56 @@ export const useBuilderStore = create<BuilderState>()((set) => ({
   setPublish: (patch) => set((state) => ({ publish: { ...state.publish, ...patch } })),
   acknowledgeEditLink: (editLinkAcknowledged) => set({ editLinkAcknowledged }),
 
-  reset: () => set(initialState()),
+  reset: () => {
+    clearSavedDraft();
+    set(initialState());
+  },
 }));
+
+function isBlank(state: BuilderState): boolean {
+  const blank = createInitialFields();
+  return (
+    state.step === 1 &&
+    state.title === blank.title &&
+    state.visitorName === blank.visitorName &&
+    state.guideName === blank.guideName &&
+    state.closingMessage === blank.closingMessage &&
+    JSON.stringify(state.guideAvatar) === JSON.stringify(blank.guideAvatar) &&
+    JSON.stringify(state.visitorAvatar) === JSON.stringify(blank.visitorAvatar)
+  );
+}
+
+// Save on every change to a persisted field. A published or blank draft is removed instead, so
+// Start again and a finished museum leave nothing behind.
+useBuilderStore.subscribe((state, previous) => {
+  const changed =
+    state.title !== previous.title ||
+    state.visitorName !== previous.visitorName ||
+    state.guideName !== previous.guideName ||
+    state.closingMessage !== previous.closingMessage ||
+    state.guideAvatar !== previous.guideAvatar ||
+    state.visitorAvatar !== previous.visitorAvatar ||
+    state.step !== previous.step ||
+    state.maxStep !== previous.maxStep ||
+    state.publish.phase !== previous.publish.phase;
+  if (!changed) return;
+  if (state.publish.phase === 'done' || isBlank(state)) {
+    clearSavedDraft();
+    return;
+  }
+  saveDraft({
+    fields: {
+      title: state.title,
+      visitorName: state.visitorName,
+      guideName: state.guideName,
+      closingMessage: state.closingMessage,
+      guideAvatar: state.guideAvatar,
+      visitorAvatar: state.visitorAvatar,
+    },
+    step: state.step,
+    maxStep: state.maxStep,
+  });
+});
 
 /** A blank photo row, for the upload queue. */
 export function createDraftPhoto(localId: string, fileName: string, caption = ''): DraftPhoto {
