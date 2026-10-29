@@ -43,7 +43,16 @@ export interface TestSnapshot {
   finaleReached: boolean;
   photoStatus: Record<string, string>;
   camera: { x: number; y: number; z: number; yaw: number; pitch: number; offDefault: boolean };
-  render: { calls: number; triangles: number; textures: number };
+  render: {
+    calls: number;
+    triangles: number;
+    textures: number;
+    geometries: number;
+    programs: number;
+    /** Resident wall photo textures and their estimated GPU bytes (including mipmaps). */
+    photoTextures: number;
+    photoTextureBytes: number;
+  };
   labels: { visitor: boolean; guide: boolean };
   /** Opacity of each internal wall; below 1 means it is fading because it blocks the camera. */
   partitionOpacity: number[];
@@ -140,6 +149,10 @@ export function installTestHooks(
           calls: gl.info.render.calls,
           triangles: gl.info.render.triangles,
           textures: gl.info.memory.textures,
+          geometries: gl.info.memory.geometries,
+          programs: gl.info.programs?.length ?? 0,
+          photoTextures: runtime.photos.residentStats().count,
+          photoTextureBytes: runtime.photos.residentStats().bytes,
         },
         partitionOpacity: [...runtime.partitionOpacity],
         quality: document.documentElement.dataset.graphicsQuality ?? null,

@@ -47,6 +47,8 @@ export interface SceneRuntime {
 export interface RuntimeOptions {
   content: MuseumContent;
   anisotropy: number;
+  /** Longest texture edge for wall photos right now (changes with the graphics tier). */
+  photoMaxEdge: () => number;
   onPhotoStatus: (id: string, status: 'placeholder' | 'loading' | 'loaded' | 'failed') => void;
   onUrlsExpired: () => void;
 }
@@ -96,6 +98,7 @@ export function createSceneRuntime(options: RuntimeOptions): SceneRuntime {
 
   const photos = new PhotoTextures({
     anisotropy: options.anisotropy,
+    maxEdge: options.photoMaxEdge,
     onStatus: options.onPhotoStatus,
     onUrlsExpired: options.onUrlsExpired,
   });

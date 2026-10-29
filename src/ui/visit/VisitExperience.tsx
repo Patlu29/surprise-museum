@@ -20,18 +20,18 @@ import { Button } from '@/ui/components/Button';
 import { ButtonLink } from '@/ui/components/Button';
 import { ContextLostDialog } from '@/ui/overlays/ContextLostDialog';
 import type { SheetName } from '@/ui/overlays/Hud';
-import { Hud } from '@/ui/overlays/Hud';
-import { HelpSheet } from '@/ui/overlays/HelpSheet';
-import { PhotoViewer } from '@/ui/overlays/PhotoViewer';
-import { PicturesSheet } from '@/ui/overlays/PicturesSheet';
 import { PreviewBar } from '@/ui/overlays/PreviewBar';
-import { SettingsSheet } from '@/ui/overlays/SettingsSheet';
 import { WebGLUnavailableScreen } from '@/ui/screens/WebGLUnavailableScreen';
 import { SceneBoundary } from './SceneBoundary';
 import { WelcomeScreen } from './WelcomeScreen';
 
 // The only way the UI may load the scene (lint rule): lazily, so three.js stays out of the first view.
 const Experience = lazy(() => import('@/scene/Experience'));
+
+// Everything after Start (HUD, sheets, viewer) is a second chunk, fetched once the scene has
+// mounted so it arrives while she reads the welcome screen and stays out of the welcome download.
+const loadRoamingLayer = () => import('./RoamingLayer');
+const RoamingLayer = lazy(loadRoamingLayer);
 
 /** Rendered after Experience inside the same Suspense boundary: it mounts once the scene chunk has. */
 function MountSignal({ onMount }: { onMount: () => void }) {
@@ -88,7 +88,10 @@ export function VisitExperience({ content, mode, onExitPreview }: VisitExperienc
   const welcome = useDelayedUnmount(phase === 'welcome', welcomeFade);
   const inAppBrowser = useMemo(() => detectInAppBrowser(navigator.userAgent), []);
 
-  const markChunkMounted = useCallback(() => setChunkMounted(true), []);
+  const markChunkMounted = useCallback(() => {
+    setChunkMounted(true);
+    void loadRoamingLayer().catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     registerCanvasElement(rootRef.current);
@@ -229,35 +232,20 @@ export function VisitExperience({ content, mode, onExitPreview }: VisitExperienc
         {CONTROLS_DESCRIPTION}
       </p>
 
-      {phase === 'roaming' ? (
-        <Hud content={content} openSheet={sheet} onOpenSheet={setSheet} onReplay={replay} />
-      ) : null}
-
-      <PicturesSheet
-        open={sheet === 'pictures'}
-        onClose={() => setSheet(null)}
-        content={content}
-        onJump={jump}
-      />
-      <HelpSheet
-        open={sheet === 'help'}
-        onClose={() => setSheet(null)}
-        guideName={content.guideName}
-      />
-      <SettingsSheet
-        open={sheet === 'settings'}
-        onClose={() => setSheet(null)}
-        onOpenHelp={() => setSheet('help')}
-      />
-
-      {viewerPhoto ? (
-        <PhotoViewer
-          photo={viewerPhoto}
-          index={viewerIndex}
-          total={content.photos.length}
-          onClose={() => useSessionStore.getState().closeViewer()}
-        />
-      ) : null}
+      <Suspense fallback={null}>
+        {chunkMounted ? (
+          <RoamingLayer
+            content={content}
+            phase={phase}
+            sheet={sheet}
+            onSheet={setSheet}
+            onJump={jump}
+            onReplay={replay}
+            viewerPhoto={viewerPhoto}
+            viewerIndex={viewerIndex}
+          />
+        ) : null}
+      </Suspense>
 
       {welcome.mounted ? (
         <WelcomeScreen

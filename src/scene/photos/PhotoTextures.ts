@@ -8,6 +8,11 @@ import {
 } from 'three';
 import { LoadError, PhotoLoadQueue, type LoadStatus } from '@/domain/photos/loadQueue';
 
+/** Closes a texture's ImageBitmap (a no-op for <img> sources, and when already closed). */
+function releaseImage(texture: Texture): void {
+  (texture.image as { close?: () => void } | null)?.close?.();
+}
+
 export interface PhotoSource {
   id: string;
   /** 1024 px wall rendition: a signed URL, or a blob: URL in preview. */
@@ -21,6 +26,12 @@ export interface PhotoTexturesOptions {
   onUrlsExpired?: () => void;
   /** Anisotropy: 4 on desktop and 2 on phones (architecture 6.10). */
   anisotropy: number;
+  /**
+   * The longest edge, in pixels, a wall texture is uploaded at. Read each time a photo is
+   * decoded, so the graphics tier can change after the runtime is built. Renditions already at
+   * or under it are used as they are. 0 or absent means no limit.
+   */
+  maxEdge?: () => number;
 }
 
 /**
@@ -35,12 +46,14 @@ export class PhotoTextures {
   private readonly queue: PhotoLoadQueue<Texture>;
   private readonly status = new Map<string, LoadStatus>();
   private readonly anisotropy: number;
+  private readonly maxEdge: () => number;
   /** Test hook: ids that must fail every download. */
   private readonly forcedFailures = new Set<string>();
   private disposed = false;
 
   constructor(options: PhotoTexturesOptions) {
     this.anisotropy = options.anisotropy;
+    this.maxEdge = options.maxEdge ?? (() => 0);
     this.queue = new PhotoLoadQueue<Texture>({
       load: (id, url, signal) => this.load(id, url, signal),
       onStatus: (id, status) => {
@@ -98,6 +111,13 @@ export class PhotoTextures {
     return this.queue.pendingCount;
   }
 
+  /** Resident wall textures and their estimated GPU bytes (RGBA8 plus a third for mipmaps). */
+  residentStats(): { count: number; bytes: number } {
+    let bytes = 0;
+    for (const t of this.walls.values()) bytes += (t.userData.gpuBytes as number | undefined) ?? 0;
+    return { count: this.walls.size, bytes: Math.round(bytes) };
+  }
+
   /** Test hook: make a photo fail now and until the next manual retry, even if it had loaded. */
   forceFailure(id: string): void {
     this.forcedFailures.add(id);
@@ -114,7 +134,10 @@ export class PhotoTextures {
     this.disposed = true;
     this.queue.dispose();
     for (const t of this.lqip.values()) t.dispose();
-    for (const t of this.walls.values()) t.dispose();
+    for (const t of this.walls.values()) {
+      releaseImage(t);
+      t.dispose();
+    }
     this.lqip.clear();
     this.walls.clear();
   }
@@ -130,6 +153,7 @@ export class PhotoTextures {
       ? await this.loadViaImage(url, signal)
       : await this.loadViaFetch(url, signal);
     if (signal.aborted || this.disposed) {
+      releaseImage(texture);
       texture.dispose();
       throw new DOMException('Aborted', 'AbortError');
     }
@@ -152,17 +176,46 @@ export class PhotoTextures {
     let bitmap: ImageBitmap;
     try {
       bitmap = await createImageBitmap(blob, { imageOrientation: 'flipY' });
+      bitmap = await this.fitToMaxEdge(bitmap);
     } catch {
       throw new LoadError('Could not decode the image');
     }
+    return this.fromBitmap(bitmap);
+  }
+
+  /** A mip-mapped texture from an already flipped bitmap, which is closed once it is on the GPU. */
+  private fromBitmap(bitmap: ImageBitmap): Texture {
     const texture = this.prepare(new Texture(bitmap));
     texture.flipY = false; // the bitmap is already flipped
-    // Free the CPU-side copy once it is on the GPU.
     texture.onUpdate = () => {
       bitmap.close();
       texture.onUpdate = null;
     };
     return texture;
+  }
+
+  /**
+   * Shrinks a decoded rendition to the tier's texture limit with the browser's own high-quality
+   * resampler (off the main thread), so the GPU holds, and the main thread uploads, only the
+   * pixels that can show. A browser that ignores the resize options just hands back the full
+   * size, which is still correct. The intermediate bitmap is closed straight away.
+   */
+  private async fitToMaxEdge(bitmap: ImageBitmap): Promise<ImageBitmap> {
+    const limit = this.maxEdge();
+    const long = Math.max(bitmap.width, bitmap.height);
+    if (limit <= 0 || long <= limit) return bitmap;
+    const scale = limit / long;
+    try {
+      const small = await createImageBitmap(bitmap, {
+        resizeWidth: Math.max(1, Math.round(bitmap.width * scale)),
+        resizeHeight: Math.max(1, Math.round(bitmap.height * scale)),
+        resizeQuality: 'high',
+      });
+      bitmap.close();
+      return small;
+    } catch {
+      return bitmap;
+    }
   }
 
   private loadViaImage(url: string, signal: AbortSignal, revoke = false): Promise<Texture> {
@@ -174,7 +227,7 @@ export class PhotoTextures {
       };
       img.onload = () => {
         cleanup();
-        resolve(this.prepare(new Texture(img)));
+        this.textureFromImage(img).then(resolve, reject);
       };
       img.onerror = () => {
         cleanup();
@@ -189,7 +242,31 @@ export class PhotoTextures {
     });
   }
 
+  /** The preview and demo path: an <img> is shrunk the same way as a fetched rendition. */
+  private async textureFromImage(img: HTMLImageElement): Promise<Texture> {
+    const limit = this.maxEdge();
+    const long = Math.max(img.naturalWidth, img.naturalHeight);
+    if (typeof createImageBitmap === 'function' && limit > 0 && long > limit) {
+      try {
+        const scale = limit / long;
+        const bitmap = await createImageBitmap(img, {
+          imageOrientation: 'flipY',
+          resizeWidth: Math.max(1, Math.round(img.naturalWidth * scale)),
+          resizeHeight: Math.max(1, Math.round(img.naturalHeight * scale)),
+          resizeQuality: 'high',
+        });
+        return this.fromBitmap(bitmap);
+      } catch {
+        // Fall through to the full-size image.
+      }
+    }
+    return this.prepare(new Texture(img));
+  }
+
   private prepare(texture: Texture): Texture {
+    // The bitmap is closed after upload (its size then reads 0), so keep the estimate now.
+    const image = texture.image as { width: number; height: number };
+    texture.userData.gpuBytes = Math.round(image.width * image.height * 4 * (4 / 3));
     texture.colorSpace = SRGBColorSpace;
     texture.generateMipmaps = true;
     texture.minFilter = LinearMipmapLinearFilter;

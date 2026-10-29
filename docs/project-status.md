@@ -1,7 +1,7 @@
 # Project status — Surprise Museum
 
-**Current phase:** 5. Performance — in progress
-**Last updated:** 27/10/2026
+**Current phase:** 6. QA — in progress
+**Last updated:** 29/10/2026
 
 ## Phases
 
@@ -11,8 +11,8 @@
 | 2. Architecture | Complete, scaffold builds | Approved 27/10/2026 |
 | 3. Design | Complete (design-spec v1.0) | Approved 27/10/2026 |
 | 4. Build | Complete: build, typecheck, lint clean; 543 tests pass | — |
-| 5. Performance | In progress | — |
-| 6. QA | Not started | — |
+| 5. Performance | Complete (docs/performance.md v1.0); 556 tests pass. Real-device figures unverified (no devices available) | — |
+| 6. QA | In progress | — |
 | 7. Delivery | Not started | — |
 
 ## Approvals given
@@ -37,6 +37,11 @@ Resolved at architecture checkpoint (27/10/2026): architecture approved; keep pr
 
 Needing legal review before public launch: photo-consent and Privacy Act wording (Q-15), LGPL-3.0 licence of the `heic-to` decoder.
 
+## Known issues carried into QA
+
+- Re-entering the museum retains about 49 DOM nodes and 0.4 MB heap per visit (low priority; performance report section 6)
+- Real-device frame rate, memory and tier thresholds unverified (performance report section 7)
+
 ## Bug count
 
-Not applicable yet.
+QA not yet reported.

@@ -42,6 +42,18 @@ const WEAK_RENDERER = new RegExp(
   'i',
 );
 
+/**
+ * The longest edge, in pixels, that a wall photo is uploaded to the GPU at (ADR 0005, architecture
+ * 6.10). Renditions arrive at 1024 px. On the Low tier (phones, weak GPUs) a picture covers about
+ * 250 to 350 device pixels on its long edge at the closest the follow camera allows, so 512 px
+ * keeps the full mip chain it would ever sample at one quarter of the memory, decode and upload
+ * cost (4.2 MB to 1.1 MB per photo). The full-screen viewer shows `full.jpg` for detail.
+ */
+export const PHOTO_MAX_EDGE: Readonly<Record<GraphicsQuality, number>> = {
+  low: 512,
+  high: 1024,
+};
+
 export function isWeakRenderer(renderer: string | null): boolean {
   return renderer !== null && WEAK_RENDERER.test(renderer);
 }

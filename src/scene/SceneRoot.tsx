@@ -1,6 +1,6 @@
 import type { MuseumContent } from '@contract';
 import { useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FollowCameraRig } from './cameras/FollowCameraRig';
 import { CharacterView } from './characters/CharacterView';
 import { CanvasInput } from './controllers/CanvasInput';
@@ -9,6 +9,7 @@ import { attachCursor } from './controllers/cursor';
 import { SceneDriver } from './controllers/SceneDriver';
 import { installTestHooks } from './controllers/testHooks';
 import { Museum } from './objects/Museum';
+import { PHOTO_MAX_EDGE } from './runtime/graphicsQuality';
 import { RuntimeContext } from './runtime/RuntimeContext';
 import { createSceneRuntime, type SceneRuntime } from './runtime/SceneRuntime';
 import { SceneLights, type GraphicsQuality } from './seams';
@@ -51,6 +52,12 @@ export function SceneRoot({ content, anisotropy, quality, canvasInput }: SceneRo
   const gl = useThree((s) => s.gl);
   const [session, setSession] = useState<Session | null>(null);
   const key = contentKey(content);
+  // The tier is refined once the GPU name is known, which must not rebuild the runtime (and
+  // restart the photo downloads), so the photo loader reads the current tier through a ref.
+  const qualityRef = useRef(quality);
+  useEffect(() => {
+    qualityRef.current = quality;
+  }, [quality]);
   // Rebuild only when the museum itself changes, not when signed photo URLs are refreshed.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` is the identity of `content`
   const stableContent = useMemo(() => content, [key]);
@@ -60,6 +67,7 @@ export function SceneRoot({ content, anisotropy, quality, canvasInput }: SceneRo
     const runtime = createSceneRuntime({
       content: stableContent,
       anisotropy,
+      photoMaxEdge: () => PHOTO_MAX_EDGE[qualityRef.current],
       onPhotoStatus: (id, status) => useMuseumStore.getState().setPhotoStatus(id, status),
       onUrlsExpired: () => {
         // The signed URLs expired: ask the store for fresh ones, then restart what was waiting.
@@ -108,7 +116,6 @@ export function SceneRoot({ content, anisotropy, quality, canvasInput }: SceneRo
 
     // The runtime owns WebGL resources and downloads, so it must be built and disposed in step
     // with this effect (StrictMode runs it twice). Publishing it to render is the one setState.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSession({ runtime, rig });
     return () => {
       offCommands();

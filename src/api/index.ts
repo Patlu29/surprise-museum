@@ -49,15 +49,28 @@ export function getApiMode(): ApiMode {
   });
 }
 
+/**
+ * Whether the demo backend can be reached in this build, decided at build time so the bundler can
+ * drop it. A production build with VITE_API_MODE blank or exactly `live` (the GitHub Pages deploy,
+ * and `npm run build`) always resolves to the live client (see mode.ts), so the mock, its storage
+ * and the server-rule validators it carries (about 45 kB minified, 14 kB gzipped) would only slow
+ * the first view. Development and `VITE_API_MODE=mock` builds keep it. Anything unusual in the
+ * flag keeps the mock too, because that is the safe direction.
+ */
+const MODE_FLAG = import.meta.env.VITE_API_MODE as string | undefined;
+const MOCK_REACHABLE = !import.meta.env.PROD || (MODE_FLAG !== undefined && MODE_FLAG !== 'live');
+
 // One demo store and one mock per page, shared by `createApi` and the demo-data helpers.
 let demoStorage: DemoStorage | undefined;
 let mock: MockMuseumApi | undefined;
 
 function sharedDemoStorage(): DemoStorage {
+  if (!MOCK_REACHABLE) throw new Error('The demo backend is not part of this build.');
   return (demoStorage ??= createAutoDemoStorage());
 }
 
 function sharedMock(): MockMuseumApi {
+  if (!MOCK_REACHABLE) throw new Error('The demo backend is not part of this build.');
   // A little simulated network delay makes loading states visible during development.
   return (mock ??= createMockApi({ storage: sharedDemoStorage(), latencyMs: 150 }));
 }

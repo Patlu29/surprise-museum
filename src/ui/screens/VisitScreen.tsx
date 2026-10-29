@@ -25,6 +25,13 @@ export default function VisitScreen() {
     return () => useMuseumStore.getState().clear();
   }, [shareToken]);
 
+  // Start downloading the 3D scene now, in parallel with the museum request, instead of after it
+  // returns: on 4G that hides one or two round trips from the time until the museum is ready
+  // (NFR-3). VisitExperience's lazy() import resolves to this same module, so nothing loads twice.
+  useEffect(() => {
+    void import('@/scene/Experience').catch(() => undefined);
+  }, []);
+
   // A stale preview or an earlier museum must never flash before this link has loaded.
   const current = source === 'published';
 
