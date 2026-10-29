@@ -1,5 +1,36 @@
 # Handoff: qa-engineer
 
+## Round 2 (fix round 1 re-test)
+
+### Summary
+Re-tested BUG-1 to BUG-5 at HEAD e3aacf3 on desktop-chromium, mobile-chromium and mobile-webkit: 440 passed, 0 failed, 25 skipped (project-specific). BUG-1 to BUG-4 are fixed and verified; BUG-5 is accepted as upstream (ADR 0018). Typecheck, lint, build and 563 unit tests pass. Firefox still cannot run in the sandbox. Details in `docs/qa-report.md` (round 2 section).
+
+### Files changed (round 2, tests and docs only)
+- `tests/e2e/builder.spec.ts`: `openBuilder` asserts a clean start (no draft key); US-6 AC-3 no longer a known bug; US-29 AC-1 retitled "(partial): names, text and characters restored" and made to check both names and a hair style; new "US-29 decision: photos are not persisted" and "fresh context has no draft" tests
+- `tests/e2e/visit-ui.spec.ts`: US-33 AC-1 HUD check also at 320x568, 400x860, 440x900
+- `tests/e2e/accessibility.spec.ts`: header comment (axe is a devDependency; a skip in CI means a failed setup), BUG-3 exclusions removed
+- `tests/e2e/support/app.ts`: `KNOWN_WARNINGS` comment cites ADR 0018; `waitForSnap` waits for the scene hook (fixes a race in `csp-blob.spec.ts` on mobile-chromium)
+- `docs/qa-report.md`, this note
+
+### Decisions
+- Test isolation relies on Playwright's fresh context per test, plus an explicit assert in `openBuilder`.
+- Full US-29 photo restore is recorded as "not built, Release 2", not a bug.
+- BUG-5 marked "accepted, upstream"; its allowlist entry stays until a stable R3F release replaces `Clock`.
+
+### Assumptions
+- The tech lead's decision (photos not persisted) stands, so the US-29 decision test asserts photos are absent after a reload.
+
+### Open questions
+- After a reload the builder reopens on the saved step with photos gone. Should it show a "your photos were not kept" notice? (product-manager decides, frontend-developer builds)
+- N-2: is the Visitor covering part of the picture while presented intended? (ux-ui-designer)
+
+### Requests for other agents
+- None new. Standing: devops-engineer, run `npx playwright install --with-deps chromium firefox webkit` in CI, run `desktop-firefox` there, and make a Linux baseline set. If axe tests show as skipped in CI, the install omitted dev dependencies. Reduce Playwright workers if the Visit tests time out on a loaded runner (3 timeouts seen once on a loaded laptop).
+
+---
+
+# Round 1 handoff (kept for history)
+
 ## Summary
 Phase 6 QA on the mock backend. I wrote end-to-end tests for every Must story and the MVP additions, ran them on desktop Chromium, iPhone 13 WebKit and Pixel 7 Chromium (410 passed, 0 failed, 15 expected failures documenting 5 bugs, 25 skipped), added 6 stable visual baselines, axe checks and an Android-keyboard emulation. Firefox is configured but cannot launch inside the agent sandbox, so it is not verified. Real-device items are all listed as not verified. Results and bugs are in `docs/qa-report.md`.
 

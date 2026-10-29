@@ -397,9 +397,13 @@ test.describe('US-33 portrait, landscape and small screens', () => {
     [360, 640],
     [390, 844],
     [412, 915],
+    [320, 568],
+    [400, 860],
+    [440, 900],
   ] as const) {
-    test(`US-33 AC-1: every HUD control is fully on screen at ${width}x${height}${width === 412 ? ' (BUG-4)' : ''}`, async ({ page, museum }) => {
-      // BUG-4: at 412 px wide (Pixel 7, a very common width) the Help button is pushed past the right edge.
+    test(`US-33 AC-1: every HUD control is fully on screen at ${width}x${height}`, async ({ page, museum }) => {
+      // BUG-4 (fixed): at 412 px wide the Help button was pushed past the right edge. 320, 400 and 440
+      // cover the narrowest phone and both sides of the 400 px label breakpoint.
       await page.setViewportSize({ width, height });
       await enter(page, museum.shareToken);
       await page.waitForTimeout(600);

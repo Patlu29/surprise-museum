@@ -4,9 +4,9 @@ import { makePhotos } from './support/images';
 
 /*
  * NFR-12 and US-32: automated WCAG 2.2 AA checks with axe-core, plus keyboard and focus checks.
- * @axe-core/playwright is not in package.json (QA may not edit it; see the request in
- * docs/handoffs/qa-engineer.md). Install it with `npm install -D @axe-core/playwright` and these
- * tests run; without it they skip with a clear reason instead of failing the suite.
+ * @axe-core/playwright is a devDependency (package.json), so after `npm ci` these tests run. The
+ * skip below is only a safety net for an install that omitted dev dependencies; if the axe tests
+ * show as skipped in CI, treat that as a failed setup, not a pass.
  * Automated checks find about a third of WCAG issues, so a manual screen reader pass is still
  * listed as "not verified" in docs/qa-report.md.
  */
@@ -90,11 +90,11 @@ test.describe('axe: Creator side', () => {
     await page.getByRole('button', { name: 'Next' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible();
     await expect(page.getByText('Getting your characters ready')).toBeHidden({ timeout: 30_000 });
-    // BUG-3 (aria-controls on the Guide and Visitor tabs points at an id that does not exist) is
-    // tested on its own below; the tab elements are excluded here so the rest of the step is checked.
-    await axe(page, 'builder-3-characters', ['#character-tab-guide', '#character-tab-visitor']);
+    // BUG-3 (fixed): the character tabs now point aria-controls at #character-panel, so nothing
+    // is excluded from axe any more.
+    await axe(page, 'builder-3-characters');
     await page.getByRole('tab', { name: 'Hair' }).click();
-    await axe(page, 'builder-3-hair', ['#character-tab-guide', '#character-tab-visitor']);
+    await axe(page, 'builder-3-hair');
     await page.getByRole('button', { name: 'Next' }).click();
     await axe(page, 'builder-4-review');
     await page.getByRole('button', { name: /Publish museum/ }).click(); // consent error
@@ -105,7 +105,7 @@ test.describe('axe: Creator side', () => {
     await axe(page, 'published');
   });
 
-  test('BUG-3: the Guide and Visitor tabs point aria-controls at an element that exists', async ({ page }) => {
+  test('BUG-3 (fixed): the Guide and Visitor tabs point aria-controls at an element that exists', async ({ page }) => {
     await page.goto('./#/create');
     await addPhotos(page, makePhotos(1));
     await fillWords(page, {});

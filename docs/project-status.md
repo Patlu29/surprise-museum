@@ -12,7 +12,7 @@
 | 3. Design | Complete (design-spec v1.0) | Approved 27/10/2026 |
 | 4. Build | Complete: build, typecheck, lint clean; 543 tests pass | — |
 | 5. Performance | Complete (docs/performance.md v1.0); 556 tests pass. Real-device figures unverified (no devices available) | — |
-| 6. QA | Round 1 done: 410 e2e pass, 5 bugs open; fix round 1 in progress | — |
+| 6. QA | Complete for v0.2 scope: round 2 440 e2e pass, 0 failing; BUG-1 to 4 fixed, BUG-5 accepted upstream (ADR 0018). Firefox and real devices not verified. Re-run after CR-1 | — |
 | 7. Delivery | Not started | — |
 
 ## Approvals given
@@ -26,6 +26,10 @@
 - Hosting: frontend on GitHub Pages; backend on Supabase (storage + database, Sydney region). User creates the Supabase project and adds keys as repo secrets.
 - Repo: public `Patlu29/surprise-museum` (https://github.com/Patlu29/surprise-museum), created 27/10/2026. Remote `origin` uses HTTPS with the `gh` credential helper (repo-local config; no SSH key on this machine). The user has approved hosting there; the devops engineer may enable Pages at delivery.
 - Git tracking (user request 28/10/2026): the tech lead commits and pushes to `main` after each phase or integration round. Agents do not commit.
+
+## Change requests
+
+- CR-1 (user, 29/10/2026): gender option for the Guide and Visitor characters. With the product manager for requirements v0.3; then design, build, QA.
 
 ## Open questions (awaiting user)
 
@@ -44,6 +48,6 @@ Needing legal review before public launch: photo-consent and Privacy Act wording
 
 ## Bug count
 
-5 open (3 major, 2 minor), see docs/qa-report.md. BUG-1 scope (tech lead, 29/10/2026): persist character choices and text fields per US-6 AC-3 (Must); photo restore stays with US-29 (Should, Release 2).
+0 open. 4 fixed, 1 accepted upstream (BUG-5). See docs/qa-report.md. BUG-1 scope (tech lead, 29/10/2026): persist character choices and text fields per US-6 AC-3 (Must); photo restore stays with US-29 (Should, Release 2).
 
 Open design question: in the presenting view the Visitor and her name label partly cover the picture (camera sits behind her). Intended?

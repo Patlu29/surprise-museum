@@ -9,9 +9,18 @@ import { makePhotos, makePng } from './support/images';
 
 const NEXT = (page: Page) => page.getByRole('button', { name: 'Next' });
 
+const DRAFT_KEY = 'surprise-museum:draft:v1';
+
+/**
+ * Every test gets a fresh browser context (empty localStorage), so a test starts with no draft. Since
+ * the draft is persisted (BUG-1 fix), this also asserts the start is clean: the builder is on the
+ * Photos step and no draft key exists. A leaked draft would fail here, not later in a confusing way.
+ */
 async function openBuilder(page: Page) {
   await page.goto('./?e2e=1#/create');
   await expect(page.getByRole('heading', { level: 1, name: 'Photos' })).toBeVisible();
+  const stored = await page.evaluate((key) => (globalThis as unknown as { localStorage: { getItem(k: string): string | null } }).localStorage.getItem(key), DRAFT_KEY);
+  expect(stored, 'builder must start without a saved draft').toBeNull();
 }
 
 test.describe('US-1 start without an account', () => {
@@ -409,10 +418,9 @@ test.describe('US-6 and US-7 customise the characters', () => {
     await expect(page.locator('.preview-slot')).toContainText('Alex');
   });
 
-  // US-6 AC-3: "when the page reloads, then my choices are still selected". The draft is memory
-  // only (src/state/builderStore.ts says restore is Release 2), so this is expected to fail until
-  // BUG-1 is resolved. `test.fail` keeps the suite green and goes red when it is fixed.
-  test('US-6 AC-3 (BUG-1): character choices survive a page reload', async ({ page }) => {
+  // US-6 AC-3: "when the page reloads, then my choices are still selected". Fixed in fix round 1
+  // (BUG-1): the draft text and both avatars persist in localStorage. Photos are deliberately not kept.
+  test('US-6 AC-3: character choices survive a page reload', async ({ page }) => {
     await toCharacters(page);
     await page.getByRole('tab', { name: 'Hair' }).click();
     const group = page.getByRole('radiogroup', { name: 'Hair style' });
@@ -538,16 +546,51 @@ test.describe('US-22 publish', () => {
   });
 });
 
-test.describe('US-29 draft', () => {
-  // The MVP keeps the draft in memory only (FR-12 / US-29 are Should and not built).
-  test('US-29 AC-1 (BUG-1): a refresh restores photos, captions, names and characters', async ({ page }) => {
+test.describe('US-29 draft (partial: text and characters only; photo restore is Release 2)', () => {
+  // Full US-29 AC-1 (photos and captions restored) is NOT BUILT, Release 2 (IndexedDB). It is not a bug.
+  test('US-29 AC-1 (partial): after a reload the names, text and characters are restored', async ({ page }) => {
     await openBuilder(page);
     await addPhotos(page, makePhotos(1));
     await NEXT(page).click();
     await page.getByLabel(/Who is this museum for/).fill('Restored');
+    await page.getByLabel(/Your name/).fill('Sam');
+    await NEXT(page).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Hair' }).click();
+    const group = page.getByRole('radiogroup', { name: 'Hair style' });
+    await group.getByRole('radio').nth(2).click();
+    const chosen = await group.getByRole('radio', { checked: true }).getAttribute('value');
     await page.reload();
     await page.goto('./?e2e=1#/create');
-    await NEXT(page).click({ timeout: 5000 });
-    await expect(page.getByLabel(/Who is this museum for/)).toHaveValue('Restored', { timeout: 5000 });
+    await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible({ timeout: 5_000 });
+    await page.getByRole('tab', { name: 'Hair' }).click();
+    await expect(page.getByRole('radiogroup', { name: 'Hair style' }).getByRole('radio', { checked: true })).toHaveAttribute('value', chosen!);
+    await NEXT(page).click(); // Review step: the names are shown
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await expect(page.getByLabel(/Who is this museum for/)).toHaveValue('Restored');
+    await expect(page.getByLabel(/Your name/)).toHaveValue('Sam');
+  });
+
+  test('US-29 decision: photos are not persisted (US-6 AC-3 met; full photo restore is Release 2)', async ({ page }) => {
+    await openBuilder(page);
+    await addPhotos(page, makePhotos(1));
+    await NEXT(page).click();
+    await page.getByLabel(/Who is this museum for/).fill('Restored');
+    const raw = await page.evaluate((key) => (globalThis as unknown as { localStorage: { getItem(k: string): string | null } }).localStorage.getItem(key), DRAFT_KEY);
+    expect(raw, 'a draft is saved after editing').not.toBeNull();
+    expect(raw).not.toMatch(/blob:|data:image|photo/i);
+    await page.reload();
+    await page.goto('./?e2e=1#/create');
+    // Opens on the saved step (Names), with no photos. Open product question in docs/qa-report.md.
+    await expect(page.getByLabel(/Who is this museum for/)).toHaveValue('Restored', { timeout: 5_000 });
+    await page.getByRole('button', { name: 'Back' }).click();
+    await expect(page.locator('.photo-row')).toHaveCount(0);
+  });
+
+  test('US-29 hygiene: a fresh browser context starts with no draft', async ({ page }) => {
+    await page.goto('./?e2e=1#/create');
+    await expect(page.getByRole('heading', { level: 1, name: 'Photos' })).toBeVisible();
+    expect(await page.evaluate((key) => (globalThis as unknown as { localStorage: { getItem(k: string): string | null } }).localStorage.getItem(key), DRAFT_KEY)).toBeNull();
   });
 });

@@ -72,11 +72,12 @@ const IGNORED_CONSOLE = [
 ];
 
 /**
- * Warnings that are known and not the app's fault. They are listed in docs/qa-report.md (BUG-5 and
- * note N-1) so they stay visible; anything else that mentions WebGL, three, shaders or GLSL fails.
+ * Warnings that are known and not the app's fault. They are listed in docs/qa-report.md (BUG-5, accepted as
+ * an upstream warning in docs/decisions/0018-accept-three-clock-deprecation-warning.md, and note N-1); anything else that mentions WebGL, three, shaders or GLSL fails.
  */
 const KNOWN_WARNINGS = [
-  // react-three-fiber 9 still constructs THREE.Clock (three 0.186 deprecates it). Library noise.
+  // ADR 0018 (BUG-5, accepted, upstream): react-three-fiber 9 still constructs THREE.Clock (three 0.186
+  // deprecates it). Remove this entry when a stable R3F release replaces Clock with Timer.
   /THREE\.Clock/,
   // SwiftShader (the software GL used in headless runs) reports every readPixels as a stall.
   /GL Driver Message .*GPU stall/,
@@ -243,6 +244,8 @@ export async function waitForSnap(
   message = 'snapshot condition',
 ): Promise<Snap> {
   const deadline = Date.now() + timeout;
+  // The scene hook appears when the museum canvas mounts, which can be after Start on a slow device.
+  await page.waitForFunction(() => (globalThis as unknown as PageGlobals).__surpriseMuseum !== undefined, null, { timeout });
   let last = await snap(page);
   while (Date.now() < deadline) {
     if (predicate(last)) return last;

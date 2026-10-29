@@ -1,6 +1,60 @@
 # QA report: Surprise Museum
 
-Phase 6 (QA). Tested at HEAD 720fdcd plus the uncommitted QA files. Date: 29/10/2026. Owner: qa-engineer.
+## Round 2 (fix round 1 re-test), 29/10/2026
+
+Tested at HEAD e3aacf3 plus the uncommitted test changes. Owner: qa-engineer.
+
+### Summary (round 2)
+
+| Item | Result |
+|---|---|
+| Playwright, full run on `desktop-chromium`, `mobile-chromium`, `mobile-webkit` | **440 passed, 0 failed**, 25 skipped (project-specific, same reasons as round 1), 0 `test.fail` markers left. Total 465. Round 1 was 410 passed plus 15 expected failures |
+| How the 440 was reached | The full run gave 433 passed and 7 failed. Six of the seven were my own test problems or load flakes (see below); all were re-run and pass. Files changed after the full run (`waitForSnap` hook wait, exact `Back` in one test) were re-run on all three projects for the affected tests only, not in a second full run |
+| New tests | +3 HUD widths x 3 projects (9), +2 US-29 tests x 3 projects (6), net of the retitled one. Round 1 expected failures now pass as normal tests |
+| `npm run typecheck`, `lint`, `build`, `npm test` | All pass (563 unit tests, 44 files) |
+| Accessibility spec | **Runs, not skipped** (`@axe-core/playwright` 4.14.0 is now a devDependency). No violations; the BUG-3 axe exclusions were removed so the Characters step is checked in full |
+| `desktop-firefox` | Still **not run**: Firefox cannot start in the agent sandbox. Firefox `blob:` check not verified |
+| Open bugs | **0 new, 0 still failing.** BUG-1 to BUG-4 fixed, BUG-5 accepted (upstream). Release 2 items and the open product question are listed below |
+
+### Bug status
+
+| Bug | Round 1 | Round 2 | Verified by |
+|---|---|---|---|
+| BUG-1 draft lost on reload | Major, open | **Fixed** (text, names, closing message, both avatars and step persist in `surprise-museum:draft:v1`; photos deliberately not kept, tech lead decision) | `US-6 AC-3: character choices survive a page reload`, `US-29 AC-1 (partial)`, `US-29 decision`, on all 3 projects |
+| BUG-2 viewer Try again closes on pointer | Major, open | **Fixed** | `US-16 AC-5 (BUG-2)` click and tap, now a normal test, passes on all 3 projects |
+| BUG-3 `aria-controls` to a missing id | Minor, open | **Fixed** (`#character-panel`) | `BUG-3 (fixed)` test; axe on the Characters step with no exclusions |
+| BUG-4 HUD overflows at 412 px | Major, open | **Fixed** | `US-33 AC-1` at 412x915 and the new widths, all 3 projects |
+| BUG-5 `THREE.Clock` warning | Minor, open | **Accepted, upstream** (ADR 0018, no code fix). Owner stays architect, to revisit at the next stable react-three-fiber release | Collector still allowlists exactly this one message and fails on any other WebGL, three or shader warning |
+
+### What changed in the tests
+
+- **Clean start.** Playwright gives every test a new browser context, so `localStorage` is empty at the start of each test and no test can inherit a draft. Because the draft is now persisted, `openBuilder` in `builder.spec.ts` also asserts that no `surprise-museum:draft:v1` key exists and that the builder is on Photos, so a leaked draft would fail loudly at the start. A hygiene test checks a fresh context has no draft. Tests that reload on purpose (US-6 AC-3, US-29) do so inside one test. Publishing clears the draft, so tests that publish then open the builder again in the same test still start clean. No regression from persistence was found in any spec.
+- **US-29 AC-1 retitled.** It is now `US-29 AC-1 (partial): after a reload the names, text and characters are restored`, and it checks both names and the chosen hair style, not just one name. The old title promised photos and captions, which it never checked.
+- **New: `US-29 decision: photos are not persisted`.** Asserts the stored draft has no photo or blob data and that after a reload the Photos step has no rows. This pins the tech lead decision, so a later change (Release 2 photo restore) shows up as a deliberate test change.
+- **HUD widths.** US-33 AC-1 now runs at 360x640, 390x844, 412x915, plus **320x568, 400x860 and 440x900**. 320 px was previously only checked by calculation; it now passes measured. 400 and 440 px sit on both sides of the 400 px label breakpoint.
+- **Robustness fix.** `waitForSnap` now waits for the scene hook to exist before the first snapshot. `csp-blob.spec.ts` failed twice on `mobile-chromium` with "Cannot read properties of undefined (reading 'snapshot')" because the first snapshot was taken before the museum canvas mounted. This was a test race, not an app bug; it passes 2 of 2 on each project after the fix.
+- **Comments.** `KNOWN_WARNINGS` now cites ADR 0018 (BUG-5 accepted, upstream) and says when to remove the entry. The `--no-save` wording in `accessibility.spec.ts` is replaced: axe is a devDependency, and a skipped axe test in CI means a failed setup, not a pass.
+- No baseline was updated. The 6 visual baselines matched.
+
+### Flakes seen in the full run
+
+Three `desktop-chromium` visit tests (US-16 AC-4/AC-5 and its two Try again variants) timed out waiting for the Guide at 90 s while I was also running the unit tests, so the machine was loaded. All three pass on a re-run on all projects (about 10 s each). Not an app issue; if it recurs in CI, lower the worker count.
+
+### Not built, Release 2 (not bugs)
+
+| Item | Status |
+|---|---|
+| US-29 AC-1, photos and captions restored after a reload | **Not built, Release 2** (needs IndexedDB). Only the partial restore (names, text, characters, step) is built and tested. US-6 AC-3 (Must) is met |
+
+### Open product question (not a bug)
+
+After a reload the builder reopens on the saved step with the photos gone. Steps 3 and 4 then show "Add at least one photo" issues. Should the builder show a notice such as "Your photos were not kept" when it restores a draft with no photos? Owner of the decision: product-manager. If yes, the change is small and belongs to the frontend-developer, and the `US-29 decision` test would need a line for the notice.
+
+---
+
+# Round 1 (original report, kept for history)
+
+Phase 6 (QA), round 1. Tested at HEAD 720fdcd plus the uncommitted QA files. Date: 29/10/2026. Owner: qa-engineer.
 
 ## Summary
 
@@ -102,7 +156,7 @@ None of these was run. There is no real device here, and a headless SwiftShader 
 
 Also not verified: real HEIC files and a real 24 or 48 MP iPhone photo (the 3 MB lazy decoder), VoiceOver and TalkBack, 200% zoom visual review, forced colours, the live Supabase backend (including a real iPhone photo upload and `confirm-photo` accepting the client's JPEG stripper output), live-mode CSP with the Supabase origin, and touch drag-to-reorder.
 
-## Bugs
+## Bugs (round 1 text; statuses are in the round 2 table above)
 
 ### BUG-1: The draft is lost on reload, including character choices
 - Severity: **major** (breaks a Must criterion, US-6 AC-3; also US-29, a Should)
