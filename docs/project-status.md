@@ -1,6 +1,6 @@
 # Project status — Surprise Museum
 
-**Current phase:** 6. QA — in progress
+**Current phase:** CR-1 (gender option): architecture and design
 **Last updated:** 29/10/2026
 
 ## Phases
@@ -29,7 +29,7 @@
 
 ## Change requests
 
-- CR-1 (user, 29/10/2026): gender option for the Guide and Visitor characters. With the product manager for requirements v0.3; then design, build, QA.
+- CR-1 (user, 29/10/2026): gender option for the Guide and Visitor characters. Requirements v0.3 approved 29/10/2026: Must, current MVP; Q-22 Woman/Man/Neutral (Neutral default); Q-23 facial hair for both; Q-24 no pronoun setting, neutral app wording. Next: architecture and design, then build and QA.
 
 ## Open questions (awaiting user)
 

@@ -1,6 +1,6 @@
 # Requirements: Virtual 3D Photo Museum (working title "Surprise Museum")
 
-Version 0.2 | 27/10/2026 | Owner: product-manager | Status: Updated with the user's answers to the open questions
+Version 0.3 | 29/10/2026 | Owner: product-manager | Status: Approved 29/10/2026 (gender change request; Q-22 to Q-24 approved as recommended; Must, current MVP)
 
 ## Change log
 
@@ -8,6 +8,7 @@ Version 0.2 | 27/10/2026 | Owner: product-manager | Status: Updated with the use
 |---|---|
 | 0.1 | First draft. MVP assumed a scripted, picture-to-picture tour |
 | 0.2 | **Q-1 changed by the user:** free roaming is the main experience and the Guide is an autonomous character that presents a picture when the Visitor comes near it. The scripted tour (Next button, forced sequence) is removed. Live real-time guiding with both characters controlled live is a future phase, and the architecture must not preclude it (NFR-25). Rewritten: FR-5, FR-8, FR-9, FR-11, FR-24 to FR-29, FR-39, FR-62, FR-63, FR-66, NFR-1, NFR-3. New: FR-30, FR-31, FR-32, FR-69 to FR-71, NFR-25, NFR-26, A-15 to A-19. Withdrawn: old FR-37 (merged into FR-31). Q-2, Q-4, Q-5, Q-7 approved; all other questions resolved with the recommended defaults (section 10) |
+| 0.3 | **Change request from the user (29/10/2026, local testing): "we need gender changing for the Guide and the Visitor."** Each character gets a per-character gender option (Woman, Man, Neutral) that changes the body shape, proportions and face. **A-3 revised:** gender is now an explicit, optional choice, replacing "no gender label". Changed: FR-13 and FR-14 (facial hair now offered to both characters, so a male Visitor is not boxed in; gender added to both lists), FR-15 (covers gender), A-3, section 5 Must count. New: FR-72 to FR-76, A-20 to A-22, Q-22 to Q-24. Stories: US-6 and US-7 changed; new US-46 to US-48. Recommended priority: Must, into the current MVP (see note under Epic E2). No other requirement changes |
 
 ## 1. Overview
 
@@ -60,7 +61,7 @@ The MVP is an **asynchronous, free-roaming visit with an autonomous Guide**: the
 | Shareable unguessable link; delete; preview | Passcode, expiry, edit-after-publish (Release 2, Should) |
 | Mobile-first, keyboard and reduced-motion support, WebGL fallback message | Per-picture voice notes, reveal date, reactions (Could) |
 
-Note on the number of Must requirements: the MVP has 42 functional Musts because each requirement covers one behaviour. They group into ten capabilities: builder, photos, characters, name labels, free roaming, autonomous Guide, museum layout, share and privacy, resilience and accessibility, and live-readiness. Items already demoted to Should to keep the MVP lean: music, themes, passcode, expiry, edit after publish, opening greeting, draft recovery, jump-to-picture, hint, viewed progress, finale prompt, accessories and gestures. If the MVP must shrink further, candidates are listed in section 9 (Assumptions, A-14).
+Note on the number of Must requirements: the MVP has 47 functional Musts (42 in v0.2, plus the five gender requirements FR-72 to FR-76 added in v0.3) because each requirement covers one behaviour. They group into ten capabilities: builder, photos, characters, name labels, free roaming, autonomous Guide, museum layout, share and privacy, resilience and accessibility, and live-readiness. Items already demoted to Should to keep the MVP lean: music, themes, passcode, expiry, edit after publish, opening greeting, draft recovery, jump-to-picture, hint, viewed progress, finale prompt, accessories and gestures. If the MVP must shrink further, candidates are listed in section 9 (Assumptions, A-14).
 
 ## 6. Functional requirements
 
@@ -87,9 +88,9 @@ Priority key: **M** Must, **S** Should, **C** Could, **W** Won't (this release).
 
 | ID | Pri | Requirement |
 |---|---|---|
-| FR-13 | M | The Creator can customise the Visitor character using: skin tone (at least 8 options), hair style (at least 8), hair colour (at least 8), outfit style (at least 5) with primary colour, body type (at least 3) and height (at least 3 steps) |
-| FR-14 | M | The Creator can customise the Guide character using the same options as FR-13, plus facial hair (none and at least 3 styles) |
-| FR-15 | M | Each customisation change appears on a live 3D preview of the character within 1 second |
+| FR-13 | M | The Creator can customise the Visitor character using: gender (FR-72), skin tone (at least 8 options), hair style (at least 8), hair colour (at least 8), outfit style (at least 5) with primary colour, body type (at least 3), height (at least 3 steps) and facial hair (none and at least 3 styles) |
+| FR-14 | M | The Creator can customise the Guide character using exactly the same options as FR-13 (changed in v0.3: facial hair was Guide only) |
+| FR-15 | M | Each customisation change, including a change of gender, appears on a live 3D preview of the character within 1 second |
 | FR-16 | M | When the Visitor opens the link, the Visitor character is generated automatically from the Creator's saved settings, with no setup step for the Visitor |
 | FR-17 | M | The Guide's name and the Visitor's name are displayed above their respective characters' heads at all times while the character is on screen, face the camera, and are not covered by character geometry |
 | FR-18 | M | Both characters have an idle animation and a walking animation; the walking animation plays only while the character is moving |
@@ -98,6 +99,13 @@ Priority key: **M** Must, **S** Should, **C** Could, **W** Won't (this release).
 | FR-21 | C | The Creator can attach a small face photo to a name badge or framed portrait for either character |
 | FR-22 | C | The Visitor can adjust their own character's appearance before starting, if the Creator allows it |
 | FR-23 | W | Generating a character likeness automatically from uploaded photos (photo-to-avatar) is not supported in this release |
+| FR-72 | M | **(New in v0.3)** The Creator can set a gender for each character separately (the Guide and the Visitor) from three options: **Woman**, **Man** and **Neutral**. The option is optional: a new draft starts on **Neutral** for both characters, so the Creator is never forced to pick, and any character can be changed at any time |
+| FR-73 | M | **(New)** The gender option changes the character's base body shape and proportions (for example shoulder-to-hip ratio and torso, limb and neck shape) and face (for example jaw, brow, cheek and lip shape), and nothing else. It does not change or reset the Creator's other selections (skin tone, hair, outfit, body type, height, facial hair), and every other option stays available with every gender, so no combination is blocked. Body type and height still apply on top of the gender shape. Gender-neutral is the shape the app uses today |
+| FR-74 | M | **(New)** A published museum renders each character with the gender chosen by the Creator, identically on every device, in the builder preview, the Visitor preview and the Visitor's visit. The Creator's choice is saved in the draft (FR-12) and in the published museum, and the published-museum document validates it |
+| FR-75 | M | **(New)** A museum saved or published before v0.3, which has no gender value, still loads and renders as Neutral, exactly as it did before, with no error, no migration step for the Creator and no change to its look |
+| FR-76 | M | **(New)** Text that the app itself writes into the Visitor experience, the builder and screen-reader descriptions does not use gendered pronouns or gendered nouns (she, her, he, him, girlfriend, boyfriend) for the Guide, the Visitor or the Creator; it uses the character's name, "you" and "your", or neutral wording. The Creator's own captions and messages are shown exactly as typed |
+
+Note on v0.3 priority (FR-72 to FR-76): the gender option is a Must and is recommended for the current MVP rather than Release 2. Reasons: it comes from the user's own testing of the product, so it is a gap in what was agreed rather than a nice-to-have; the characters are the emotional centre of the gift, and an avatar that cannot match the real person undermines FR-13 and FR-14; the schema is cheapest to extend now, before museums are published in volume; and the change is small if it reuses the existing parametric body kit (shape scaling, a few face variants) within the 6,000-triangle character budget. If the technical-artist finds that distinct Woman and Man face models cannot fit the budget, fall back in this order: (1) ship shape and proportion changes only with the current face (FR-73 reduces to body shape), (2) keep Neutral plus Woman and Man shape variants and defer face differences to Release 2. FR-72, FR-74, FR-75 and FR-76 must still ship in every case.
 
 ### Epic E3: Welcome and free roaming (the main experience)
 
@@ -231,7 +239,7 @@ Reference devices (assumption A-8): **Reference laptop** is a 2022 mid-range lap
 |---|---|
 | A-1 | The MVP Guide is an autonomous character, not controlled live; a later phase adds live control of both characters |
 | A-2 | The Creator needs no account; a secret edit link controls access, and losing it means the Creator cannot edit or delete (Q-7 approved) |
-| A-3 | Characters are stylised (low-poly or cartoon) from a fixed set of options; "gender" is represented by body type and hair options rather than a required gender label, so the Creator can match the real person without a binary choice |
+| A-3 | **Revised in v0.3 (user decision, 29/10/2026).** Characters are stylised (low-poly or cartoon) from a fixed set of options, and each character has an explicit, optional gender choice (Woman, Man, Neutral; FR-72) that sets the base body shape and face. It replaces the earlier approach of expressing gender only through body type and hair with no label. To stay inclusive, the choice is never required (default Neutral), has a Neutral option that does not assume, and does not restrict any other option (FR-73). There is no pronoun field; app-written text avoids gendered pronouns instead (FR-76) |
 | A-4 | The camera is third person (follow camera), so both name labels and characters are visible; first-person view is not offered in MVP |
 | A-5 | The Visitor controls their own character and the camera at all times; the Guide never moves the Visitor's character or the camera |
 | A-6 | The Creator cannot place individual photos on specific walls in MVP; they control only the order along the route, and the layout is automatic |
@@ -248,10 +256,13 @@ Reference devices (assumption A-8): **Reference laptop** is a 2022 mid-range lap
 | A-17 | A picture counts as viewed once its presentation has started (FR-69); a Visitor who opens a picture full-screen (FR-35) without being presented also counts it as viewed |
 | A-18 | The Guide's body does not collide with the Visitor's character; when they overlap, the Guide yields by moving aside (FR-30) |
 | A-19 | Re-approaching a picture presents it again; if the Guide is already beside the Visitor, it does not walk |
+| A-20 | **(v0.3)** "Gender" here is a visual styling choice for a cartoon character, not a record about a person. It is stored only as part of the character settings, is not shown to the Visitor as a label, and is not used for anything but rendering (NFR-13 unchanged) |
+| A-21 | **(v0.3)** Changing gender never auto-changes hair, outfit or any other option on an existing draft. On a brand-new draft, the starting defaults stay as in the design spec section 9.3 (Neutral). Optional "suggested look" presets per gender are not part of this change |
+| A-22 | **(v0.3)** The Visitor character's gender is chosen by the Creator, as with every other option (Q-11); the Visitor cannot change it before starting unless FR-22 (Could) is built later |
 
 ## 10. Open questions
 
-All questions are resolved; the status column shows how. "Approved" means the user explicitly approved it; "Default" means the user accepted the recommended default. Q-21 is a new assumption for the user to confirm and can be deferred.
+All questions are resolved; the status column shows how. "Approved" means the user explicitly approved it; "Default" means the user accepted the recommended default. Q-21 is a new assumption for the user to confirm and can be deferred. Q-22 to Q-24 (v0.3) were approved by the user on 29/10/2026 as recommended.
 
 | ID | Question | Status and decision | Impact |
 |---|---|---|---|
@@ -276,3 +287,6 @@ All questions are resolved; the status column shows how. "Approved" means the us
 | Q-19 | **Reveal timing.** | **Default.** Could, not in MVP (FR-45) | Minor |
 | Q-20 | **Audio narration.** | **Default.** Text captions only in MVP; voice notes are Could (FR-44) | Voice adds recording, storage and transcripts |
 | Q-21 | **Closing message trigger** (new in v0.2). | **Assumed, please confirm (can defer).** Finale podium at the end of the route triggers the closing message (A-15) | If the user prefers "after all pictures are viewed", FR-29 and FR-70 change |
+| Q-22 | **Gender option set and labels** (new in v0.3). Which options, and what are they called? | **Approved 29/10/2026.** Three options labelled **Woman**, **Man** and **Neutral**, with the helper text "Changes the shape and face. Your other choices stay as they are." Stored ids `feminine`, `masculine`, `neutral` (architect to confirm). Neutral is the default and is today's shape. If you want a fourth, free-choice "Non-binary" label, it can map to the Neutral shape | Labels, art scope and schema values |
+| Q-23 | **Facial hair for the Visitor** (new in v0.3). Offer it to both characters? | **Approved 29/10/2026: yes** (FR-13 changed). Without it a male Visitor cannot be matched. The parts already exist for the Guide, so the cost is low | If no, a male Visitor has no beard options |
+| Q-24 | **Pronouns in visit text** (new in v0.3). Does the app need a pronoun setting? | **Approved 29/10/2026: no.** App-written text avoids pronouns entirely (FR-76), so no setting is needed. A pronoun field is a possible later addition if the Creator's captions are ever templated | If yes, adds a field, copy variants and tests |

@@ -1,6 +1,8 @@
 # User stories: Virtual 3D Photo Museum
 
-Version 0.2 | 27/10/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.2)
+Version 0.3 | 29/10/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.3)
+
+Change in v0.3 (user feedback, 29/10/2026: gender for the Guide and the Visitor): US-6 and US-7 changed (gender and facial hair offered on both characters); new US-46 (choose gender in the builder), US-47 (published museums render it, older museums still load) and US-48 (visit text avoids gendered pronouns). All Must, recommended for the current MVP.
 
 Roles: **Creator** (builds the museum and appears as the Guide) and **Visitor** (opens the link). The Guide is an autonomous character in the MVP. Priorities use MoSCoW. Stories needing a backend or storage are grouped in Epic E6 so the architect can decide on the backend.
 
@@ -56,10 +58,10 @@ As a Creator, I want to write a closing message, so that the visit ends with a p
 - Given I preview the museum, when I step into the finale area, then my closing message appears exactly as written, with line breaks preserved
 
 ### US-6: Customise the Visitor character (FR-13, FR-15, Must)
-As a Creator, I want to style the Visitor character to look like the recipient, so that she recognises herself.
+As a Creator, I want to style the Visitor character to look like the recipient, so that the recipient recognises themselves.
 
 **Acceptance criteria**
-- Given I open the Visitor customiser, when I view the options, then I can choose skin tone (8 or more), hair style (8 or more), hair colour (8 or more), outfit style (5 or more) with colour, body type (3 or more) and height (3 or more steps)
+- Given I open the Visitor customiser, when I view the options, then I can choose gender (US-46), skin tone (8 or more), hair style (8 or more), hair colour (8 or more), outfit style (5 or more) with colour, body type (3 or more), height (3 or more steps) and facial hair (none and 3 or more styles)
 - Given I change any option, when I make the change, then the 3D preview updates within 1 second
 - Given I leave the customiser and return, when the page reloads, then my choices are still selected
 - Given I use only the keyboard, when I tab through the options, then I can select every option and see the preview update
@@ -69,7 +71,7 @@ As a Creator, I want to style the Visitor character to look like the recipient, 
 As a Creator, I want the Guide to look like me, so that the Visitor sees me walking with her through the museum.
 
 **Acceptance criteria**
-- Given I open the Guide customiser, when I view the options, then I see the same options as the Visitor plus facial hair (none and 3 or more styles)
+- Given I open the Guide customiser, when I view the options, then I see exactly the same options as for the Visitor, including gender and facial hair (changed in v0.3: facial hair was Guide only)
 - Given I change any option, when I make the change, then the 3D preview updates within 1 second
 - Given I have styled both characters, when I view the two previews side by side, then each shows its own name above its head
 
@@ -81,6 +83,35 @@ As a Creator, I want to see exactly what she will see, so that I am confident be
 - Given I am previewing, when I choose Exit preview, then I return to the builder with all my settings intact
 - Given the preview runs on my device, when I compare it with the published version, then the content, order and layout are identical
 - Given I have not set the minimum details, when I choose Preview, then I see what is missing instead of an empty museum
+
+### US-46: Choose each character's gender in the builder (FR-72, FR-73, FR-15, FR-12, Must)
+As a Creator, I want to set a gender for the Guide and for the Visitor separately, so that each character matches the real person.
+
+**Acceptance criteria**
+- Given I open the customiser for either character on a new draft, when I view the Gender group, then I see Woman, Man and Neutral, Neutral is selected for both characters, and I can continue without choosing
+- Given I select a different gender for a character, when I make the change, then that character's 3D preview shows the new body shape and face within 1 second, the other character is unchanged, and the preview description names the gender when it is not Neutral
+- Given I have already chosen hair, outfit, skin tone, body type, height and facial hair, when I change the gender, then none of those choices change, and every option is still available for every gender
+- Given I use only the keyboard, when I tab to the Gender group, then it is a radiogroup, arrow keys move between Woman, Man and Neutral, the selection is announced, and the preview updates
+- Given I have chosen a gender for each character, when I reload the page or close and reopen the builder on the same device, then both choices are restored in the controls and in the preview
+- Given the 3D preview is loading or fails, when that happens, then the Gender group stays usable, my choice is saved, and I see the loading or error state defined for US-6
+
+### US-47: Published museums show the chosen gender, and older museums still load (FR-74, FR-75, Must)
+As a Visitor, I want the characters to look the way the Creator designed them, and as a Creator with an older museum, I want it to keep working, so that nothing breaks after the update.
+
+**Acceptance criteria**
+- Given the Creator set a gender for each character, when they publish and a Visitor opens the link, then the Guide and the Visitor characters render with those genders, matching the builder preview, on every device
+- Given I preview the museum before publishing, when the Visitor experience runs, then the characters show the chosen genders, identical to the published version
+- Given a museum published before v0.3 has no gender value, when its link is opened, then it loads without error and both characters look exactly as they did before (Neutral)
+- Given a published document contains an unrecognised gender value or one of the wrong type, when it is submitted for saving, then the save is rejected with a clear validation error, and a stored document is never rendered with an unknown value
+- Given an older museum is opened for editing, when the customiser loads, then Gender shows Neutral for both characters, and saving it does not alter any other choice
+
+### US-48: Visit text does not assume anyone's gender (FR-76, Must)
+As a Creator and as a Visitor, I want the app's own words to avoid he and she, so that the experience fits whoever is in it, whatever gender I chose.
+
+**Acceptance criteria**
+- Given any screen, panel, message, label or screen-reader description that the app writes (welcome, Guide panels, finale, errors, builder, customiser descriptions), when it refers to a character or person, then it uses a name, "you" or neutral wording and contains no gendered pronoun or noun
+- Given the Creator types a caption or message containing "she" or "he", when it is shown, then it is displayed exactly as typed
+- Given I choose any gender for the Guide and the Visitor, when I run the visit, then the app-written text is identical in wording whatever the gender
 
 ---
 
@@ -436,7 +467,7 @@ As a Creator, I want options for flexibility, so that the Visitor can adjust her
 
 | Release | Stories |
 |---|---|
-| MVP (all Must) | US-1, US-2, US-3, US-4, US-5, US-6, US-7, US-8, US-9, US-10, US-11, US-12, US-13, US-14, US-15, US-16, US-17, US-22, US-23, US-24, US-30, US-31 (message only), US-32, US-33, US-42, US-45 (NFR-25 part) |
+| MVP (all Must) | US-1, US-2, US-3, US-4, US-5, US-6, US-7, US-8, US-9, US-10, US-11, US-12, US-13, US-14, US-15, US-16, US-17, US-22, US-23, US-24, US-30, US-31 (message only), US-32, US-33, US-42, US-45 (NFR-25 part), US-46, US-47, US-48 (added in v0.3) |
 | Release 2 (Should) | US-18, US-19, US-20, US-21, US-25, US-26, US-27, US-28, US-29, US-31 (slideshow), US-34, US-35, US-36, US-43, US-44, US-45 (NFR-26 part) |
 | Later (Could) | US-37, US-38, US-39, US-40, US-41 |
 | Future (Won't this release) | Live mode with both characters controlled live (FR-66), Creator accounts (FR-67), multiple Visitors, VR and AR, native apps (FR-68) |
@@ -455,6 +486,8 @@ As a Creator, I want options for flexibility, so that the Visitor can adjust her
 | FR-12 | US-29 | FR-47, FR-50, FR-56 | US-22 |
 | FR-13, FR-15 | US-6 | FR-48 | US-28 |
 | FR-14, FR-15 | US-7 | FR-49, FR-55 | US-23 |
+| FR-72, FR-73 | US-46 | FR-74, FR-75 | US-47 |
+| FR-76 | US-48 | | |
 | FR-16 | US-9 | FR-51 | US-25 |
 | FR-17, FR-18 | US-10 | FR-52 | US-24 |
 | FR-19, FR-20 | US-36 | FR-53 | US-26 |
