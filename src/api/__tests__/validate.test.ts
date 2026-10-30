@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { AVATAR_OPTIONS, LIMITS, type AvatarConfig, type MuseumDocument } from '@contract';
+import {
+  AVATAR_GENDERS,
+  AVATAR_OPTIONS,
+  LIMITS,
+  type AvatarConfig,
+  type MuseumDocument,
+} from '@contract';
 import { lqipDataUrl } from '../../../supabase/functions/_shared/testing/jpegFixtures';
 import {
   codePointLength,
@@ -21,6 +27,7 @@ const PHOTO_B = '22222222-2222-4222-8222-222222222222';
 function avatar(overrides: Partial<AvatarConfig> = {}): AvatarConfig {
   return {
     v: 1,
+    gender: 'neutral',
     skinTone: 'skin-03',
     hairStyle: 'bob',
     hairColor: 'brown',
@@ -101,39 +108,65 @@ describe('validateAvatar', () => {
   it('accepts every option listed in the contract', () => {
     for (const key of Object.keys(AVATAR_OPTIONS) as Array<keyof typeof AVATAR_OPTIONS>) {
       for (const option of AVATAR_OPTIONS[key]) {
-        const role = key === 'facialHair' ? 'guide' : 'visitor';
-        expect(validateAvatar(avatar({ [key]: option }), 'a', role).ok, `${key}=${option}`).toBe(
-          true,
-        );
+        expect(validateAvatar(avatar({ [key]: option }), 'a').ok, `${key}=${option}`).toBe(true);
       }
     }
   });
 
   it('rejects unknown options, unknown keys, missing keys, a wrong version and non-objects', () => {
-    expect(failure(validateAvatar(avatar({ hairStyle: 'mohawk' as never }), 'a', 'guide'))).toBe(
+    expect(failure(validateAvatar(avatar({ hairStyle: 'mohawk' as never }), 'a'))).toBe(
       'a.hairStyle',
     );
-    expect(failure(validateAvatar({ ...avatar(), cape: 'red' }, 'a', 'guide'))).toBe('a.cape');
+    expect(failure(validateAvatar({ ...avatar(), cape: 'red' }, 'a'))).toBe('a.cape');
     const { hat: _hat, ...missing } = avatar();
-    expect(failure(validateAvatar(missing, 'a', 'guide'))).toBe('a.hat');
-    expect(failure(validateAvatar({ ...avatar(), v: 2 }, 'a', 'guide'))).toBe('a.v');
-    expect(validateAvatar(null, 'a', 'guide').ok).toBe(false);
-    expect(validateAvatar([], 'a', 'guide').ok).toBe(false);
-    expect(failure(validateAvatar(avatar({ skinTone: 7 as never }), 'a', 'guide'))).toBe(
-      'a.skinTone',
-    );
+    expect(failure(validateAvatar(missing, 'a'))).toBe('a.hat');
+    expect(failure(validateAvatar({ ...avatar(), v: 2 }, 'a'))).toBe('a.v');
+    expect(validateAvatar(null, 'a').ok).toBe(false);
+    expect(validateAvatar([], 'a').ok).toBe(false);
+    expect(failure(validateAvatar(avatar({ skinTone: 7 as never }), 'a'))).toBe('a.skinTone');
   });
 
-  it('allows facial hair for the Guide only (FR-14)', () => {
-    expect(validateAvatar(avatar({ facialHair: 'goatee' }), 'a', 'guide').ok).toBe(true);
-    expect(failure(validateAvatar(avatar({ facialHair: 'goatee' }), 'a', 'visitor'))).toBe(
-      'a.facialHair',
+  it('allows every facial hair option for both characters (CR-1)', () => {
+    for (const option of AVATAR_OPTIONS.facialHair) {
+      expect(validateAvatar(avatar({ facialHair: option }), 'a').ok).toBe(true);
+    }
+  });
+
+  describe('gender', () => {
+    it('accepts each valid id and keeps every other field', () => {
+      for (const gender of AVATAR_GENDERS) {
+        const input = avatar({ gender, hairStyle: 'bob', facialHair: 'goatee' });
+        const result = validateAvatar(input, 'a');
+        expect(result.ok).toBe(true);
+        if (result.ok) expect(result.value).toEqual(input);
+      }
+    });
+
+    it('treats an absent gender as neutral in the output', () => {
+      const { gender: _gender, ...legacy } = avatar();
+      const result = validateAvatar(legacy, 'a');
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value).toEqual({ ...legacy, gender: 'neutral' });
+      const explicitUndefined = validateAvatar({ ...legacy, gender: undefined }, 'a');
+      expect(explicitUndefined.ok && explicitUndefined.value.gender).toBe('neutral');
+    });
+
+    it.each([null, '', 'Woman', 'female', 'Neutral', 1, true, {}, []])(
+      'rejects %j with the field and message, without echoing the value',
+      (bad) => {
+        const result = validateAvatar({ ...avatar(), gender: bad }, 'a');
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.field).toBe('a.gender');
+          expect(result.message).toBe('Choose one of the available options.');
+        }
+      },
     );
   });
 
   it('copies only known keys, so prototype pollution payloads do nothing', () => {
     const polluted = JSON.parse('{"__proto__":{"admin":true}}') as Record<string, unknown>;
-    const result = validateAvatar({ ...avatar(), ...polluted }, 'a', 'guide');
+    const result = validateAvatar({ ...avatar(), ...polluted }, 'a');
     expect(result.ok).toBe(false);
   });
 });
@@ -192,9 +225,15 @@ describe('validateDocument', () => {
     expect(failure(validateDocument(doc({ guideAvatar: avatar({ hat: 'crown' as never }) })))).toBe(
       'document.guideAvatar.hat',
     );
+    expect(validateDocument(doc({ visitorAvatar: avatar({ facialHair: 'stubble' }) })).ok).toBe(
+      true,
+    );
     expect(
-      failure(validateDocument(doc({ visitorAvatar: avatar({ facialHair: 'stubble' }) }))),
-    ).toBe('document.visitorAvatar.facialHair');
+      failure(validateDocument(doc({ visitorAvatar: avatar({ gender: 'x' as never }) }))),
+    ).toBe('document.visitorAvatar.gender');
+    expect(failure(validateDocument(doc({ guideAvatar: avatar({ gender: null as never }) })))).toBe(
+      'document.guideAvatar.gender',
+    );
   });
 
   it('requires 1 to 20 unique, well-formed photos', () => {

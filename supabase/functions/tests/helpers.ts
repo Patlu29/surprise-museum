@@ -137,8 +137,8 @@ export function documentFor(
     openingGreeting: '',
     closingMessage: 'Happy birthday!\nLove always.',
     theme: 'default',
-    visitorAvatar: avatar(),
-    guideAvatar: avatar({ facialHair: 'stubble' }),
+    visitorAvatar: avatar({ gender: 'feminine', facialHair: 'stubble' }),
+    guideAvatar: avatar({ gender: 'masculine', facialHair: 'stubble' }),
     photos: photoIds.map((photoId, i) => ({ photoId, caption: `Caption ${i + 1}` })),
     ...overrides,
   };

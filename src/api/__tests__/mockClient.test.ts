@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AvatarConfig, MuseumDocument } from '@contract';
 import { ApiRequestError } from '@/lib/apiPort';
+import { createMemoryStorage } from '../demoStorage';
 import { createMockApi, type MockMuseumApi } from '../mockClient';
 import { deriveShareToken } from '../shared';
 import {
@@ -69,6 +70,71 @@ const code = async (promise: Promise<unknown>) => {
   expect(error).toBeInstanceOf(ApiRequestError);
   return (error as ApiRequestError).code;
 };
+
+describe('mock API: gender and facial hair (CR-1)', () => {
+  it('publishes a Visitor beard and each gender, and returns them from both reads', async () => {
+    const api = createMockApi();
+    const { editToken } = await api.createMuseum();
+    const photo = await addPhoto(api, editToken);
+    const doc = documentFor([photo.photoId], {
+      visitorAvatar: avatar({ gender: 'masculine', facialHair: 'full-beard' }),
+      guideAvatar: avatar({ gender: 'feminine' }),
+    });
+    const { shareToken } = await api.publish(editToken, doc);
+    const { museum } = await api.getMuseum(shareToken);
+    expect(museum.visitorAvatar).toEqual(doc.visitorAvatar);
+    expect(museum.guideAvatar).toEqual(doc.guideAvatar);
+    expect((await api.manageGet(editToken)).document).toMatchObject({
+      visitorAvatar: doc.visitorAvatar,
+      guideAvatar: doc.guideAvatar,
+    });
+  });
+
+  it('stores neutral when gender is absent on publish', async () => {
+    const api = createMockApi();
+    const { editToken } = await api.createMuseum();
+    const photo = await addPhoto(api, editToken);
+    const { gender: _g, ...legacy } = avatar();
+    const { shareToken } = await api.publish(
+      editToken,
+      documentFor([photo.photoId], { visitorAvatar: legacy as AvatarConfig }),
+    );
+    expect((await api.getMuseum(shareToken)).museum.visitorAvatar.gender).toBe('neutral');
+  });
+
+  it('reads an old record with no gender as neutral, without rewriting it', async () => {
+    const storage = createMemoryStorage();
+    const api = createMockApi({ storage });
+    const { editToken } = await api.createMuseum();
+    const photo = await addPhoto(api, editToken);
+    const { shareToken } = await api.publish(
+      editToken,
+      documentFor([photo.photoId], {
+        visitorAvatar: avatar({ gender: 'feminine' }),
+        guideAvatar: avatar({ gender: 'masculine', facialHair: 'goatee' }),
+      }),
+    );
+    // Strip gender from the stored rows to mimic data saved before v1.1.
+    const state = JSON.parse((await storage.loadState()) as string) as {
+      museums: Record<string, { document: Record<string, Record<string, unknown>> }>;
+    };
+    for (const m of Object.values(state.museums)) {
+      delete m.document.visitorAvatar?.gender;
+      delete m.document.guideAvatar?.gender;
+    }
+    await storage.saveState(JSON.stringify(state));
+    const stripped = await storage.loadState();
+
+    const reader = createMockApi({ storage });
+    const { museum } = await reader.getMuseum(shareToken);
+    expect(museum.visitorAvatar).toEqual(avatar({ gender: 'neutral' }));
+    expect(museum.guideAvatar).toEqual(avatar({ gender: 'neutral', facialHair: 'goatee' }));
+    const edit = await reader.manageGet(editToken);
+    expect(edit.document?.visitorAvatar.gender).toBe('neutral');
+    expect(edit.document?.guideAvatar).toEqual(museum.guideAvatar);
+    expect(await storage.loadState()).toBe(stripped);
+  });
+});
 
 describe('mock API: the whole creator and visitor journey', () => {
   it('creates, uploads, publishes, visits, edits and deletes', async () => {
@@ -194,16 +260,21 @@ describe('mock API follows the server rules', () => {
     expect(
       await api.publish(editToken, documentFor([])).catch((e: unknown) => e as ApiRequestError),
     ).toMatchObject({ code: 'bad_request', field: 'document.photos' });
-    expect(
-      await api
-        .publish(
-          editToken,
-          documentFor([photo.photoId], { visitorAvatar: avatar({ facialHair: 'stubble' }) }),
-        )
-        .catch((e: unknown) => e as ApiRequestError),
-    ).toMatchObject({
-      field: 'document.visitorAvatar.facialHair',
-    });
+    for (const [key, bad] of [
+      ['visitorAvatar', null],
+      ['guideAvatar', ''],
+      ['visitorAvatar', 'Woman'],
+      ['guideAvatar', 1],
+    ] as const) {
+      expect(
+        await api
+          .publish(
+            editToken,
+            documentFor([photo.photoId], { [key]: avatar({ gender: bad as never }) }),
+          )
+          .catch((e: unknown) => e as ApiRequestError),
+      ).toMatchObject({ code: 'bad_request', field: `document.${key}.gender` });
+    }
     expect((await api.manageGet(editToken)).status).toBe('draft');
   });
 

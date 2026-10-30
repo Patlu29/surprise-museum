@@ -1,7 +1,14 @@
 /**
  * Turns stored records into the contract's response shapes, signing photo URLs on the way.
  */
-import { LIMITS, type MuseumContent, type MuseumDocument, type MuseumPhoto } from '@contract';
+import {
+  avatarGender,
+  LIMITS,
+  type AvatarConfig,
+  type MuseumContent,
+  type MuseumDocument,
+  type MuseumPhoto,
+} from '@contract';
 import { photoPaths, type MuseumRecord, type PhotoRecord, type PhotoStorage } from './ports.ts';
 import { ApiException } from './http.ts';
 
@@ -38,6 +45,11 @@ export async function toMuseumPhotos(
   });
 }
 
+/** Always returns `gender`; rows stored before v1.1 have none and read as 'neutral'. Not rewritten. */
+function withGender(avatar: AvatarConfig): AvatarConfig {
+  return { ...avatar, gender: avatarGender(avatar) };
+}
+
 /** The published content, or null for a record that is not complete (never expected after publish). */
 export function toMuseumContent(museum: MuseumRecord, photos: MuseumPhoto[]): MuseumContent | null {
   if (!museum.visitorName || !museum.guideName || !museum.visitorAvatar || !museum.guideAvatar) {
@@ -50,8 +62,8 @@ export function toMuseumContent(museum: MuseumRecord, photos: MuseumPhoto[]): Mu
     openingGreeting: museum.openingGreeting,
     closingMessage: museum.closingMessage,
     theme: museum.theme,
-    visitorAvatar: museum.visitorAvatar,
-    guideAvatar: museum.guideAvatar,
+    visitorAvatar: withGender(museum.visitorAvatar),
+    guideAvatar: withGender(museum.guideAvatar),
     photos,
   };
 }

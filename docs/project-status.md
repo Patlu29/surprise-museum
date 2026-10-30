@@ -1,7 +1,7 @@
 # Project status — Surprise Museum
 
-**Current phase:** CR-1 (gender option): architecture and design
-**Last updated:** 29/10/2026
+**Current phase:** CR-1 (gender option): build
+**Last updated:** 30/10/2026
 
 ## Phases
 
@@ -29,7 +29,9 @@
 
 ## Change requests
 
-- CR-1 (user, 29/10/2026): gender option for the Guide and Visitor characters. Requirements v0.3 approved 29/10/2026: Must, current MVP; Q-22 Woman/Man/Neutral (Neutral default); Q-23 facial hair for both; Q-24 no pronoun setting, neutral app wording. Next: architecture and design, then build and QA.
+- CR-1 (user, 29/10/2026): gender option for the Guide and Visitor characters. Requirements v0.3 approved 29/10/2026: Must, current MVP; Q-22 Woman/Man/Neutral (Neutral default); Q-23 facial hair for both; Q-24 no pronoun setting, neutral app wording. Architecture (ADR 0020) and design spec v1.1 approved 30/10/2026; build in progress (backend validator first).
+- CR-2 (user, 30/10/2026): during a presentation the camera moves so the picture is fully visible (resolves QA N-2). Design then scene-developer.
+- CR-3 (user, 30/10/2026): builder shows a "photos were not kept" notice when a reloaded draft has no photos. Design then frontend-developer.
 
 ## Open questions (awaiting user)
 

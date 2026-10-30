@@ -14,7 +14,9 @@
  */
 import {
   AVATAR_OPTIONS,
+  DEFAULT_AVATAR_GENDER,
   EDIT_TOKEN_PATTERN,
+  isAvatarGender,
   LIMITS,
   SHARE_TOKEN_PATTERN,
   type AvatarConfig,
@@ -128,19 +130,22 @@ export function validateText(value: unknown, rules: TextRules): Validation<strin
 // Avatars
 // ---------------------------------------------------------------------------
 
-const AVATAR_KEYS = ['v', ...Object.keys(AVATAR_OPTIONS)] as const;
+const AVATAR_KEYS = ['v', 'gender', ...Object.keys(AVATAR_OPTIONS)] as const;
 
-export function validateAvatar(
-  value: unknown,
-  field: string,
-  role: 'visitor' | 'guide',
-): Validation<AvatarConfig> {
+export function validateAvatar(value: unknown, field: string): Validation<AvatarConfig> {
   if (!isRecord(value)) return fail(field, 'Avatar settings are required.');
   const extra = unknownKeys(value, AVATAR_KEYS);
   if (extra !== null) return fail(`${field}.${extra}`, 'Unknown avatar setting.');
   if (value.v !== 1) return fail(`${field}.v`, 'Unsupported avatar version.');
 
-  const out: Record<string, unknown> = { v: 1 };
+  // Optional (ADR 0020): absent means 'neutral'. Anything else present must be a listed id.
+  if (value.gender !== undefined && !isAvatarGender(value.gender)) {
+    return fail(`${field}.gender`, 'Choose one of the available options.');
+  }
+  const out: Record<string, unknown> = {
+    v: 1,
+    gender: value.gender === undefined ? DEFAULT_AVATAR_GENDER : value.gender,
+  };
   for (const key of Object.keys(AVATAR_OPTIONS) as Array<keyof typeof AVATAR_OPTIONS>) {
     const option = value[key];
     const allowed: readonly string[] = AVATAR_OPTIONS[key];
@@ -148,10 +153,6 @@ export function validateAvatar(
       return fail(`${field}.${key}`, 'Choose one of the available options.');
     }
     out[key] = option;
-  }
-  // The builder offers facial hair for the Guide only (FR-14).
-  if (role === 'visitor' && out.facialHair !== 'none') {
-    return fail(`${field}.facialHair`, 'Facial hair is available for the Guide only.');
   }
   return ok(out as unknown as AvatarConfig);
 }
@@ -224,9 +225,9 @@ export function validateDocument(
 
   if (value.theme !== 'default') return fail(f('theme'), 'Choose one of the available themes.');
 
-  const visitorAvatar = validateAvatar(value.visitorAvatar, f('visitorAvatar'), 'visitor');
+  const visitorAvatar = validateAvatar(value.visitorAvatar, f('visitorAvatar'));
   if (!visitorAvatar.ok) return visitorAvatar;
-  const guideAvatar = validateAvatar(value.guideAvatar, f('guideAvatar'), 'guide');
+  const guideAvatar = validateAvatar(value.guideAvatar, f('guideAvatar'));
   if (!guideAvatar.ok) return guideAvatar;
 
   if (!Array.isArray(value.photos)) return fail(f('photos'), 'The photo list is required.');

@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertNotEquals } from '@std/assert';
-import { EDIT_TOKEN_PATTERN, SHARE_TOKEN_PATTERN } from '@contract';
+import { EDIT_TOKEN_PATTERN, type MuseumDocument, SHARE_TOKEN_PATTERN } from '@contract';
 import {
   buildJpeg,
   EXIF,
@@ -8,7 +8,7 @@ import {
   safariCanvasJpeg,
 } from '../_shared/testing/jpegFixtures.ts';
 import { deriveShareToken } from '../_shared/tokens.ts';
-import { call, createApp, documentFor, draftWithPhotos, ORIGIN } from './helpers.ts';
+import { avatar, call, createApp, documentFor, draftWithPhotos, ORIGIN } from './helpers.ts';
 
 const SERVER_ERROR_KEYS = ['error', 'message'];
 
@@ -103,6 +103,9 @@ Deno.test('full lifecycle: upload, publish, visit by share token, edit, delete',
   const museum = visit.json.museum;
   assertEquals(museum.visitorName, 'Sam');
   assertEquals(museum.guideAvatar.facialHair, 'stubble');
+  assertEquals(museum.guideAvatar.gender, 'masculine');
+  assertEquals(museum.visitorAvatar.gender, 'feminine');
+  assertEquals(museum.visitorAvatar.facialHair, 'stubble', 'the Visitor may have facial hair');
   assertEquals(museum.closingMessage, 'Happy birthday!\nLove always.');
   assertEquals(
     museum.photos.map((p: { id: string }) => p.id),
@@ -164,6 +167,60 @@ Deno.test('full lifecycle: upload, publish, visit by share token, edit, delete',
   assertEquals(app.backend.objects.size, 0);
   assertEquals(app.backend.purgeQueue.size, 0);
 });
+
+Deno.test(
+  'avatar gender: validated on publish, always returned, old rows read as neutral',
+  async () => {
+    const app = createApp();
+    const { editToken, photoIds } = await draftWithPhotos(app, 1);
+    const publish = (overrides: Partial<MuseumDocument>) =>
+      call(app.handlers.manage, {
+        action: 'publish',
+        editToken,
+        document: documentFor(photoIds, overrides),
+      });
+
+    for (const [key, bad] of [
+      ['visitorAvatar', null],
+      ['guideAvatar', ''],
+      ['visitorAvatar', 'Woman'],
+      ['guideAvatar', 1],
+    ] as const) {
+      const r = await publish({
+        [key]: avatar({ gender: bad as never }),
+      } as Partial<MuseumDocument>);
+      assertEquals(r.status, 400);
+      assertEquals(r.json.error, 'bad_request');
+      assertEquals(r.json.field, `document.${key}.gender`);
+      assertEquals(r.json.message, 'Choose one of the available options.');
+    }
+
+    // Absent gender is stored as neutral; a Visitor beard is accepted.
+    const { gender: _gender, ...noGender } = avatar({ facialHair: 'full-beard' });
+    const ok = await publish({ visitorAvatar: noGender });
+    assertEquals(ok.status, 200);
+    const shareToken: string = ok.json.shareToken;
+    const first = await call(app.handlers.get, { shareToken });
+    assertEquals(first.json.museum.visitorAvatar.gender, 'neutral');
+    assertEquals(first.json.museum.visitorAvatar.facialHair, 'full-beard');
+
+    // Simulate rows saved before v1.1: no gender stored. Reads fill neutral; rows are not rewritten.
+    for (const row of app.backend.museums.values()) {
+      for (const a of [row.visitorAvatar, row.guideAvatar]) {
+        if (a) delete (a as { gender?: unknown }).gender;
+      }
+    }
+    const visit = await call(app.handlers.get, { shareToken });
+    assertEquals(visit.json.museum.visitorAvatar.gender, 'neutral');
+    assertEquals(visit.json.museum.guideAvatar.gender, 'neutral');
+    const edit = await call(app.handlers.manage, { action: 'get', editToken });
+    assertEquals(edit.json.document.visitorAvatar.gender, 'neutral');
+    assertEquals(edit.json.document.guideAvatar.gender, 'neutral');
+    for (const row of app.backend.museums.values()) {
+      assertEquals('gender' in (row.visitorAvatar ?? {}), false, 'stored row is not rewritten');
+    }
+  },
+);
 
 Deno.test('delete keeps the museum queued for the hourly retry when storage fails', async () => {
   const app = createApp();

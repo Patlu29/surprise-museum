@@ -100,8 +100,9 @@ async function put(url, bytes) {
   return response.status;
 }
 
-const avatar = (facialHair = 'none') => ({
+const avatar = (gender = 'neutral', facialHair = 'none') => ({
   v: 1,
+  gender,
   skinTone: 'skin-03',
   hairStyle: 'bob',
   hairColor: 'brown',
@@ -184,8 +185,8 @@ try {
       openingGreeting: '',
       closingMessage: 'It works.',
       theme: 'default',
-      visitorAvatar: avatar(),
-      guideAvatar: avatar('stubble'),
+      visitorAvatar: avatar('feminine', 'stubble'),
+      guideAvatar: avatar('masculine', 'stubble'),
       photos: [
         { photoId: photoIds[1], caption: 'Second' },
         { photoId: photoIds[0], caption: 'First' },
@@ -205,7 +206,10 @@ try {
     'get-museum returns the museum in the published order',
     visit.status === 200 &&
       photos.map((p) => p.id).join() === photoIds.slice().reverse().join() &&
-      visit.json.museum.guideName === 'Alex',
+      visit.json.museum.guideName === 'Alex' &&
+      visit.json.museum.visitorAvatar?.gender === 'feminine' &&
+      visit.json.museum.visitorAvatar?.facialHair === 'stubble' &&
+      visit.json.museum.guideAvatar?.gender === 'masculine',
     `status ${visit.status}`,
   );
   const image = photos[0] ? await fetch(photos[0].wallUrl) : null;

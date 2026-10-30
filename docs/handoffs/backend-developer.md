@@ -1,9 +1,20 @@
 # Handoff: backend-developer
 
 ## Summary
+**CR-1 update (30/10/2026):** the shared validator accepts and normalises the optional avatar `gender`, the Visitor facial hair rule is gone, the presenters and the mock always return `gender` (old rows read as `neutral`, nothing rewritten), tests are added or inverted, and the "not implemented yet" note is removed from `docs/api.md`. Deno is not installed on this machine, so `deno check`, `deno lint` and `deno test` were NOT run; the Deno test and smoke-test edits are unverified. The earlier summary follows.
+
 I built the whole Supabase backend: idempotent migrations, four Edge Functions (including `confirm-photo` with byte-level JPEG checks), the typed `src/api` client, the contract in `docs/api.md`, and a step-by-step setup guide in `supabase/README.md`. Nothing is deployed and no cloud resource exists; the user still has to create the project. Integration round 1 (28/10/2026) added three things: the server and mock now accept every JPEG segment the browser keeps (with a Safari regression fixture), the mock persists in IndexedDB with a localStorage fallback, a size cap and "clear demo data", and production builds are always live with a deploy guard that fails when the Supabase variables are missing.
 
 ## Files changed
+**CR-1 (gender and Visitor facial hair)**
+- `supabase/functions/_shared/validate.ts`: `gender` allowed key; absent gives `neutral`, any other non-listed value (including `null`) fails with `field.gender` and "Choose one of the available options."; Visitor facial hair rule deleted; `validateAvatar` lost its `role` parameter
+- `supabase/functions/_shared/present.ts`: `toMuseumContent` (and so `toMuseumDocument`) returns `gender: avatarGender(avatar)` for both avatars
+- `src/api/mockClient.ts`: `get-museum` and `manage-museum get` fill `gender` the same way from stored demo state; stored state is not rewritten
+- `src/api/__tests__/validate.test.ts`, `mockClient.test.ts`: Guide-only cases inverted; added absent, `null`, `''`, `'Woman'`, `1` (plus others), each valid id, absent stored as neutral, legacy record reads neutral and is unchanged in storage, round trip keeps other fields
+- `supabase/functions/tests/helpers.ts`, `flow_test.ts`: default document sends genders and a Visitor beard; new Deno test for validation, absent gender, and legacy rows (unrun)
+- `supabase/scripts/smoke-test.mjs`: sends `gender` and a Visitor beard and checks them on read
+- `docs/api.md`: removed the v1.1 header note; change log row updated; reviewed the architect's v1.1 edits (no corrections needed)
+
 **Original build**
 - `supabase/migrations/20261027000100_initial_schema.sql`, `...000110_functions.sql`, `...000120_storage_bucket.sql`, `...000200_retention_schedule.sql`: idempotent schema, RLS with no policies, revoked grants, atomic DB functions (`reserve_photo`, `publish_museum`, `delete_museum_rows`, `expire_museums`, rate limits), private bucket, hourly pg_cron jobs
 - `supabase/functions/_shared/`: `contract.ts` (added `PurgeExpiredResponse`), `tokens.ts`, `jpeg.ts`, `validate.ts`, `http.ts`, `config.ts`, `ports.ts`, `present.ts`, `supabaseBackend.ts`, `boot.ts`, `testing/`
@@ -90,3 +101,10 @@ I built the whole Supabase backend: idempotent migrations, four Edge Functions (
 - **localStorage fallback is small** (3 MiB of photo bytes, a handful of photos). A tester in a browser that blocks IndexedDB will hit the cap quickly; the error message says what to do.
 - **Demo data is per browser profile and origin**, so `localhost:5173` and `localhost:4173` do not share it.
 - **IP rate limiting** depends on `cf-connecting-ip`; people behind a shared NAT share one limit. A free-plan pause also pauses the purge job (ADR 0010).
+
+
+## CR-1 notes
+- **Decision:** `role` removed from `validateAvatar` because nothing uses it now; both call sites updated.
+- **Verification:** `npm run typecheck`, `lint`, `build` pass; `npm test` 44 files, 577 of 577 pass. Deno checks not run (not installed).
+- **Assumption:** the mock's stored demo state holds documents in `museum.document`; the legacy test strips `gender` there.
+- **Requests for other agents:** scene-developer may now add `gender: 'neutral'` to the default configs. devops-engineer: CI must run `deno check`, `deno lint`, `deno test`; deploy functions before the frontend.
