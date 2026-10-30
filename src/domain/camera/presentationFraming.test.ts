@@ -4,6 +4,7 @@ import { generateLayout } from '../layout/generateLayout';
 import type { PhotoSlot } from '../layout/types';
 import { segmentClear } from '../navigation/geometry';
 import { cubicBezier, easeCamera } from './easing';
+import { moveInMs, moveOutMs } from './presentationCameraMachine';
 import {
   FRAMING,
   framedPitchDeg,
@@ -273,23 +274,48 @@ describe('easing', () => {
     expect(cubicBezier(0, 0, 1, 1)(0.3)).toBeCloseTo(0.3, 3);
   });
 
-  it('has a bounded peak turning speed (6.12.3)', () => {
-    for (const [deg, ms] of [
-      [35, 800],
-      [52, 1155],
-      [60, 1300],
-    ] as const) {
-      let peak = 0;
+  it('meets the v1.3 peak turning speeds: at most 80 degrees per second in, 101 out', () => {
+    const peak = (deg: number, ms: number) => {
+      let p = 0;
       let prev = 0;
-      const step = 1 / 200;
+      const step = 1 / 400;
       for (let t = step; t <= 1 + 1e-9; t += step) {
         const e = easeCamera(Math.min(1, t));
-        peak = Math.max(peak, ((e - prev) * deg) / ((step * ms) / 1000));
+        p = Math.max(p, ((e - prev) * deg) / ((step * ms) / 1000));
         prev = e;
       }
-      // Measured against the token curve: about 2.6 times the average speed. The spec's "about 80"
-      // is not reachable with `--ease-camera` and these durations (see the hand-off note).
-      expect(peak).toBeLessThan(125);
+      return p;
+    };
+    for (const deg of [35, 45, 52, 60]) expect(peak(deg, moveInMs(deg))).toBeLessThan(80);
+    for (const deg of [35, 38, 45, 52, 60]) expect(peak(deg, moveOutMs(deg))).toBeLessThan(101);
+  });
+});
+
+describe('v1.3 targets', () => {
+  const layout = layoutFor(20);
+  it('reaches the picture visibility targets on the 20-picture fixtures', () => {
+    const floor: Record<string, number> = {
+      '360x640': 0.98,
+      '390x844': 0.98,
+      '844x390': 0.9,
+      '1280x720': 0.98,
+    };
+    for (const [, vw, vh] of VIEWPORTS) {
+      let worst = 1;
+      for (const slot of layout.slots) {
+        for (const side of [1, -1]) {
+          const sol = solveFraming(inputFor(layout, slot, vw, vh, side))!;
+          worst = Math.min(worst, sol.pictureVisibleFraction);
+        }
+      }
+      expect(worst).toBeGreaterThanOrEqual(floor[`${vw}x${vh}`]!);
     }
+  });
+
+  it('normalises the Visitor height to the 1.7 m reference', () => {
+    const slot = layout.slots[0]!;
+    const base = inputFor(layout, slot, 1280, 720);
+    const tall = solveFraming({ ...base, visitor: { ...base.visitor, height: 1.85 } })!;
+    expect(tall.visitorHeightFraction).toBeLessThanOrEqual(0.48 + 1e-6);
   });
 });

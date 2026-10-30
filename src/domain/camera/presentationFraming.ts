@@ -35,6 +35,8 @@ export const FRAMING = {
   framedDefaultPitchDeg: 12,
   /** 6.12.4 step 2: second pass with the camera looking a little more down. */
   raisedPitchDeg: 20,
+  /** v1.3: phone landscape only, a further pass after the pitch 20 list. */
+  landscapePitchDeg: 26,
   /** 6.12.2: boom search range, metres. */
   boomMin: 2.5,
   boomMax: 6.5,
@@ -83,16 +85,16 @@ const SPECS: Record<ViewportClass, ClassSpec> = {
     pictureMaxOf: 'viewport',
     pictureMax: 0.9,
     pictureMaxHeightOfSafe: 0.85,
-    visitor: { min: 0.18, max: 0.28 },
+    visitor: { min: 0.18, max: 0.34 },
     dock: { x0: 0, x1: 1, y0: 0, y1: 0.3 },
   },
   'phone-landscape': {
     safe: { x0: 0.05, x1: 0.68, y0: 0.16, y1: 0.82 },
-    pictureMin: 0.22,
+    pictureMin: 0.17,
     pictureMaxOf: 'safe',
     pictureMax: 0.6,
     pictureMaxHeightOfSafe: null,
-    visitor: { min: 0.26, max: 0.36 },
+    visitor: { min: 0.26, max: 0.5 },
     dock: { x0: 0.7, x1: 1, y0: 0, y1: 1 },
   },
   wide: {
@@ -101,7 +103,7 @@ const SPECS: Record<ViewportClass, ClassSpec> = {
     pictureMaxOf: 'safe',
     pictureMax: 0.6,
     pictureMaxHeightOfSafe: null,
-    visitor: { min: 0.24, max: 0.34 },
+    visitor: { min: 0.24, max: 0.48 },
     dock: { x0: 0.7, x1: 1, y0: 0, y1: 1 },
   },
 };
@@ -659,7 +661,8 @@ export function solveFraming(input: FramingInput): FramingSolution | null {
         )
           ? scratch.y
           : NaN;
-        const visitorH = feet - head;
+        // Normalised to the 1.7 m reference Visitor (v1.3), so a tall or short one is not penalised.
+        const visitorH = ((feet - head) * FRAMING.nominalHeight) / input.visitor.height;
         if (Number.isNaN(visitorH)) continue;
         chosen = pl;
         chosenVisitorH = visitorH;
@@ -737,8 +740,9 @@ export function solveFraming(input: FramingInput): FramingSolution | null {
     Math.abs(angleDiff(currentAzimuth, normalHeading + side * FRAMING.yawOffsetsDeg[0]! * DEG));
   const sides: Array<1 | -1> = sideAt(1) <= sideAt(-1) ? [1, -1] : [-1, 1];
   const basePitch = framedPitchDeg(input.saved.pitch);
-  const pitches =
+  const pitches: number[] =
     basePitch === FRAMING.raisedPitchDeg ? [basePitch] : [basePitch, FRAMING.raisedPitchDeg];
+  if (cls === 'phone-landscape') pitches.push(FRAMING.landscapePitchDeg);
 
   let best: Evaluation | null = null;
   for (const pitchDeg of pitches) {

@@ -29,6 +29,10 @@ export const CAMERA_TIMING = {
   outMs: 600,
   /** Resize re-solve (`--duration-camera`). */
   resizeMs: 450,
+  /** Move out: 600 ms up to this swing, then degrees / 60 per second, capped (v1.3). */
+  outFullSwingDeg: 38,
+  outDegPerSec: 60,
+  outCapMs: 1000,
   /** An interrupted move never takes less than this. */
   minRetargetMs: 300,
   /** How long `cut` is reported after a hard cut, so polling tests can see it. */
@@ -75,7 +79,17 @@ export function moveInMs(swingDeg: number): number {
   return Math.min(t.inCapMs, Math.max(t.inMs, (Math.abs(swingDeg) / t.swingDegPerSec) * 1000));
 }
 
+/** Duration of the move out (v1.3): 600 ms up to 38 degrees, then degrees / 60 per second, 1,000 ms cap. */
+export function moveOutMs(swingDeg: number): number {
+  const t = CAMERA_TIMING;
+  const swing = Math.abs(swingDeg);
+  if (swing <= t.outFullSwingDeg) return t.outMs;
+  return Math.min(t.outCapMs, (swing / t.outDegPerSec) * 1000);
+}
+
 export interface BeginOptions {
+  /** The Visitor has already been still for the stillness time, so skip the 150 ms delay. */
+  noDelay?: boolean;
   /** Effective reduced motion: a single-frame cut. */
   reduced: boolean;
   /** Re-solve for a viewport change: eased over `resizeMs`, no delay. */
@@ -96,6 +110,8 @@ export class PresentationCameraMachine {
   private cutHold = 0;
   private bigSwing = false;
   private veilPending = false;
+  /** The move began from the follow pose (not from an earlier framing). */
+  private fromFollow = true;
   /** Increments each time the camera arrives (eased, cut or veil), for the settled signal. */
   settledSeq = 0;
   /** Increments for every hard cut, for QA. */
@@ -108,6 +124,13 @@ export class PresentationCameraMachine {
 
   get mode(): PresentationCameraMode {
     return this._mode;
+  }
+
+  /** True once the camera has actually started to move (a delay or the veil fade is not a move). */
+  get moved(): boolean {
+    return (
+      this.active && (!this.fromFollow || (this.phase !== 'delay' && this.phase !== 'veil-in'))
+    );
   }
 
   /** True while the machine, not the follow rig, places the camera. */
@@ -129,7 +152,12 @@ export class PresentationCameraMachine {
   begin(shown: Readonly<CamPose>, framing: Readonly<CamPose>, opts: BeginOptions): void {
     const t = CAMERA_TIMING;
     const wasActive = this.active;
-    if (!wasActive) copyPose(shown, this.cur);
+    if (!wasActive) {
+      copyPose(shown, this.cur);
+      this.fromFollow = true;
+    } else {
+      this.fromFollow = false;
+    }
     copyPose(this.cur, this.from);
     copyPose(framing, this.target);
     const swing = Math.abs(angleDiff(this.cur.yaw, framing.yaw)) * (180 / Math.PI);
@@ -151,7 +179,7 @@ export class PresentationCameraMachine {
       return;
     }
     this._mode = 'entering';
-    this.delayLeft = t.delayMs;
+    this.delayLeft = opts.noDelay ? 0 : t.delayMs;
     if (this.bigSwing) {
       // The veil fades in over half its duration, the camera cuts at the midpoint, then it fades out.
       this.phase = 'veil-in';
@@ -160,7 +188,7 @@ export class PresentationCameraMachine {
       this.lastMoveMs = 0;
       return;
     }
-    this.phase = 'delay';
+    this.phase = opts.noDelay ? 'move' : 'delay';
     this.duration = moveInMs(swing);
     this.lastMoveMs = this.duration;
   }
@@ -170,7 +198,7 @@ export class PresentationCameraMachine {
    * framing's yaw and pitch as the user's pose (a swing over 60 degrees does not swing back).
    * A move still in its delay never started, so it is cancelled with no motion.
    */
-  release(reduced: boolean): { keepOrientation: boolean } {
+  release(reduced: boolean, followYaw?: number): { keepOrientation: boolean } {
     const t = CAMERA_TIMING;
     if (!this.active) return { keepOrientation: false };
     if (this.phase === 'delay' || this.phase === 'veil-in') {
@@ -183,7 +211,10 @@ export class PresentationCameraMachine {
     }
     const keep = this.bigSwing && (this.phase === 'hold' || this.phase === 'veil-out');
     // Interrupted in mid-move: the larger of 300 ms and the full out duration times what is left.
-    let ms: number = t.outMs;
+    let ms: number =
+      followYaw === undefined
+        ? t.outMs
+        : moveOutMs((angleDiff(this.cur.yaw, followYaw) * 180) / Math.PI);
     if (this.phase === 'move') {
       const left = 1 - easeCamera(Math.min(1, this.elapsed / this.duration));
       ms = Math.max(t.minRetargetMs, t.outMs * left);

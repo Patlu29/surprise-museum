@@ -45,7 +45,7 @@ export function cubicBezier(x1: number, y1: number, x2: number, y2: number): Eas
 }
 
 /**
- * `--ease-camera` (design spec 6.12.3, tokens.css): `cubic-bezier(0.45, 0, 0.25, 1)`. Slow start,
- * slow stop, no overshoot. Mirror of the token: change both together.
+ * `--ease-camera` (design spec 6.12.3, tokens.css): `cubic-bezier(0.37, 0, 0.63, 1)` (v1.3, ease-in-out
+ * sine). Slow start, slow stop, no overshoot. Mirror of the token: change both together.
  */
-export const easeCamera: Easing = cubicBezier(0.45, 0, 0.25, 1);
+export const easeCamera: Easing = cubicBezier(0.37, 0, 0.63, 1);

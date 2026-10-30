@@ -53,6 +53,8 @@ export interface PresentationCameraSnapshot {
   guideDropped: boolean;
   /** True once the camera is not moving: the caption card may appear. */
   settled: boolean;
+  /** Framing is waiting for the Visitor to stop. */
+  pending: boolean;
   /** Counters for QA: hard cuts so far, camera arrivals so far. */
   cutSeq: number;
   settledSeq: number;
@@ -68,7 +70,7 @@ export interface PresentationCameraSnapshot {
 /** The DOM contract for the frontend (the UI may not import the scene). */
 export const CAMERA_EVENT = 'surprise-museum:presentation-camera';
 export interface CameraEventDetail {
-  mode: PresentationCameraMode;
+  mode: PresentationCameraMode | 'pending';
   settled: boolean;
   photoId: string | null;
   seq: number;
@@ -87,7 +89,9 @@ export class PresentationCameraController implements PoseOverride {
   private solution: FramingSolution | null = null;
   private solvedSize = { w: 0, h: 0 };
   private resizeTimer = 0;
-  private emitted = { mode: 'follow' as PresentationCameraMode, seq: -1 };
+  private emittedKey = '';
+  /** True while framing is pending (waiting for stillness), for the snapshot. */
+  private pendingNow = false;
   private veilEl: HTMLDivElement | null = null;
   private veilShown = -1;
   private readonly slots = new Map<string, number>();
@@ -122,7 +126,8 @@ export class PresentationCameraController implements PoseOverride {
       pictureVisibleFraction: 0, // filled in by the test hook, which reads the live camera
       fallback: this.fallback,
       guideDropped: framedLike && sol ? sol.guideDropped : false,
-      settled: m.mode !== 'entering' && m.mode !== 'returning',
+      settled: !this.pendingNow && m.mode !== 'entering' && m.mode !== 'returning',
+      pending: this.pendingNow,
       cutSeq: m.cutSeq,
       settledSeq: m.settledSeq,
       lastMoveInMs: m.lastMoveMs,
@@ -190,16 +195,25 @@ export class PresentationCameraController implements PoseOverride {
 
     // Movement releases at once and blocks framing this presentation again (6.12.7).
     if (input.moving && this.machine.active && this.machine.mode !== 'returning') {
-      this.release(input.reduced);
-      this.blocked = true;
-      this.pending = false;
+      if (!this.machine.moved) {
+        // The move has not started (still in its delay): movement only delays it (design 6.12).
+        this.machine.release(input.reduced);
+        this.pending = photoId !== null;
+        this.waitStill = true;
+      } else {
+        this.release(input.reduced);
+        this.blocked = true;
+        this.pending = false;
+      }
     }
 
     if (this.pending && photoId !== null && !this.blocked) {
       const ready = !input.moving && (!this.waitStill || this.stillFor >= STILL_BEFORE_FRAMING);
       if (ready) {
         this.pending = false;
-        this.frame(photoId, input, false);
+        const noDelay = this.waitStill;
+        this.waitStill = false;
+        this.frame(photoId, input, false, noDelay);
       }
     }
 
@@ -236,11 +250,11 @@ export class PresentationCameraController implements PoseOverride {
 
   private release(reduced: boolean): void {
     const shown = copyPose(this.machine.pose, this.shown);
-    const { keepOrientation } = this.machine.release(reduced);
+    const { keepOrientation } = this.machine.release(reduced, this.rig.follow.yaw);
     if (keepOrientation) this.rig.keepOrientation(shown);
   }
 
-  private frame(photoId: string, input: CameraFrameInput, resize: boolean): void {
+  private frame(photoId: string, input: CameraFrameInput, resize: boolean, noDelay = false): void {
     const rt = this.runtime;
     const slotIndex = this.slots.get(photoId);
     const slot = slotIndex === undefined ? undefined : rt.layout.slots[slotIndex];
@@ -293,7 +307,7 @@ export class PresentationCameraController implements PoseOverride {
     t.pitch = solution.pitch;
     t.boom = solution.boom;
     const from = this.machine.active ? this.machine.pose : this.rig.follow;
-    this.machine.begin(from, t, { reduced: input.reduced, resize });
+    this.machine.begin(from, t, { reduced: input.reduced, resize, noDelay });
   }
 
   private drawVeil(): void {
@@ -324,18 +338,24 @@ export class PresentationCameraController implements PoseOverride {
     this.veilEl.style.opacity = String(level);
   }
 
+  /**
+   * Publish the camera state for the caption card. Besides the machine's own modes it sends:
+   *  - `pending` (unsettled) while framing waits for the Visitor to stop, so the card waits;
+   *  - `follow` (settled) for this presentation when framing is not happening (fallback, blocked,
+   *    reduced-motion cut handled by `cut`), so the card does not rely on a grace period.
+   */
   private emit(): void {
     const m = this.machine;
-    if (this.emitted.mode === m.mode && this.emitted.seq === m.settledSeq) return;
-    this.emitted = { mode: m.mode, seq: m.settledSeq };
-    if (this.canvas) this.canvas.dataset.presentationCamera = m.mode;
+    const waiting = this.pending && this.waitStill && this.key !== null && !m.active;
+    const mode: PresentationCameraMode | 'pending' = waiting ? 'pending' : m.mode;
+    const settled = !waiting && m.mode !== 'entering' && m.mode !== 'returning';
+    const key = `${mode}|${m.settledSeq}|${this.key}|${this.fallback}|${this.blocked}`;
+    if (this.emittedKey === key) return;
+    this.emittedKey = key;
+    this.pendingNow = waiting;
+    if (this.canvas) this.canvas.dataset.presentationCamera = mode;
     if (typeof window === 'undefined') return;
-    const detail: CameraEventDetail = {
-      mode: m.mode,
-      settled: m.mode !== 'entering' && m.mode !== 'returning',
-      photoId: this.key,
-      seq: m.settledSeq,
-    };
+    const detail: CameraEventDetail = { mode, settled, photoId: this.key, seq: m.settledSeq };
     window.dispatchEvent(new CustomEvent<CameraEventDetail>(CAMERA_EVENT, { detail }));
   }
 }

@@ -4,6 +4,7 @@ import {
   PresentationCameraMachine,
   createPose,
   moveInMs,
+  moveOutMs,
   type CamPose,
 } from './presentationCameraMachine';
 
@@ -32,7 +33,39 @@ describe('move durations (6.12.3)', () => {
   });
 });
 
+describe('move out duration (v1.3)', () => {
+  it('600 ms up to 38 degrees, then degrees / 60 per second, capped at 1,000 ms', () => {
+    expect(moveOutMs(20)).toBe(600);
+    expect(moveOutMs(38)).toBe(600);
+    expect(moveOutMs(45)).toBe(750);
+    expect(moveOutMs(80)).toBe(1000);
+  });
+
+  it('takes longer to return from a bigger swing', () => {
+    const m = new PresentationCameraMachine();
+    m.begin(pose(0), pose(52, 3), { reduced: false });
+    run(m, 1500, pose(0));
+    m.release(false, 0);
+    expect(m.lastOutMs).toBeCloseTo(867, 0);
+  });
+});
+
 describe('PresentationCameraMachine', () => {
+  it('a move still in its delay is not "moved", so movement can only delay it', () => {
+    const m = new PresentationCameraMachine();
+    m.begin(pose(0), pose(35), { reduced: false });
+    expect(m.moved).toBe(false);
+    run(m, 400, pose(0));
+    expect(m.moved).toBe(true);
+  });
+
+  it('noDelay starts the move at once (the stillness time already passed)', () => {
+    const m = new PresentationCameraMachine();
+    m.begin(pose(0), pose(35, 3), { reduced: false, noDelay: true });
+    const out = run(m, 100, pose(0));
+    expect(out.yaw).toBeGreaterThan(0);
+  });
+
   it('waits 150 ms, eases in over 800 ms, then holds, and reports a settled arrival', () => {
     const m = new PresentationCameraMachine();
     const follow = pose(0);
