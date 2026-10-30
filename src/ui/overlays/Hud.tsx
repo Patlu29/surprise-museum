@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { MuseumContent } from '@contract';
+import { useCaptionGate } from '@/hooks/useCaptionGate';
 import { useCaptionDock, type DockGeometry } from '@/hooks/useCaptionDock';
 import { useCoaching } from '@/hooks/useCoaching';
 import { useLayoutKind } from '@/hooks/useLayoutKind';
@@ -100,10 +101,12 @@ export function Hud({ content, openSheet, onOpenSheet, onReplay }: HudProps) {
       : -1;
   const photo = photoIndex >= 0 ? (content.photos[photoIndex] ?? null) : null;
   const caption = photo?.caption.trim() ?? '';
+  // The caption card waits for the presentation camera to settle (design spec 6.12 card timing).
+  const cameraSettled = useCaptionGate(photo && caption ? photo.id : null);
   const card: 'caption' | 'finale' | null =
     finaleReached || presentation.kind === 'finale'
       ? 'finale'
-      : photo && caption
+      : photo && caption && cameraSettled
         ? 'caption'
         : null;
 

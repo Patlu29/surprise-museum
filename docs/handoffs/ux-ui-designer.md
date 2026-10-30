@@ -1,5 +1,49 @@
 # Handoff: ux-ui-designer
 
+## Update v1.3: presentation camera as built, CR-2 review (30/10/2026)
+
+Design spec is now v1.3 (change note at the top of `docs/design-spec.md`). I edited only the spec, `src/styles/tokens.css` and this note. Nothing was run.
+
+### Files changed (v1.3)
+- `docs/design-spec.md`: v1.3 and change note; 3.4 sentence; 6.12 (trigger with stillness, targets table, scaling rule, priority, Guide corridor, timing table, veil, solver pitch 26 on phone landscape, QA hook fields, acceptance checks); 8.4 row
+- `src/styles/tokens.css`: **`--ease-camera` changed** from `cubic-bezier(0.45, 0, 0.25, 1)` to `cubic-bezier(0.37, 0, 0.63, 1)`. No other token changed. **Route a scene check**: the scene mirrors this curve (`src/domain/camera/easing.ts`), and the framing, veil and out-move timings depend on it
+- `docs/handoffs/ux-ui-designer.md`: this section
+
+### Decisions (v1.3)
+- Peak turning speed: changed the curve, not the duration. The sine curve peaks near 1.6 times the average, so 35 degrees in 800 ms peaks near 70 degrees per second (limit 80). Keeping 800 ms with the old curve would have needed about 1.15 s, which feels slow
+- Move out: 600 ms up to 38 degrees, then degrees divided by 60 per second up to 1,000 ms; limit 100 degrees per second out (the Visitor is walking, so it stays quicker than in). Without this, a 60 degree return in 600 ms would peak near 155
+- Targets: Visitor maximum raised to 34% portrait, 50% phone landscape, 48% wide; phone-landscape picture minimum lowered from 22% to 17% of the width. Reason: the tech-lead's rules (c) and (d) fix the scale in pixels per metre, so the maxima follow from the minima. A picture-wins rule with the old maxima could never pass. 17% on landscape keeps the Visitor near 47% of 390 px rather than 62%
+- Acceptance: `pictureVisibleFraction` at least 0.99 on phone portrait and wide, at least 0.90 on phone landscape, picture never cropped anywhere. Phone landscape also gets a pitch-26 candidate before the least-overlap fallback. I chose a threshold over a different landscape layout because the right 30% column and 16% HUD band are fixed by 3.4 and 3.5
+- Stillness (a): the move starts at the later of 150 ms after dwell and 0.25 s of stillness; movement before it starts delays it and does not cancel it; a Visitor who never stops gets no framing (follow camera, as in the fallback). The caption card's 1.5 s cap is unchanged and the card does not wait when `mode` is `follow`
+- Veil (b): 200 ms in, cut, 200 ms out, scene-drawn in `--color-night` at `--z-fade`, no veil under reduced motion. The Replay veil in 6.9 is unchanged (full token each way)
+- (c), (d), (e) written into 6.12.2 as the tech-lead decided
+
+### Assumptions (v1.3)
+- The reference Visitor height is 1.7 m for the height checks; the scene-developer should confirm the constant and the check normalises other heights
+- The 0.90 landscape bar is a design call, not measured on screen. The developer measured a worst case of 0.72 before the pitch-26 candidate and the 17% minimum, so the new numbers may or may not reach 0.90 for every fixture
+- The peak speeds assume the camera's yaw about the aim point. The sine curve's peak is about 1.57 times the average; I did not sample it in code
+
+### Open questions (v1.3)
+- If after the changes some fixture on phone landscape still falls under 0.90, is the user willing to accept a framed view that places the Guide partly off-screen (drop from the fit set already does this), or should the Guide's standing spot on landscape be chosen differently? (scene-developer to report the worst fixture, then user and tech-lead)
+- Does a Visitor who never stops walking need any feedback? Spec says no (the card still appears at 1.5 s) (tech-lead)
+
+### Requests for other agents (v1.3)
+- scene-developer:
+  - Re-read `--ease-camera` (new curve) into the mirrored easing and re-run the solver and timing tests
+  - Move out: duration is 600 ms up to 38 degrees, then degrees divided by 60 per second, capped at 1,000 ms
+  - Phone landscape: picture minimum 17% (was 22%); Visitor range 26 to 50%; add a pitch-26 candidate after the pitch-20 list, on phone landscape only; wide Visitor maximum 48%; portrait 34%
+  - Confirm the stillness rule: move starts at the later of 150 ms after dwell and 0.25 s of stillness; movement before the move starts only delays it. Report the worst case against the 1.5 s card cap
+  - Draw the veil as 200 ms in, cut, 200 ms out; none under reduced motion
+  - Report the worst `pictureVisibleFraction` per viewport over the 20-picture fixture set after these changes, and the peak yaw speed for 35, 45 and 52 degree moves and for a 60 degree return
+  - Camera check by eye in a real browser (not done by anyone yet); the Playwright baseline `presenting-photo-1.png` changes by design
+- frontend-developer: no new work. The card still waits for `settled` or 1.5 s
+- qa-engineer: test the 6.12.9 acceptance checks (a) to (h) as revised. Key numbers:
+  - 0.99 at 360x640, 390x844 and 1280x720; 0.90 at 844x390; the picture rectangle fully inside the viewport everywhere
+  - Visitor height (normalised to 1.7 m): 18 to 34%, 26 to 50%, 24 to 48%, or Guide dropped, or picture at its scaled minimum; picture never below its scaled minimum (table width x picture width over 1.6 x 0.82)
+  - Move in 800 to 1,300 ms, move out 600 to 1,000 ms, peak yaw speed at most 80 in and 100 out (sample the snapshot yaw each frame); veil 400 ms total for a swing over 60 degrees; reduced motion is one cut with no veil
+  - Move does not start until 0.25 s after the Visitor stops; no framing while walking continuously; `mode` is `cut` for 300 ms after a cut
+- technical-artist, architect, product-manager: nothing new
+
 ## Update v1.2: presentation camera and "Photos weren't kept" notice (30/10/2026)
 
 Design spec is now v1.2 (change note at the top of `docs/design-spec.md`). Both items are the user's decisions of 30/10/2026. Nothing was built or run; no code, architecture or requirements files were touched.

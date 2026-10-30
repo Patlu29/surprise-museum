@@ -272,7 +272,7 @@
   --duration-presentation-camera-in: 800ms; /* design spec 6.12.3; scene mirrors this (longer swings take up to 1300 ms) */
   --duration-presentation-camera-out: 600ms; /* design spec 6.12.3; scene mirrors this */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --ease-camera: cubic-bezier(0.45, 0, 0.25, 1); /* slow start, slow stop, no overshoot; presentation camera (6.12.3) */
+  --ease-camera: cubic-bezier(0.37, 0, 0.63, 1); /* v1.3: ease-in-out sine, peak speed about 1.6 x average (was 0.45, 0, 0.25, 1 at about 2.6 x); no overshoot; presentation camera (6.12.3) */
   --ease-emphasised: cubic-bezier(0.3, 0, 0, 1.2);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --press-scale: 0.96;

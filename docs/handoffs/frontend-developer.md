@@ -1,5 +1,35 @@
 # Handoff: frontend-developer
 
+## Update: caption card waits for the presentation camera (CR-2, 30/10/2026)
+
+### Summary
+The caption card now appears only once the presentation camera has settled for its photo, or 150 ms after the presentation starts if the scene announces no move, and never later than 1.5 s after the start. The waiting rules are a pure module with unit tests; a hook wires them to the scene's `surprise-museum:presentation-camera` event. `npm run typecheck`, `lint`, `test` (702) and `build` pass. Not run in a browser.
+
+### Files changed
+- `src/ui/overlays/captionGate.ts` (new): pure `startGate`, `applySignal`, `tickGate`, `nextCheckInMs`, `isCameraSignal`; constants `CAPTION_CAP_MS` (1500) and `NO_FRAMING_GRACE_MS` (150)
+- `src/ui/overlays/captionGate.test.ts` (new): 8 tests (wait then show, cut and follow do not wait, grace, cap, other photo ignored, stale seq ignored, next-check timing, detail validation)
+- `src/hooks/useCaptionGate.ts` (new): listens on `window`, ignores events whose `photoId` is not the card's photo, ignores `framed` or `cut` events whose `seq` is not above the highest settled `seq` from before this presentation (captured when the presentation changes in `sessionStore`), replays an event that landed in the same frame, removes listeners and timers on unmount
+- `src/ui/overlays/Hud.tsx`: the caption card (`card === 'caption'`) needs `useCaptionGate(photo.id)`. The finale card is not gated. `useCaptionDock` starts a fresh choice when the card becomes active, so `chooseCaptionDock` measures the settled rectangles
+
+### describeAvatar check
+`describeAvatar` is only used for the builder preview text, the live announcements and the Review step, all computed at run time. No UI copy or UI test hard-codes the old word order. `src/lib/lib.test.ts` still passes (default hair is "short crop", so the "bob brown hair" phrasing does not touch it). No change needed.
+
+### Decisions
+- Start of the wait is the moment the Guide's `presentation` becomes that photo in `sessionStore` (taken as dwell completion). If the scene raises that later than dwell completion, the 1.5 s cap runs late by the same amount
+- 150 ms grace when no unsettled event arrives: the scene emits nothing when the solver falls back or framing is blocked, so the signal alone cannot tell "no framing" from "framing about to start"
+
+### Assumptions
+- `presentation.kind === 'photo'` is set at or very near dwell completion
+
+### Open questions
+- None
+
+### Requests for other agents
+- scene-developer: the event is not enough in two cases. (1) No event on fallback or blocked framing, so the UI needs the 150 ms grace; an explicit settled event (`mode: 'follow'`, this `photoId`) on those paths would remove the guess. (2) When the Visitor is still walking at the trigger, framing waits for 0.25 s of stillness, which may exceed the grace; the card then shows at 150 ms and the camera moves under it. Emitting an `entering`-like unsettled event with `photoId` while `pending` would make the card wait. The UI already handles both without change
+- qa-engineer: card tests can read `data-presentation-camera` and `snapshot().presentationCamera`; the card should be absent while `mode` is `entering` and present within 1.5 s of dwell completion
+
+---
+
 ## Update: CR-1 gender option and CR-3 "Photos aren't kept" notice (30/10/2026)
 
 ### Summary
