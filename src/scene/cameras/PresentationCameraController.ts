@@ -15,6 +15,11 @@ import { useSettingsStore } from '@/state/settingsStore';
 import { avatarHeight } from '../characters/avatarRig';
 import { frameCorners } from '../controllers/projection';
 import type { SceneRuntime } from '../runtime/SceneRuntime';
+import {
+  GUIDE_PRESENTING_EVENT,
+  GuidePresentingTracker,
+  type GuidePresentingDetail,
+} from './guidePresentingTracker';
 import type { FollowCameraRig, PoseOverride } from './FollowCameraRig';
 
 /**
@@ -69,6 +74,8 @@ export interface PresentationCameraSnapshot {
   /** Counters for QA: hard cuts so far, camera arrivals so far. */
   cutSeq: number;
   settledSeq: number;
+  /** The Guide's walk to the presentation spot: the photo and whether she has arrived. */
+  guidePresenting: { photoId: string; arrived: boolean } | null;
   /** Duration in ms of the last move in and out (0 for a cut). */
   lastMoveInMs: number;
   lastMoveOutMs: number;
@@ -100,6 +107,7 @@ export class PresentationCameraController implements PoseOverride {
   private solution: FramingSolution | null = null;
   private solvedSize = { w: 0, h: 0 };
   private resizeTimer = 0;
+  private readonly guideTracker = new GuidePresentingTracker();
   private emittedKey = '';
   /** True while framing is pending (waiting for stillness), for the snapshot. */
   private pendingNow = false;
@@ -136,6 +144,7 @@ export class PresentationCameraController implements PoseOverride {
       yawOffsetDeg: framedLike && sol ? sol.yawOffsetDeg : 0,
       pictureVisibleFraction: 0, // filled in by the test hook, which reads the live camera
       shownYawDeg: (Math.atan2(this.rig.pose.forward.x, this.rig.pose.forward.z) * 180) / Math.PI,
+      guidePresenting: this.guideTracker.state,
       fallback: this.fallback,
       guideDropped: framedLike && sol ? sol.guideDropped : false,
       settled: !this.pendingNow && m.mode !== 'entering' && m.mode !== 'returning',
@@ -159,6 +168,7 @@ export class PresentationCameraController implements PoseOverride {
 
   cancel(): void {
     this.machine.cancel();
+    this.guideTracker.reset();
     this.key = null;
     this.pending = false;
     this.blocked = false;
@@ -185,6 +195,16 @@ export class PresentationCameraController implements PoseOverride {
     const rt = this.runtime;
     const intent = rt.director.intent;
     const photoId = intent.kind === 'photo' ? intent.photoId : null;
+
+    // The Guide's walk to the spot, for the caption card (N-6). Before the camera event below, so
+    // a same-frame presentation start is seen in the order: guide started, camera state.
+    for (const detail of this.guideTracker.update(photoId, rt.guide.currentMode)) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent<GuidePresentingDetail>(GUIDE_PRESENTING_EVENT, { detail }),
+        );
+      }
+    }
 
     if (input.moving) this.stillFor = 0;
     else this.stillFor += input.dt;

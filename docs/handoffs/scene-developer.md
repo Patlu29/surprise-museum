@@ -1,5 +1,17 @@
 # Handoff: scene-developer
 
+## Update 30/10/2026 (N-6): `surprise-museum:guide-presenting` event
+
+`window` event `surprise-museum:guide-presenting`, `detail: { photoId, arrived }`, from `src/scene/cameras/guidePresentingTracker.ts` (pure, tested in `guidePresentingTracker.test.ts`) and dispatched by `PresentationCameraController.tick` once per frame at most per change:
+- `arrived: false` when the director's intent becomes that photo (dwell completion, the Guide starts walking to the spot).
+- `arrived: true` once per presentation when the Guide's mode becomes `present` (on the spot, the 1.5 s walking cap passed, or reduced motion placed her at once; in that case both events fire in the same frame, in order).
+- The `photoId` is the same as the presentation's and the camera event's. A cancelled or replaced presentation sends nothing more for the old photo; Replay and jump reset the tracker. She relocating and returning does not send a second arrival.
+- Order within a frame: the guide event is dispatched before that frame's camera event.
+- QA mirror: `snapshot().presentationCamera.guidePresenting` is `{ photoId, arrived }` or `null` when nothing is being presented.
+
+Checks (typecheck, lint, test, build) pass. Not run in a browser this round.
+
+
 ## Update 30/10/2026 (QA round 3 fix round 1): BUG-6, BUG-10, `shownYawDeg`
 
 `typecheck`, `lint`, `test` (57 files, 861 tests) and `build` pass.
