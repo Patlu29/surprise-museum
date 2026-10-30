@@ -1,6 +1,14 @@
 # Design spec: Surprise Museum
 
-Version 1.1 | 29/10/2026 | Owner: ux-ui-designer | Based on requirements v0.3, user stories v0.3 and architecture v1.0
+Version 1.2 | 30/10/2026 | Owner: ux-ui-designer | Based on requirements v0.3, user stories v0.3 and architecture v1.0
+
+**Change note, v1.2 (two user decisions, 30/10/2026).**
+- **Presentation camera (QA N-2, the user chose "move the camera").** New **6.12**: during a presentation the camera eases to a three-quarter side view that frames the whole picture plus both characters, then eases back to the follow camera when the presentation ends, the Visitor moves or the Visitor takes the camera. Framing targets for phone portrait, phone landscape and wide, timing and easing (800 ms in, 600 ms out), reduced motion (a hard cut), input interruption, wall rules and name-label rules are all in 6.12.
+  - This **reverses** the v1.0 to v1.1 rule "the camera does not move because of a presentation" (3.4, 6.3, 6.7, 8.4). Those sections are amended: a presentation is now the one camera move the Visitor did not directly ask for, and it is always interruptible. Hints, the finale, the Guide's relocation and the picture list still never move the camera.
+  - New tokens `--duration-presentation-camera-in`, `--duration-presentation-camera-out`, `--ease-camera` (0 ms under both reduced-motion paths). The composition targets in 3.4 and ADR 0014 are unchanged for the follow camera.
+  - 5.5 gains name-label rules for the framed view; 3.5 gains a QA check at the framed pose; 8.4 and the coverage table are updated. R2 adds a Settings switch (5.13, 6.12.9).
+- **"Photos weren't kept" notice (the user chose yes).** New **5.17**: a short inline notice in the builder when a restored draft has no photos. Placement, copy, dismissal, screen-reader announcement and when it disappears are in 5.17; copy deck and 8.3 updated; 2.1 leaving-protection sentence corrected. No new tokens (it reuses `--color-info-tint`).
+- Nothing else changed. All new copy is gender-neutral (FR-76).
 
 **Change note, v1.1 (CR-1: gender option, approved 29/10/2026).**
 - 9.4: new **Gender** radiogroup (Woman, Man, Neutral; default Neutral; optional) is the first group of the customiser. The **Body** tab moves to first position and becomes the opening tab, so the base shape is chosen before the details.
@@ -160,7 +168,7 @@ The builder is one route (`#/create`) with four steps held in component state an
 
 Preview is available from every step once there is at least 1 photo and both names. If not, the Preview button opens a dialog listing what is missing, with a link to each fix (US-8).
 
-Leaving protection: until published, the browser shows its native "leave site?" prompt on close or reload if the draft has content (memory-only draft in MVP; FR-12 restore is R2).
+Leaving protection: until published, the browser shows its native "leave site?" prompt on close or reload if the draft has content. After a reload the builder restores names, text, characters and the step from `localStorage`, but **not the photos** (photo restore is Release 2, needs IndexedDB). When that happens the builder shows the "Photos weren't kept" notice (5.17), so the Creator is told why the photo list is empty.
 
 ### 2.2 Visitor (Epic E3, E4, E7)
 
@@ -283,6 +291,8 @@ The architecture gives a starting boom of 3.5 m at 2.2 m height. At that setting
 
 Achieve this with boom length, vertical FOV (50 to 60 degrees), and a constant view offset (`camera.setViewOffset`) that never changes during a session. The offset is a fixed composition, not camera motion.
 
+These targets are for the **follow** camera. During a presentation the camera moves to the framing in 6.12, which has its own targets (the Visitor is smaller there, 20 to 36% of the viewport height, because the picture and both characters must fit). The FOV and the view offset stay exactly the same in both modes.
+
 ### 3.5 Caption card placement rule (FR-64, US-12)
 
 The caption card must cover neither the Visitor nor the active picture. Because the camera is user-controlled, the card is placed by a small pure function, `chooseCaptionDock(inputs): Placement`, in `src/ui/overlays/` (frontend-developer), unit-tested.
@@ -314,6 +324,8 @@ The caption card must cover neither the Visitor nor the active picture. Because 
 - The Close button is always in the header and never scrolls away.
 
 QA check: in Playwright at 360 by 640, 390 by 844, 844 by 390 and 1280 by 720, with the default camera, the card's rectangle must not intersect the picture rectangle for a short, a 140-character and a 280-character caption.
+
+**With the presentation camera (v1.2).** The card appears only after the framing has settled or the Guide has arrived, whichever is later (6.12.3), so the dock function always measures the framed pose. The card's rectangle must also not intersect the Visitor's or the Guide's rectangle (labels included) at the framed pose. The framing reserves the card's default dock (top in portrait, right in landscape and wide) in its safe rectangle (6.12.2), so the first candidate placement normally wins. Repeat the QA check above with the framed pose.
 
 ### 3.6 Builder layouts
 
@@ -362,7 +374,7 @@ All tokens are CSS custom properties in `src/styles/tokens.css`. Scene tokens (`
 | Size | `--touch-target` (44), `--touch-target-lg` (56), `--icon-sm/md/lg`, `--hairline`, `--border-control` (2), `--border-selected` (3), `--joystick-*`, `--hud-margin`, `--panel-max-width`, `--panel-peek-height`, `--sheet-max-height`, `--content-max-width`, `--content-wide-max-width`, `--preview-bar-height`, `--safe-*` | |
 | Shape and depth | `--radius-sm/md/lg/xl/pill`, `--radius-2` (alias), `--shadow-card/panel/hud/label`, `--shadow-inset-frame`, `--blur-panel` | |
 | Layers | `--z-canvas` 0, `--z-labels` 5, `--z-hud` 10, `--z-preview-bar` 14, `--z-panel` 20, `--z-sheet` 22, `--z-fade` 24, `--z-viewer` 26, `--z-screen` 28, `--z-modal` 30, `--z-toast` 40 | Name labels sit below every panel (ADR 0011). Pass `zIndexRange={[5, 0]}` to drei `Html` |
-| Motion | `--duration-instant/fast/normal/slow/camera/fade-through/gender-morph`, `--ease-standard/emphasised/out`, `--press-scale` | All durations are 0 ms under reduced motion |
+| Motion | `--duration-instant/fast/normal/slow/camera/fade-through/gender-morph`, `--duration-presentation-camera-in` (800 ms), `--duration-presentation-camera-out` (600 ms), `--ease-standard/emphasised/out`, `--ease-camera`, `--press-scale` | All durations are 0 ms under reduced motion. The two presentation-camera durations and `--ease-camera` are mirrored by the scene (6.12.3) |
 
 Scaffold names kept for compatibility: `--font-body`, `--radius-2`, `--touch-target`, `--color-accent`, `--color-surface`, `--color-text`, `--space-2`, `--space-4`.
 
@@ -480,6 +492,7 @@ States: **uploading** (progress bar plus "Uploading 62%"), **processing** ("Prep
 | Position | Centred 0.35 m above the head (scaled with height). `pointer-events: none`, `user-select: none`, `aria-hidden="true"` (ADR 0011) |
 | Visibility | Always shown while the character is on screen (FR-17). Hidden, with a `--duration-fast` fade, when the wall line-of-sight test fails or the character is off-screen; instant under reduced motion |
 | Collision | If the two labels overlap on screen, raise the label of the character farther from the camera by its own height plus 4 px (once) |
+| Framed view (v1.2) | While the presentation camera is active (6.12), a label must not cover the picture. The framing solver counts each label's rectangle as part of its character (6.12.4). If a label still intersects the picture rectangle grown by 8 px, shift that label sideways, away from the picture's centre, by up to half its own width (eased over `--duration-fast`, instant under reduced motion). The label is never hidden and never scaled (FR-17). The 5.5 label-collision rule still applies after the shift |
 | Layer | `--z-labels`, below the HUD and every panel |
 | Builder preview | The same style under each preview character, so Creators see exactly what the Visitor will see (US-7) |
 
@@ -609,6 +622,53 @@ Changes apply immediately and persist in `localStorage` (`settingsStore`). Same 
 | Action bar | Sticky bottom bar on phones: **Back** (secondary) and **Next** (primary), safe-area padded. Last step: **Publish** replaces Next. On step change focus moves to the new step's heading (`tabindex="-1"`) and a polite status announces "Step 3 of 4: Characters" |
 | Document title | Updates per step for WCAG 2.4.2, for example "Characters, step 3 of 4 | Surprise Museum" |
 
+### 5.17 Restored-draft notice: "Photos weren't kept" (builder, MVP, v1.2)
+
+A short, calm inline notice that explains why the photo list is empty after a reload. It is information, not an error: no alert role, no danger or warning colour, nothing blocks the Creator.
+
+```text
+PHONE (360)                                   DESKTOP (content column)
+| Step 3 of 4: Characters        |            | Step 3 of 4: Characters                     |
+| +----------------------------+ |            | +-----------------------------------------+ |
+| | (i) Photos aren't kept     | |            | | (i) Photos aren't kept after a reload.   | |
+| |  after a reload. Please    |[X]|          | |     Please add them again. Your names,  [X]| |
+| |  add them again. Your      | |            | |     words and characters are still here. | |
+| |  names, words and          | |            | |     [ Add photos ]  (steps 2 to 4 only)  | |
+| |  characters are still here.| |            | +-----------------------------------------+ |
+| |  [ Add photos ]            | |            | (the step's own content follows)             |
+| +----------------------------+ |
+```
+
+**Show when (all three):** the builder restored a draft from `localStorage` on this page load; the restored draft has no photos; and the stored draft holds something worth restoring (a name, any text, any character choice that is not the default, or a saved step later than 1). A stored draft that equals the defaults shows nothing, because nothing was lost. It is decided once, at restore time. It is never shown for a draft that was started in this page load (for example when the Creator removes their own photos).
+
+| Property | Spec |
+|---|---|
+| Placement | Inside the step content column, directly **below the step heading and above everything else in the step** (above the Add photos area on step 1, above the preview on step 3, above the checklist on step 4). It is shown on whichever step the draft reopens on, and stays visible when the Creator moves between steps until it goes away (below). It scrolls with the content: it is not part of the sticky header or the sticky action bar, so it never covers a control (WCAG 2.4.11). On step 4 it sits above, and does not replace, the "Add at least one photo" issues. When a step's error summary is also showing, the notice comes first, then the summary |
+| Surface | `--color-info-tint` fill, `--hairline` solid `--color-border-strong` outline, `--radius-md`, padding `--space-3` by `--space-4`, full width of the content column (max `--content-max-width`). Not paper, not the warning box of the edit-link screen |
+| Icon | A 20 px (`--icon-md`) circled "i" in `--color-accent`, `aria-hidden`. Never a triangle, exclamation mark or cross |
+| Text | First line `--text-md`, weight 600, `--color-text`: "Photos aren't kept after a reload. Please add them again." Second line `--text-sm`, `--color-text-muted`: "Your names, words and characters are still here." Wraps freely; no fixed height; works at 320 px wide and at 200% text zoom |
+| Action | Steps 2, 3 and 4 only: a text button **Add photos** (accent text, 44 px tall). It goes to step 1 and moves focus to the step 1 heading, as any step change does (5.16). Not shown on step 1, where the Add photos area is directly below |
+| Dismiss | A 44 px icon button (X) at the top-right with `aria-label="Dismiss notice"`. It removes the notice for this page load only (not saved). After dismissal, focus moves to the step heading (`tabindex="-1"`), because the dismiss button has just left the page. Escape does not dismiss it (it is not a dialog) |
+| Contrast (calculated; QA to re-verify) | `--color-text` on `--color-info-tint` 13.4:1; `--color-text-muted` on `--color-info-tint` 5.3:1; `--color-accent` on `--color-info-tint` 6.8:1; `--color-border-strong` outline on `--color-info-tint` 4.3:1 (needs 3:1) |
+| Motion | Appears with no animation on load. On removal it fades and collapses in `--duration-fast` (instant under reduced motion). Nothing pulses or moves |
+| Semantics | A `div` inside the persistent polite live region `role="status"` of the builder (see Announcement). The text is real text, in reading order straight after the step heading. No heading element inside it, so the step's heading outline is unchanged |
+
+**Announcement (screen readers).**
+- The builder keeps one persistent `role="status"` region (`aria-live="polite"`, `aria-atomic="true"`) in the DOM from the first render; the notice is rendered inside it, or its text is written into a visually hidden copy inside it, **after** the region exists (the visible notice may sit outside the region if the developer prefers, as long as the same text is announced once). Content added to a region that was created in the same render is often not announced.
+- Announced **once**, about 600 ms after the step announcement ("Step 3 of 4: Characters", 5.16), so it queues behind it rather than replacing it: "Photos aren't kept after a reload. Please add them again. Your names, words and characters are still here."
+- It never takes focus on load. The page load puts focus on the step heading as usual, so the notice is the next thing in reading order.
+- Removal is silent. Adding a photo is already announced by the photo row ("Uploading", "Ready"); a second "notice removed" message would be noise. Dismissal is silent too.
+- It is not re-announced when the Creator moves between steps, or when it scrolls into or out of view.
+
+**When it goes away.** Any one of:
+1. The Creator adds a photo. It disappears the moment the first photo row is created (when the file is picked, not when the upload finishes).
+2. The Creator dismisses it.
+3. The draft is published, discarded or replaced (the builder starts a new draft), or the Creator leaves the builder.
+
+It does not come back if the Creator later removes every photo. It does appear again after the next reload if the draft still holds content and no photos, because it is true again. Dismissal and "added a photo" are held in memory only, never in `localStorage`.
+
+**Interaction with other builder rules.** The "Add at least one photo" messages on steps 3 and 4 and the Preview dialog's missing list are unchanged. The leaving-protection prompt (2.1) is unchanged. In Release 2, when photos are restored from IndexedDB (US-29 AC-1), the notice is never shown for a draft that has photos, so no change to the notice is needed.
+
 ---
 
 ## 6. 3D interactions
@@ -645,8 +705,8 @@ Every interaction is specified as Trigger, Feedback, Camera, Exit, Touch, Keyboa
 - **Style:** third-person follow (A-4). Composition targets are in 3.4. Distance (boom) is adjustable only on desktop (wheel, plus and minus keys): 2.5 to 6.0 m, 0.4 m per wheel notch.
 - **Follow:** the camera's position follows the Visitor's translation with 120 ms critical damping. Yaw and pitch change only from user input. Movement is camera-relative, so there is no need to swing the camera behind the character as it turns, which avoids unexpected rotation.
 - **Occlusion:** when a wall blocks the line to the Visitor the boom shortens, down to 1.2 m, easing over 150 ms.
-- **Never moves on its own.** The camera does not move because of the Guide, a presentation, a hint, a picture list jump or the finale. The only non-input changes are (a) following the Visitor's own movement and (b) a cut to the default pose after Replay or a jump-to-picture, which the user caused.
-- **Reduced motion:** the same, with no damping (the camera is rigidly attached), no eased boom change, no eased Reset, and no fade-through (hard cuts). The camera never auto-moves.
+- **Moves on its own only for a presentation (v1.2).** The camera does not move because of the Guide's walking, a hint, a picture list jump or the finale. The only non-input changes are (a) following the Visitor's own movement, (b) a cut to the default pose after Replay or a jump-to-picture, which the user caused, and (c) the **presentation camera** (6.12), which eases to a framing of the picture when a presentation starts and eases back when it ends or the Visitor moves. (c) is the single exception, it is always interruptible by any input, and it is a cut under reduced motion.
+- **Reduced motion:** the same, with no damping (the camera is rigidly attached), no eased boom change, no eased Reset, and no fade-through (hard cuts). The presentation camera becomes a hard cut in and out (6.12.6).
 - **Not used:** camera shake, head bob, FOV changes, motion blur, auto-orbit, intro fly-through (there is no intro; the welcome screen is the intro).
 
 ### 6.4 Interaction: Reset view
@@ -681,8 +741,8 @@ Every interaction is specified as Trigger, Feedback, Camera, Exit, Touch, Keyboa
   2. Dwell complete: the Guide stops following, turns, and walks to a spot beside the Visitor facing the picture. It never stands between the Visitor and the picture and never hides the Visitor from the camera (FR-30).
   3. Arrival, or 1.5 s at most: the Guide's presenting gesture plays once (R2), a soft brass ring (0.55 m radius, 200 ms fade) appears under the Guide's feet, and the caption card appears (5.6). A polite announcement is made (8.3).
   4. Leaving: past 4.5 m or Close, the ring and card fade out in `--duration-fast` and the Guide resumes following (FR-27).
-- **Camera:** does not move.
-- **Reduced motion:** the Guide fades in beside the Visitor over 250 ms instead of walking across the room (FR-62), there is no presenting gesture (a still pose), and the card appears instantly.
+- **Camera (v1.2):** eases to the presentation framing (a three-quarter side view of the picture, the Visitor and the Guide) at dwell completion, and eases back at step 4 or on any movement input. Full rules in 6.12.
+- **Reduced motion:** the Guide fades in beside the Visitor over 250 ms instead of walking across the room (FR-62), there is no presenting gesture (a still pose), the camera cuts to the framing as the Guide appears (6.12.6), and the card appears instantly.
 - **Interrupt rules:** pass-through in under 1 s starts nothing; a second zone replaces the first after its own dwell; nothing queues (FR-28). The card must not flicker at the boundary, because the exit distance (4.5 m) exceeds the entry distance (3 m).
 - **No caption:** the Guide walks over and faces the picture, no card, the picture still counts as viewed (FR-71).
 - **Touch and keyboard:** nothing to press. Dismiss with Close, Escape, Enter or Space on the canvas, or by walking away.
@@ -720,6 +780,121 @@ Every interaction is specified as Trigger, Feedback, Camera, Exit, Touch, Keyboa
 - **Feedback:** the changed part updates within 1 s (FR-15), with no flicker. A gender change morphs the shape over 250 ms (instant under reduced motion), section 9.5.
 - **Camera:** fixed framing; only the characters turn. Default angle is a three-quarter front view. There is no auto-spin (an optional slow idle turn is allowed only with full motion).
 - **Exit:** not applicable.
+
+### 6.12 Interaction: Presentation camera (v1.2, resolves QA N-2)
+
+During a presentation the camera leaves the follow position behind the Visitor and eases to a **three-quarter side view** in which the whole picture is visible and clear, with the Visitor and the Guide standing beside it. It eases back when the presentation ends or the Visitor moves. The aim is calm: one slow move in, one quicker move out, never any roll or zoom, and any input from the Visitor wins.
+
+Terms: **picture** is the active frame including its mat (a rectangle on the wall), **n** is the wall's normal pointing into the room, **V** and **G** are the Visitor and the Guide, **saved pose** is the user's yaw, pitch and boom just before the move.
+
+- **Trigger:** the Guide has been told to present (dwell of 1 s inside 3 m, 6.7). The framing is solved at that instant using the Visitor's position and the Guide's destination spot, so it does not wait for the Guide to arrive. Pictures with no caption are framed too (the Guide still presents, FR-71).
+- **Feedback:** the camera eases to the framing pose (6.12.3). The caption card appears only once the camera has settled and the Guide has arrived, whichever is later, and never later than 1.5 s after dwell completion (architecture 6.4); if framing is still easing at 1.5 s, the card appears anyway and the dock function re-measures when the camera settles.
+- **Camera:** 6.12.2 to 6.12.7.
+- **Exit:** see 6.12.7. In short: the card's Close, Escape, Enter or Space on the canvas, any movement input, any look-around or zoom input, Reset view, a new presentation (re-frames directly), Replay or a jump.
+- **Touch and keyboard:** nothing extra to press. All the exits above already exist.
+
+#### 6.12.1 What stays the same
+
+Vertical FOV (60 degrees portrait, 52 otherwise) and `camera.setViewOffset` are **not changed** (3.4, ADR 0014): the framing is made by where the camera stands and aims, so a viewport rotation or resize never makes it jump. The camera never rolls. The follow camera's rules (120 ms damping, boom 2.5 to 6.0 m, pitch 4 to 55 degrees) apply again the moment the presentation camera releases.
+
+#### 6.12.2 Framing pose and targets
+
+**Pose.** The aim point is the centre of the world-space box that contains: the four picture corners, and for each of V and G the feet and the top of the head. **Azimuth** (compass direction of the camera from the aim point) is n rotated by a **yaw offset** to one side. **Pitch** is the saved pitch limited to 8 to 20 degrees (if the saved pitch is outside that range, it eases to the nearest limit; default 12 degrees when the saved pitch is the default 14). **Boom** is the shortest distance, from 2.5 up to 6.5 m, at which the fit set below lies inside the safe rectangle when projected through the real camera including the constant view offset. The vertical position of the group on screen therefore comes from the same view offset as the follow camera, and the safe rectangle's bottom edge keeps the joystick zone clear.
+
+**Fit set, in priority order.** (1) The whole picture, always. (2) The Visitor, from feet to head top, with the name label. (3) The Guide, with the name label. If the safe rectangle cannot hold all three at the minimums below, drop the Guide from the fit set first (the Guide may then sit partly off-screen; the label hides as in 5.5). The picture is never cropped, and never shrinks below its minimum width.
+
+**Targets, as fractions of the viewport after safe-area insets.** The dock columns follow 3.5, so the caption card's default dock is left clear.
+
+| Viewport (class as ADR 0014) | Safe rectangle for the fit set (x from left, y from top) | Picture on screen | Visitor height on screen | Why |
+|---|---|---|---|---|
+| Phone portrait (narrower than 640 px) | x 5 to 95%, y 30 to 74% | Width at least 45% of the viewport width, at most 90%; height at most 85% of the safe height | 18 to 28% of viewport height | Top 30% is the caption dock and top bar, bottom 26% is the joystick zone (3.4). The group has about 44% of the height, so characters are smaller than the follow view (30%) |
+| Phone landscape (landscape, 500 px tall or less) | x 5 to 68%, y 16 to 82% | Width at least 22% of the viewport width, at most 60% of the safe width | 26 to 36% | The right 30% column holds the caption card; top 16% holds the HUD; the joystick sits bottom-left over the scene |
+| Wide (tablet, desktop) | x 4 to 68%, y 10 to 84% | Width at least 20% of the viewport width, at most 60% of the safe width | 24 to 34% | Right 30% column holds the card; the HUD top bar is 10% |
+
+These are acceptance ranges, not exact values: the solver picks the shortest boom that fits. If the Visitor would come out below the lower bound, drop the Guide from the fit set (above) before accepting a smaller Visitor.
+
+**Yaw offset candidates, tried in this order** (6.12.4): 35, 45 and then 52 degrees. 35 degrees is the intended three-quarter view (the picture is foreshortened to about 82% of its full width). The limit is 52 degrees, where the picture is still about 62% of its full width. Never more.
+
+#### 6.12.3 Timing and easing
+
+| Move | Delay | Duration | Easing | Notes |
+|---|---|---|---|---|
+| In (follow to framing) | 150 ms after dwell completion, so the Guide's turn reads first | `--duration-presentation-camera-in` (800 ms) for a swing of up to 35 degrees; longer swings take the swing in degrees divided by 45 degrees per second, up to a cap of 1,300 ms | `--ease-camera` (`cubic-bezier(0.45, 0, 0.25, 1)`, slow start and slow stop; no overshoot) | Position, aim, yaw, pitch and boom all use the same progress value, so the move is one smooth arc. The peak turning speed stays under about 80 degrees per second |
+| Out (framing to follow) | None: it starts on the input that caused it | `--duration-presentation-camera-out` (600 ms), shorter because the Visitor is now walking and should not wait | `--ease-camera` | Target is the saved pose at the Visitor's current position (a moving target, so the follow damping takes over from the first frame) |
+| Re-frame (second presentation replaces the first) | 150 ms | As In, measured from the current pose | `--ease-camera` | Goes straight from one framing to the next. It does not return to the follow pose in between |
+| Interrupted mid-move | None | Retargets from the current pose, never jumping: time = the larger of 300 ms and the full duration multiplied by the fraction of the move still to go | `--ease-camera` | A move in that is interrupted by movement turns round at once and returns |
+| Swing over 60 degrees (the Visitor had turned the view far from the picture) | None | Use the existing fade-through veil, `--duration-fade-through` (400 ms, cut at the midpoint) instead of an eased swing, to avoid a fast whirl | n/a | Under reduced motion, a hard cut, as everything else |
+| Return when the swing is over 60 degrees | None | Do not swing back. Keep the framing's yaw and pitch as the new user pose and ease only the boom and the pivot to follow in 600 ms. The Reset view button appears (6.4) so the Visitor can go back to default | `--ease-camera` | Stops a fast turn in the middle of walking |
+
+Mirror the durations and the easing in the scene constants with a comment that points to this section.
+
+#### 6.12.4 How the solver chooses a pose
+
+A pure function in the camera domain (`src/domain/camera/`, scene-developer, unit-tested like `composition.ts`). Inputs: the viewport class and size, the picture's corners and wall normal, V and G positions and heights, label rectangles in screen pixels, the saved pose, the wall list (outer and partition, with openings) and the ceiling height. Output: a pose, or none.
+
+Candidates are tried in this order; the first that passes all tests wins:
+
+1. Side order: the **side nearest to the camera's current azimuth** first (the shortest swing), then the other side. For each side, the yaw offsets 35, 45 and 52 degrees at the pitch from 6.12.2.
+2. If none pass, repeat the whole list with the pitch raised to 20 degrees (looking slightly more down so the characters fall below the picture's lower edge).
+3. If none pass, pick the candidate with the **least overlap of the picture by a character or label**, as long as the picture is fully inside the safe rectangle and no wall rule (6.12.5) is broken. A label that still overlaps is moved sideways (5.5).
+4. If every candidate breaks a wall rule, return **none**: the camera stays on the follow camera and the presentation goes ahead as in v1.1 (this is the N-2 behaviour, accepted for this rare case).
+
+**Tests each candidate must pass:**
+- The picture's four corners lie inside the safe rectangle, and the picture meets its minimum width in the table.
+- The picture is unobstructed: the rectangles of V's and G's bodies and their labels, grown by 8 px, do not intersect the picture's rectangle. The Visitor's body and label are checked first; the Guide's second (the Guide may be in front of the picture's side edge only if no other candidate clears).
+- The caption card's default dock rectangle, grown by 8 px, does not intersect the picture or either character (3.5).
+- 6.12.5 passes.
+
+The result is stable: it is computed once per presentation (and again only for a new presentation or a viewport change), not every frame, so the camera cannot hunt between two poses.
+
+#### 6.12.5 Walls and the room
+
+| Wall type | Rule |
+|---|---|
+| Outer walls (hard, ADR 0014) | The segment from the aim point to the camera must not cross an outer wall. Allowed boom is the distance to the wall minus 0.3 m. The framing never shortens the boom to squeeze in (that would crop the picture); a candidate that needs a longer boom than the wall allows fails and the next candidate is tried. Keep the camera at least 0.3 m below the ceiling |
+| Partition walls between the camera and the picture (or the picture's wall face) | The candidate **fails**. The picture must be seen at full opacity, never through a faded wall |
+| Partition walls between the camera and V or G only | Allowed. They fade to 0.25 opacity as in ADR 0014 (eased; instant under reduced motion). Collision, navigation and line of sight for presentations are unchanged. Name labels show through a faded wall |
+| Doorways | A candidate seen through a doorway opening counts as clear. Check the picture's four corners against the wall list, not just its centre |
+| The picture's own wall | The camera is always on the room side of n. A candidate whose camera position is behind the picture's wall fails |
+
+On release (6.12.7) the follow camera's normal occlusion rules apply again (outer walls shorten the boom to 1.2 m, partitions fade).
+
+#### 6.12.6 Reduced motion
+
+When the effective reduced-motion setting is on (8.4), the presentation camera is a **hard cut**: the camera jumps to the framing pose in a single frame at the moment the Guide's 250 ms fade-in begins (so the change is read together with the Guide appearing), and jumps back at the moment of release. There is no eased move, no veil and no fade (the veil would flash; a cut does not), and `--duration-presentation-camera-in` and `-out` are 0 ms. A viewport change re-solves the pose with a cut. The framing, wall rules and input rules are otherwise identical.
+
+#### 6.12.7 Input and interruptions
+
+| Input during a presentation | What the camera does | What the presentation does |
+|---|---|---|
+| Movement: joystick past its dead zone (15% deflection), W A S D or arrows, arrow buttons (R2) | Releases at once and eases back to the saved pose in 600 ms (reverses a move still in progress) | Continues: the card and the Guide stay until Close or the Visitor passes 4.5 m (6.7). The camera does **not** frame this presentation again, so there is no tug of war if the Visitor steps back and forth. A new presentation (a new dwell) frames again |
+| Look-around: drag on the canvas, Q and E, Shift with arrows | **Takes over instantly, with no ease.** The user's pose becomes whatever the camera shows at that frame; the follow camera resumes from it. It does not return to the saved pose | Continues; no further framing for this presentation |
+| Zoom: wheel, plus and minus (desktop) | Same as look-around: takes over from the current pose | Continues |
+| Reset view (button or R) | Eases to default behind the Visitor in `--duration-camera` (instant under reduced motion) | Continues |
+| Close, Escape, or Enter or Space on the canvas (card dismissal, 5.6) | Eases back in 600 ms, while the card fades out in `--duration-fast` | Ends and suppresses that picture until the Visitor is past 4.5 m (FR-27, A-19) |
+| Tap or click the picture, or Look closer | Stays where it is. Rendering pauses behind the viewer (5.8). On close the camera is exactly as it was and the presentation is unchanged | Continues |
+| A second presentation starts | Re-frames directly from the current pose (6.12.3) | The first is replaced after its own dwell (FR-28) |
+| Replay from the finale, a jump (R2) | Cut to the default pose, as 6.9 (a presentation does not survive these) | Ends |
+| Rotation or window resize (US-33) | Re-solves the pose for the new viewport class and eases to it in `--duration-camera` (cut under reduced motion) | Continues, nothing restarts |
+| Hint chips, the Help sheet, the settings sheet, Tab, a failed photo retry | No effect | No effect |
+
+The camera is never driven by anything except those rows and the Guide's presentation starting. Walking past 4.5 m needs movement, so the camera has already released by then.
+
+After release, the Visitor may be standing between the camera and the picture again (the v1.1 view). That is accepted: the Visitor chose to walk or to take the camera.
+
+#### 6.12.8 Name labels while framed
+
+See 5.5, "Framed view". In short: labels stay on, stay the same size, count as part of their character in the solver, and slide sideways, never up over the picture, if a label would still touch the picture. Labels hidden by the wall line-of-sight test stay hidden. The Visitor's and the Guide's labels never swap sides.
+
+#### 6.12.9 Calm rules, setting and accessibility
+
+- **Calm rules.** One slow move in and one quicker move out per presentation; no roll; no FOV change and no dolly zoom; eased start and stop; no overshoot; peak turning speed about 80 degrees per second or less; pitch stays between 8 and 20 degrees while framed; the camera cannot hunt (one solve per presentation); no screen shake; the card, Guide and ring appear as in 6.7, not timed to the camera's motion.
+- **Setting (Should, R2; with Settings, 5.13).** A switch "Move the camera to show each picture" (on by default). When off, the camera stays on the follow camera during presentations (the v1.1 behaviour), and the caption card still avoids the picture (3.5). Helper text: "When this is off, the view stays behind your character." The switch is separate from "Reduce motion", which turns the move into a cut but does not turn it off.
+- **Screen readers.** The camera move is not announced: the presentation announcement is unchanged (8.3), and no focus moves. Nothing in this section changes what is read.
+- **Keyboard.** The existing exits are the keyboard paths (movement keys, Q and E, R, Escape). No new key.
+- **WCAG.** 2.3.3 (animation from interactions): the move is the only non-essential motion, is a cut under reduced motion, and the Visitor can stop it by any input and (R2) switch it off. 2.2.2 (pause, stop, hide): the move lasts under 1.3 s and ends by itself. No flashing.
+- **QA hook.** `snapshot().presentationCamera = { mode: 'follow' | 'entering' | 'framed' | 'returning' | 'cut', yawOffsetDeg, pictureVisibleFraction }`, where `pictureVisibleFraction` is the share of the picture rectangle that is inside the viewport and not covered by a character or label rectangle. The hook uses no pixels.
+- **Acceptance checks.** At 360 by 640, 390 by 844, 844 by 390 and 1280 by 720: (a) when `mode` is `framed`, `pictureVisibleFraction` is at least 0.99 for pictures on both side walls, in portrait, landscape and square, in a doorway-adjacent room and in the last room; (b) the Visitor's height is inside the table range or the Guide was dropped from the fit set; (c) the caption card does not intersect the picture or either character (3.5); (d) the move in lasts 800 to 1,300 ms and the move out 600 ms, the move is a single frame under reduced motion; (e) each row of 6.12.7 behaves as written, including no re-frame after a movement release; (f) `partitionOpacity` is 1 for any partition between the camera and the picture; (g) the Visitor's name label is never hidden while framed unless a wall hides it; (h) the existing 3.4 composition numbers are unchanged for the follow camera before and after a presentation.
 
 ---
 
@@ -866,6 +1041,7 @@ Focus is never moved automatically onto the caption card (the Visitor may be wal
 | Jump (R2) | "Moved to photo 3 of 12" |
 | Replay | "Back at the entrance. Viewed pictures have been cleared." |
 | Failed photo | "Photo 3 did not load. A Retry button is available." |
+| Builder, restored draft (v1.2) | Once, about 600 ms after the step announcement: "Photos aren't kept after a reload. Please add them again. Your names, words and characters are still here." Polite, never takes focus, removal and dismissal are silent (5.17) |
 | Builder | Upload progress per photo is `role="progressbar"` with text; reorder, remove and replace outcomes are announced politely; step changes are announced; copy success is announced |
 
 The picture's alternative text is its caption, or "Photo n of N" if there is none (FR-63). Name labels are `aria-hidden`; names are announced through the above regions.
@@ -876,7 +1052,8 @@ Effective setting: Settings (R2) over the operating system's `prefers-reduced-mo
 
 | Animation | Normal | Reduced motion |
 |---|---|---|
-| Camera | Follows the Visitor with 120 ms damping | Rigidly attached. Never moves on its own |
+| Camera | Follows the Visitor with 120 ms damping | Rigidly attached. Moves on its own only for a presentation, as a hard cut (below) |
+| Presentation camera (6.12) | Eases in over 800 ms (up to 1,300 ms for a long swing) and out over 600 ms | A hard cut in as the Guide's fade-in begins, and a cut out on release. No veil |
 | Reset view and boom changes | Eased 150 to 450 ms | Instant |
 | Guide to the Visitor for a presentation | Walks | Fades in beside the Visitor over 250 ms |
 | Guide relocation | 250 ms fade out and in | Instant |
@@ -1152,6 +1329,8 @@ The Visitor-facing experience never shows a gender label (A-20). Name labels, th
 | Finale | "A note from {Guide}" / "Keep exploring" / "Replay from the start" / no message: "The end" "Thanks for visiting, {name}." |
 | Hint | "Where next?" / "To the finale" |
 | Retry chip | "Photo 3 did not load." / "Retry" |
+| Restored draft notice (v1.2, 5.17) | Line 1 "Photos aren't kept after a reload. Please add them again." Line 2 "Your names, words and characters are still here." Action "Add photos" (steps 2 to 4). Dismiss button label "Dismiss notice". Announcement is the three sentences in one |
+| Camera setting (R2, v1.2, 6.12.9) | Switch "Move the camera to show each picture" / helper "When this is off, the view stays behind your character." |
 | Not found | As 7.5 |
 | Context lost | As 7.8 |
 | Customiser, gender (v1.1) | Group label "Gender (optional)"; options "Woman", "Man", "Neutral"; helper "Changes the shape and face. Your other choices stay as they are." |
@@ -1198,7 +1377,9 @@ Remaining watch list for other owners (not in this document):
 | FR-13 to FR-16, FR-20 (characters) | 1.6, 9 |
 | FR-72, FR-73 (gender, shape only), FR-15 (preview within 1 s) | 9.1, 9.4, 9.5, 9.6, 9.7 |
 | FR-74, FR-75 (render everywhere, older museums are Neutral) | 9.3, 9.6 (same kit and same parameters in builder, preview and visit) |
-| FR-76 (no gendered pronouns or nouns) | 10.1 |
+| FR-76 (no gendered pronouns or nouns) | 10.1 (the v1.2 notice and setting copy use none) |
+| FR-26, FR-30, FR-62, QA N-2 (presentation camera, picture fully visible) | 3.4, 3.5, 5.5, 6.3, 6.7, 6.12, 8.4 |
+| FR-12, US-6 AC-3, US-29 AC-1 partial (restored draft, photos not kept) | 2.1, 5.17, 8.3, 10 |
 | FR-17, FR-18 (labels, animation) | 5.5, 6.1, 6.8 |
 | FR-24, FR-25 (welcome, arrival) | 2.2, 7.2 |
 | FR-26 to FR-31, FR-71 (Guide) | 3.5, 5.6, 6.7, 6.8 |

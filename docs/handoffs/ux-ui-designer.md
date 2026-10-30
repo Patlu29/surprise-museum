@@ -1,5 +1,62 @@
 # Handoff: ux-ui-designer
 
+## Update v1.2: presentation camera and "Photos weren't kept" notice (30/10/2026)
+
+Design spec is now v1.2 (change note at the top of `docs/design-spec.md`). Both items are the user's decisions of 30/10/2026. Nothing was built or run; no code, architecture or requirements files were touched.
+
+### Files changed (v1.2)
+- `docs/design-spec.md`: v1.2 and change note; new 6.12 (presentation camera, with 6.12.1 to 6.12.9); new 5.17 (restored-draft notice); amended 2.1, 3.4, 3.5, 5.5 (framed-view label rule), 6.3, 6.7, 8.3, 8.4, 4.1, copy deck and coverage table
+- `src/styles/tokens.css`: new `--duration-presentation-camera-in` (800 ms), `--duration-presentation-camera-out` (600 ms), `--ease-camera`; both durations are 0 ms under both reduced-motion paths
+- `docs/handoffs/ux-ui-designer.md`: this section
+
+### Decisions (v1.2)
+- Camera: three-quarter side view, yaw offset 35 degrees (then 45, then 52 as fallbacks), pitch 8 to 20 degrees, FOV and view offset unchanged. The boom is solved per presentation so the whole picture plus both characters fit a per-viewport safe rectangle (portrait x 5-95%, y 30-74%; landscape x 5-68%, y 16-82%; wide x 4-68%, y 10-84%). The safe rectangles leave the caption dock and joystick zone clear
+- Priority when it does not fit: picture first, Visitor second, Guide third (drop the Guide from the fit set before shrinking the Visitor below 18% / 26% / 24% of the viewport height)
+- Timing: 150 ms delay, 800 ms in (up to 1,300 ms for a long swing), 600 ms out, `--ease-camera` (no overshoot). Swings over 60 degrees use the existing 400 ms fade-through veil in; on return the camera does not swing back but adopts the framing's yaw, so there is never a fast whirl while walking
+- Movement releases the camera (eases back) but the card and Guide stay; the same presentation is never framed twice (no tug of war). Look-around or zoom takes over instantly, with no return
+- Walls: outer walls hard (a candidate fails rather than shortening the boom, which would crop the picture); a partition between the camera and the picture fails the candidate (the picture is never seen through a faded wall); partitions between the camera and a character may fade as ADR 0014. If every candidate fails, the camera stays on the follow camera (v1.1 behaviour)
+- Reduced motion: a hard cut in as the Guide's fade-in starts and a cut out on release. I chose a cut over a short fade because a dip through night would be a flash
+- Labels stay on, same size, and slide sideways (never hidden) if one still touches the picture
+- Notice: information style (info tint, circled "i", no alert role), shown only when a draft was restored with no photos and the stored draft holds something worth restoring; below the step heading on whichever step reopens; Dismiss (this load only); gone when a photo row is created, on dismiss, or on publish or a new draft; never re-announced; removal silent
+- Extra, not asked for: an R2 Settings switch "Move the camera to show each picture" (on by default), because this reverses a "camera never moves" promise some Visitors may rely on
+
+### Assumptions (v1.2)
+- The Guide's destination spot is known at dwell completion (it is computed before the Guide walks), so the framing can be solved without waiting for arrival
+- The scene knows the wall list, each partition's openings, the picture's frame corners and the ceiling height, and can project points through the real camera including `setViewOffset`
+- Gallery pictures are on the side walls and a presentation happens inside a room, so most candidates have the camera in the same room; the rare "all candidates blocked" case falls back to the follow camera
+- The frontend can tell, at restore time, that a draft was restored and that it holds content (a name, text, a non-default character choice, or step > 1)
+- The 6.12.2 numbers are starting acceptance ranges; tune by eye on a real phone, keeping the 6.12.9 calm rules
+
+### Open questions (v1.2)
+- Should the R2 camera switch exist, or is the move mandatory? It costs one row in Settings (user, product-manager)
+- Does requirement FR-62 ("camera never auto-moves", if worded that strongly) need a note for the new exception? I amended only the design spec (product-manager)
+- On a stored draft that equals the defaults, I show no notice, because nothing was lost. Confirm this is wanted (product-manager)
+- If the framing falls back to the follow camera in a tight spot, the N-2 view returns. Is that acceptable for the rare case? (user)
+
+### Requests for other agents (v1.2)
+- scene-developer:
+  - Implement 6.12: a pure solver in `src/domain/camera/` (inputs and tests listed in 6.12.4, same unit-test style as `composition.ts`) and a presentation-camera state machine with modes `follow`, `entering`, `framed`, `returning`, `cut`
+  - Keep FOV and `setViewOffset` unchanged; solve the boom through the real projection; apply the outer wall, partition, doorway and ceiling rules in 6.12.5; keep the 6.12.9 calm rules (no roll, no overshoot, peak turn about 80 degrees per second or less)
+  - Timing from 6.12.3 with `--ease-camera`; mirror the constants (800, 600, 150 ms delay, 1,300 ms cap, 45 degrees per second, 60 degree veil threshold) with a comment pointing to 6.12; reduced motion is a one-frame cut as the Guide's fade-in starts
+  - Input handling per the 6.12.7 table: movement releases and eases back and blocks re-framing for that presentation; look-around and zoom take over with no ease; resize re-solves
+  - Publish projected rectangles for the picture, both characters and both labels, and tell the frontend when the camera has settled so the caption card can appear after the framing (card never later than 1.5 s after dwell completion)
+  - Name labels in the framed view per 5.5: slide sideways if touching the picture, never hidden
+  - Add `snapshot().presentationCamera = { mode, yawOffsetDeg, pictureVisibleFraction }` for QA
+  - Update the code comments in `composition.ts` or the camera rig that say the camera never moves for a presentation
+- frontend-developer:
+  - Build the 5.17 notice in the builder shell (`src/ui/builder/`): condition, placement below the step heading, copy, Add photos action on steps 2 to 4, Dismiss with focus to the step heading, removal rules, and the persistent polite `role="status"` region with the single delayed announcement; keep the dismissed and photo-added state in memory only
+  - Make the caption card wait for the camera-settled signal (or 1.5 s) and re-measure `chooseCaptionDock` when the camera settles
+  - Add the R2 camera switch to the Settings sheet when that sheet is built (copy in the copy deck)
+  - Guard test: the new strings must pass the FR-76 pronoun scan (10.1)
+- qa-engineer:
+  - Add the 6.12.9 acceptance checks (four viewports, both walls, portrait, landscape and square pictures, reduced-motion cut, each input row, no re-frame after a movement release), and update the `presenting-photo-1.png` visual baseline, which will change by design (N-2 is resolved)
+  - Add the notice tests: shown only after a reload with a non-default draft and no photos; not shown for a fresh draft or after removing photos; gone on adding a photo; Dismiss works and moves focus to the step heading; announced once; `US-29 decision: photos are not persisted` gains a line for the notice
+  - Re-verify the notice contrast figures in 5.17 with a tool
+- product-manager: see the open questions above; note FR-62 wording and the story text for the notice and the camera if you want them as acceptance criteria
+- architect: ADR 0014 stays valid for the follow camera; consider a short ADR for the presentation camera (the pure solver, the `presentationCamera` snapshot field and the card-after-camera ordering)
+
+---
+
 ## Update v1.1: CR-1 gender option (29/10/2026)
 
 Design spec is now v1.1 (change note at the top of `docs/design-spec.md`). Nothing was built or run; no code, architecture or API files were touched.

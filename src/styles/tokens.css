@@ -269,7 +269,10 @@
   --duration-camera: 450ms; /* reset view, teleport settle */
   --duration-fade-through: 400ms; /* replay and jump-to-picture veil */
   --duration-gender-morph: 250ms; /* customiser preview shape change (design spec 9.5); scene mirrors this */
+  --duration-presentation-camera-in: 800ms; /* design spec 6.12.3; scene mirrors this (longer swings take up to 1300 ms) */
+  --duration-presentation-camera-out: 600ms; /* design spec 6.12.3; scene mirrors this */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-camera: cubic-bezier(0.45, 0, 0.25, 1); /* slow start, slow stop, no overshoot; presentation camera (6.12.3) */
   --ease-emphasised: cubic-bezier(0.3, 0, 0, 1.2);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --press-scale: 0.96;
@@ -291,6 +294,8 @@
     --duration-camera: 0ms;
     --duration-fade-through: 0ms;
     --duration-gender-morph: 0ms;
+    --duration-presentation-camera-in: 0ms;
+    --duration-presentation-camera-out: 0ms;
     --press-scale: 1;
   }
 }
@@ -303,6 +308,8 @@
   --duration-camera: 0ms;
   --duration-fade-through: 0ms;
   --duration-gender-morph: 0ms;
+  --duration-presentation-camera-in: 0ms;
+  --duration-presentation-camera-out: 0ms;
   --press-scale: 1;
 }
 
