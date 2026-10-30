@@ -412,10 +412,6 @@ test.describe('US-46 choose each character gender in the builder', () => {
   });
 
   test('US-46 AC-6 (BUG-8): Try again after a failed preview load brings the preview back without a reload', async ({ page }) => {
-    test.fail(
-      true,
-      'BUG-8 (frontend-developer): Try again re-renders the same rejected React.lazy component, so a transient chunk-load failure never recovers until the page is reloaded. Remove this line when fixed.',
-    );
     let fail = true;
     await page.route('**/assets/AvatarPreview-*.js', async (route) => {
       if (fail) await route.abort('failed');

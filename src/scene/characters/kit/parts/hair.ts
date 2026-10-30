@@ -10,7 +10,7 @@
 import type { Color } from 'three';
 import { type BufferGeometry } from 'three';
 import type { AvatarConfig } from '@contract';
-import { hex, luminance, mixColour, shade } from '../colour';
+import { browColour, hex, mixColour, shade } from '../colour';
 import { PartBuilder, type BoneName } from '../geometry/partBuilder';
 import { ellipsoid, hairline, loft, shell, tube, type Ring } from '../geometry/surface';
 import { HAIR_COLORS, SKIN_TONES } from '../palette';
@@ -273,9 +273,9 @@ const HAIR_BUILDERS: Record<HairStyle, (ctx: Ctx) => void> = {
   },
 };
 
-/** Thin brows in the hair colour. A very light hair colour gets a touch of shade to stay visible. */
+/** Thin brows in the hair colour, moved only as needed to keep a minimum contrast with the skin. */
 function addBrows(ctx: Ctx, thickness: number): void {
-  const colour = luminance(ctx.hair) > 0.6 ? shade(ctx.hair, 0.78) : ctx.hair;
+  const colour = browColour(ctx.hair, ctx.skin);
   for (const s of [-1, 1]) {
     ctx.b.add(
       featureOnHead(s * 0.38, 0.28, [0.028, 0.0065 * thickness, 0.007], colour, {

@@ -8,6 +8,7 @@ import {
   type RefObject,
 } from 'react';
 import { Button } from '@/ui/components/Button';
+import { Icon } from '@/ui/components/Icon';
 import type { Placement } from './chooseCaptionDock';
 
 interface CaptionCardProps {
@@ -122,7 +123,9 @@ export function CaptionCard({
         setExpanded((value) => !value);
       }}
     >
-      {expanded ? 'Show less' : 'Read more'}
+      {/* Icon-only below 18 rem of card content; the words stay in the DOM for assistive tech. */}
+      <Icon name={expanded ? 'up' : 'down'} size="sm" className="caption-card__toggle-icon" />
+      <span className="caption-card__toggle-text">{expanded ? 'Show less' : 'Read more'}</span>
     </Button>
   ) : null;
   // In a strip a cut-off caption trades Look closer for Read more; otherwise Look closer stays.

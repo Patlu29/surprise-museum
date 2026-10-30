@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   CAMERA_EVENT,
+  GUIDE_EVENT,
+  applyGuideSignal,
   applySignal,
+  isGuideSignal,
   isCameraSignal,
   nextCheckInMs,
   startGate,
   tickGate,
   type CameraSignal,
+  type GuideSignal,
   type CaptionGate,
 } from '@/ui/overlays/captionGate';
 import { useSessionStore } from '@/state/sessionStore';
@@ -22,6 +26,7 @@ export function useCaptionGate(photoId: string | null): boolean {
   const lastSignal = useRef<CameraSignal | null>(null);
   const settledSeq = useRef(0);
   const baseline = useRef(0);
+  const lastGuide = useRef<GuideSignal | null>(null);
 
   // Always listening, so an event that lands before the card is wanted is not lost.
   useEffect(() => {
@@ -33,7 +38,12 @@ export function useCaptionGate(photoId: string | null): boolean {
         settledSeq.current = Math.max(settledSeq.current, detail.seq);
       }
     };
+    const onGuide = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail;
+      if (isGuideSignal(detail)) lastGuide.current = detail;
+    };
     window.addEventListener(CAMERA_EVENT, onSignal);
+    window.addEventListener(GUIDE_EVENT, onGuide);
     // When a presentation ends or changes photo, everything settled so far belongs to the past.
     let shown: string | null = null;
     const unsubscribe = useSessionStore.subscribe((state) => {
@@ -45,6 +55,7 @@ export function useCaptionGate(photoId: string | null): boolean {
     });
     return () => {
       window.removeEventListener(CAMERA_EVENT, onSignal);
+      window.removeEventListener(GUIDE_EVENT, onGuide);
       unsubscribe();
     };
   }, []);
@@ -74,13 +85,23 @@ export function useCaptionGate(photoId: string | null): boolean {
       publish();
       schedule();
     };
+    const onGuide = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail;
+      if (!isGuideSignal(detail)) return;
+      gate = applyGuideSignal(gate, detail, performance.now());
+      publish();
+      schedule();
+    };
     window.addEventListener(CAMERA_EVENT, onSignal);
+    window.addEventListener(GUIDE_EVENT, onGuide);
     // An event may already have arrived in the same frame as the presentation.
+    if (lastGuide.current) gate = applyGuideSignal(gate, lastGuide.current, performance.now());
     if (lastSignal.current) gate = applySignal(gate, lastSignal.current);
     publish();
     schedule();
     return () => {
       window.removeEventListener(CAMERA_EVENT, onSignal);
+      window.removeEventListener(GUIDE_EVENT, onGuide);
       if (timer !== null) window.clearTimeout(timer);
       setReadyFor((current) => (current === photoId ? null : current));
     };

@@ -59,6 +59,16 @@ const FORESHORTEN_AT_35 = 0.82;
  * `--card-min-width` 16rem; edge margin `--hud-margin` 12 px on phone landscape, 24 px on wide).
  * They set the framing's right bound R (6.12.2, v1.4). Change both together.
  */
+/** The strip height for a caption scale (design spec 3.5: 104, 112 and 124 px). Mirror. */
+export function stripHeightFor(scale: number): number {
+  if (scale >= 1.5) return 124;
+  if (scale >= 1.25) return 112;
+  return 104;
+}
+
+/** Top bar plus margin above the portrait card (design spec 3.5, about 64 px). Mirror. */
+const PORTRAIT_TOP_INSET = 64;
+
 export const CARD = {
   rem: 16,
   landscape: { minRem: 16, vw: 0.3, maxRem: 22, edge: 12 },
@@ -183,6 +193,12 @@ export interface FramingInput {
   /** Partition colliders (the segments either side of each doorway). */
   partitionColliders: readonly Aabb[];
   ceilingHeight: number;
+  /**
+   * Caption scale (1, 1.25 or 1.5, from the Visitor's caption size setting). On portrait the
+   * card's strip at the top is 104, 112 or 124 px tall (spec 3.5), and the framing keeps its safe
+   * rectangle below it.
+   */
+  captionScale?: number;
   /** Test aid: when set, the solver appends why each candidate failed. */
   trace?: string[];
 }
@@ -488,7 +504,13 @@ export function solveFraming(input: FramingInput): FramingSolution | null {
 
   const safe: Rect = {
     left: spec.safe.x0 * width,
-    top: spec.safe.y0 * height,
+    top:
+      cls === 'phone-portrait'
+        ? Math.max(
+            spec.safe.y0 * height,
+            PORTRAIT_TOP_INSET + stripHeightFor(input.captionScale ?? 1) + CARD.gap,
+          )
+        : spec.safe.y0 * height,
     right: framingRightBound(cls, width) * width,
     bottom: spec.safe.y1 * height,
   };

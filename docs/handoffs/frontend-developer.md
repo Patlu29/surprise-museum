@@ -1,5 +1,33 @@
 # Handoff: frontend-developer
 
+## Update: fix round 1 after QA round 3 (BUG-7, BUG-8, BUG-9, BUG-10 UI part, N-6)
+
+### Summary
+The caption card now upgrades (BUG-7), the narrow card header always fits with Close visible at 44x44 (BUG-9), Try again after a failed 3D preview recovers (BUG-8), and the caption gate counts its 1.5 s cap from the later of dwell completion and the Guide's arrival (N-6). Width tokens are unchanged. `typecheck`, `lint`, `test` and `build` pass.
+
+### Files changed
+- `src/ui/overlays/chooseCaptionDock.ts`: `isClear` takes a separate margin for HUD keep-outs. The upgrade test (`clearUpgradeCandidates`, `UPGRADE_CLEARANCE` 16) now grows scene rects (picture, characters, labels) only; keep-outs use `UPGRADE_KEEP_OUT_CLEARANCE` (0), since the dock is already placed 12 px below the bars. The stay test and the first choice are unchanged (8 px for everything)
+- `src/ui/overlays/upgradeKeepOut.test.ts` (new): QA's case (top bar keep-out to y 56, blocker removed) at 390x844 and 1280x720, plus a check that the 16 px margin still applies to scene rects
+- `src/ui/styles/visit.css`, `src/ui/overlays/CaptionCard.tsx`: container queries on the card content width. Below 16 rem of content (a 256 px card) the initial badge is hidden and the header gap is 8 px; below 18 rem Read more / Show less is an icon-only 44x44 chevron (words kept in the DOM, visually hidden, so the accessible name and text are unchanged). Look closer is already icon-only below 24 rem. Close is always shown, 44x44
+- `src/ui/builder/AvatarPreviewSlot.tsx`: `React.lazy` replaced by a `PreviewHost` that calls `import()` on mount and is remounted per attempt (`key={attempt}`), so a rejected load is not cached. Load failure still shows the fallback and Try again
+- `src/ui/overlays/captionGate.ts`, `src/hooks/useCaptionGate.ts`, `captionGate.test.ts`: gate state adds `cameraSettled`, `guide` (`unknown|walking|arrived`) and `guideArrivedAt`. Ready needs the camera settled and the Guide not walking. Cap deadline is `max(dwell completion, Guide arrival) + 1.5 s`; while she is walking only a 6 s ceiling applies. With no Guide report the gate behaves exactly as before (camera only)
+- `tests/e2e/caption-card.spec.ts`, `tests/e2e/gender.spec.ts`: removed the BUG-7, BUG-8 and BUG-9 `test.fail` markers and their now-unused message constants. BUG-10 marker left (scene part)
+
+- `src/ui/styles/visit.css` (also): under reduced motion the caption card has `animation: none` (base.css forced 0.01 ms, and U7 requires a computed duration of 0)
+
+### E2E result (desktop-chromium and mobile-chromium, caption-card, gender, builder)
+BUG-7 U1/U5, BUG-9 S1 to S4 at 844x390 and BUG-8 Try again pass on both projects; builder spec passes. U7 passes after the reduced-motion CSS. Two things for QA: U8 fails on both projects because of the test's own watcher (`last` starts as '' while the live region already holds text, so the first DOM mutation, which the upgrade causes, is logged as a message although the text did not change; initialise `last` to the current text); and the two BUG-6 `test.fail` tests now report "expected to fail, but passed" on desktop-chromium (technical-artist's fix landed, marker to be removed by QA). Note: the dist folder is shared; run with `PW_REUSE_SERVER=1` only after `npm run build -- --mode test`, otherwise the mock API is absent.
+
+### N-6 finding
+`useCaptionGate` did not match the decision: it had no Guide input, so the card waited for the camera only and the cap counted from the presentation start. It now follows the decision, but there is no Guide-arrival signal in the scene yet, so the Guide half is inactive until the scene sends one (request below).
+
+### BUG-10 (UI part)
+Strip heights are exactly 104 / 112 / 124 px for caption scale 1 / 1.25 / 1.5 (`stripHeightFor`; the CSS strip height is set from the placement rect). The scene needs no other value from the UI. The finale strip (136 px) is not a caption strip.
+
+### Requests for other agents
+- scene-developer: dispatch `window` `CustomEvent('surprise-museum:guide-presenting', { detail: { photoId, arrived } })`: `arrived: false` when the Guide starts walking to her presentation spot (at dwell completion), `arrived: true` when she reaches it. Same `photoId` as the presentation. Until then the Guide half of N-6 does nothing
+- scene-developer: BUG-10 reserve 104/112/124 for caption scale 1/1.25/1.5, then QA can drop the BUG_10 marker
+
 ## Update: spec v1.4 readable strip, fitted card, upgrade rule, widths (30/10/2026)
 
 ### Summary

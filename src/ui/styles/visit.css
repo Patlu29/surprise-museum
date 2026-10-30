@@ -475,6 +475,45 @@
     width: var(--touch-target);
   }
 }
+/*
+ * Narrow cards (BUG-9). Container widths are content boxes. At the 16 rem minimum (256 px) a
+ * fitted card has 224 px and a strip 232 px, so the header must fit Close (44) plus one action
+ * (44) plus the 5.5 rem name: the badge goes below 16 rem of content, and Read more becomes
+ * icon-only below 18 rem. Close is never hidden and stays 44 x 44.
+ */
+@container (max-width: 15.99rem) {
+  .caption-card__badge {
+    display: none;
+  }
+  .caption-card__header {
+    gap: var(--space-2);
+  }
+}
+.caption-card__toggle-icon {
+  display: none;
+}
+@container (max-width: 17.99rem) {
+  .caption-card__toggle-icon {
+    display: inline-block;
+  }
+  .caption-card__toggle {
+    width: var(--touch-target);
+    padding-inline: 0;
+    text-decoration: none;
+  }
+  .caption-card__toggle-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+.caption-card__header > .btn {
+  flex: none;
+}
 .caption-card__body,
 .finale-card__body {
   flex: 1 1 auto;
@@ -846,4 +885,14 @@
   .radio-option.is-selected {
     outline: var(--border-selected) solid Highlight;
   }
+}
+
+/* Reduced motion: the card appears and upgrades instantly (spec 3.5 U7); no animation at all, not a 0.01 ms one. */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .caption-card {
+    animation: none !important;
+  }
+}
+:root[data-motion='reduce'] .caption-card {
+  animation: none !important;
 }

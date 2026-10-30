@@ -11,6 +11,7 @@ import {
   type PresentationCameraMode,
 } from '@/domain/camera/presentationCameraMachine';
 import type { PerspectiveCamera } from 'three';
+import { useSettingsStore } from '@/state/settingsStore';
 import { avatarHeight } from '../characters/avatarRig';
 import { frameCorners } from '../controllers/projection';
 import type { SceneRuntime } from '../runtime/SceneRuntime';
@@ -26,6 +27,11 @@ import type { FollowCameraRig, PoseOverride } from './FollowCameraRig';
  * Per-frame cost when idle: one comparison of the director's intent. A solve is a few thousand
  * projections and happens once per presentation.
  */
+
+/** The caption size setting as the UI reads it (Hud.tsx): normal 1, large 1.25, xlarge 1.5. */
+function captionScaleOf(size: 'normal' | 'large' | 'xlarge'): number {
+  return size === 'xlarge' ? 1.5 : size === 'large' ? 1.25 : 1;
+}
 
 /** Joystick dead zone: 15% deflection (design spec 6.12.7). */
 export const MOVE_DEAD_ZONE = 0.15;
@@ -48,6 +54,11 @@ export interface PresentationCameraSnapshot {
   yawOffsetDeg: number;
   /** Share of the picture inside the viewport and not covered by a character or label. */
   pictureVisibleFraction: number;
+  /**
+   * The camera's yaw as shown this frame, in degrees (heading convention, atan2 of the look
+   * direction), so a test can sample it each frame and measure the peak turning speed.
+   */
+  shownYawDeg: number;
   /** The solver found nothing for this presentation, so the follow camera stayed (6.12.4 step 4). */
   fallback: boolean;
   guideDropped: boolean;
@@ -124,6 +135,7 @@ export class PresentationCameraController implements PoseOverride {
       mode: m.mode,
       yawOffsetDeg: framedLike && sol ? sol.yawOffsetDeg : 0,
       pictureVisibleFraction: 0, // filled in by the test hook, which reads the live camera
+      shownYawDeg: (Math.atan2(this.rig.pose.forward.x, this.rig.pose.forward.z) * 180) / Math.PI,
       fallback: this.fallback,
       guideDropped: framedLike && sol ? sol.guideDropped : false,
       settled: !this.pendingNow && m.mode !== 'entering' && m.mode !== 'returning',
@@ -283,6 +295,7 @@ export class PresentationCameraController implements PoseOverride {
         guide: labelOf('guide', { w: 90, h: 32 }),
       },
       saved: { yaw: this.rig.yaw, pitch: this.rig.pitch },
+      captionScale: captionScaleOf(useSettingsStore.getState().captionSize),
       hardColliders: rt.layout.hardColliders,
       partitionColliders: this.partitionColliders,
       ceilingHeight: rt.layout.wallHeight,

@@ -51,6 +51,10 @@ export interface Placement {
 export const DOCK_CLEARANCE = 8;
 /** Margin for the upgrade test: wider than the stay test so a candidate that only just clears is not taken. */
 export const UPGRADE_CLEARANCE = 16;
+/** The upgrade margin against fixed HUD keep-outs: none, the dock is already offset from them. */
+export const UPGRADE_KEEP_OUT_CLEARANCE = 0;
+/** Fitted-size search keeps the stay-test margin against keep-outs, whichever test it serves. */
+const DOCK_KEEP_OUT_CLEARANCE = DOCK_CLEARANCE;
 /** `--panel-peek-height` (6.5 rem): 44 px header row + two caption lines at scale 1 (design spec 3.5). */
 export const STRIP_HEIGHT = 104;
 /** Strip heights at caption scale 1.25 and 1.5: two lines at 1 rem x scale x 1.4, rounded up to 4 px. */
@@ -135,15 +139,27 @@ export function candidateKey(candidate: { dock: DockKind; size: CardSize }): str
   return `${candidate.dock}:${candidate.size}`;
 }
 
-function obstacles(input: DockInputs): Rect[] {
-  const list: Rect[] = [...input.keepOut, ...input.actors];
+function sceneObstacles(input: DockInputs): Rect[] {
+  const list: Rect[] = [...input.actors];
   if (input.picture) list.push(input.picture);
   return list;
 }
 
-function isClear(rect: Rect, input: DockInputs, clearance = DOCK_CLEARANCE): boolean {
+/**
+ * Clear of the scene rects (picture, characters, labels) by `clearance`, and of the fixed HUD
+ * keep-outs by `keepOutClearance`. The dock is already positioned against the HUD keep-outs
+ * (12 px below the bars), so the upgrade hysteresis margin applies to scene rects only (BUG-7).
+ */
+function isClear(
+  rect: Rect,
+  input: DockInputs,
+  clearance = DOCK_CLEARANCE,
+  keepOutClearance = clearance,
+): boolean {
   const grown = growRect(rect, clearance);
-  return !obstacles(input).some((obstacle) => rectsIntersect(grown, obstacle));
+  if (sceneObstacles(input).some((obstacle) => rectsIntersect(grown, obstacle))) return false;
+  const grownKeepOut = keepOutClearance === clearance ? grown : growRect(rect, keepOutClearance);
+  return !input.keepOut.some((obstacle) => rectsIntersect(grownKeepOut, obstacle));
 }
 
 /**
@@ -176,7 +192,7 @@ export function candidatesFor(input: DockInputs, clearance = DOCK_CLEARANCE): Ca
     if (!input.tall) {
       for (let height = full.height - FIT_STEP; height >= FIT_MIN_HEIGHT; height -= FIT_STEP) {
         const test = { ...full, height };
-        if (isClear(test, input, clearance)) {
+        if (isClear(test, input, clearance, DOCK_KEEP_OUT_CLEARANCE)) {
           found = test;
           break;
         }
@@ -302,7 +318,7 @@ export function chooseCaptionDock(input: DockInputs): Placement {
 /** Candidates better than `placement` that are clear at the upgrade margin (16 px), best first. */
 export function clearUpgradeCandidates(placement: Placement, input: DockInputs): Candidate[] {
   return candidatesFor(input, UPGRADE_CLEARANCE).filter(
-    (candidate) => candidate.rank < placement.rank && isClear(candidate.rect, input, UPGRADE_CLEARANCE),
+    (candidate) => candidate.rank < placement.rank && isClear(candidate.rect, input, UPGRADE_CLEARANCE, UPGRADE_KEEP_OUT_CLEARANCE),
   );
 }
 

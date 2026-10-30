@@ -207,13 +207,27 @@ export function createAvatarRig(initial: AvatarConfig, options: AvatarRigOptions
     if (u) u.value = BLOB_SHADOW.alpha * opacity;
   };
 
+  /**
+   * Runs `fn` with the root detached from its parent, so matrix updates treat the parent as
+   * identity. Bind matrices and bone inverses then never depend on where the rig is placed.
+   */
+  const withoutParent = (fn: () => void) => {
+    const parent = root.parent;
+    root.parent = null;
+    try {
+      fn();
+    } finally {
+      root.parent = parent;
+    }
+  };
+
   const makeSkinned = (geometry: BufferGeometry, material: MeshLambertMaterial, name: string) => {
     const mesh = new SkinnedMesh(geometry, material);
     mesh.name = name;
     mesh.frustumCulled = false; // Skinned bounds follow the bind pose; the figure is always near the camera.
     // Parent before binding, so the bind matrix is the mesh's world matrix.
     root.add(mesh);
-    mesh.bind(skeleton);
+    withoutParent(() => mesh.bind(skeleton));
     return mesh;
   };
 
@@ -251,8 +265,10 @@ export function createAvatarRig(initial: AvatarConfig, options: AvatarRigOptions
     const joints = jointsFor(currentShape());
     hipRestY = joints.hips[1];
     place(joints);
-    root.updateMatrixWorld(true);
-    skeleton.calculateInverses();
+    withoutParent(() => {
+      root.updateMatrixWorld(true);
+      skeleton.calculateInverses();
+    });
   };
 
   const refreshScale = () => {

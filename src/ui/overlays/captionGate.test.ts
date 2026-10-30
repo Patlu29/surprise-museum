@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   CAPTION_CAP_MS,
   NO_FRAMING_GRACE_MS,
+  GUIDE_CEILING_MS,
+  applyGuideSignal,
   applySignal,
   isCameraSignal,
   nextCheckInMs,
@@ -71,5 +73,51 @@ describe('captionGate', () => {
     expect(isCameraSignal(sig({}))).toBe(true);
     expect(isCameraSignal({ mode: 'framed' })).toBe(false);
     expect(isCameraSignal(null)).toBe(false);
+  });
+
+  describe('Guide arrival (N-6)', () => {
+    it('waits for the Guide after the camera settles, then shows on arrival', () => {
+      let g = startGate('a', 4, 0);
+      g = applyGuideSignal(g, { photoId: 'a', arrived: false }, 10);
+      g = applySignal(g, sig({ mode: 'entering', settled: false, seq: 4 }));
+      g = applySignal(g, sig({}));
+      expect(g.ready).toBe(false);
+      g = applyGuideSignal(g, { photoId: 'a', arrived: true }, 2500);
+      expect(g.ready).toBe(true);
+    });
+
+    it('counts the cap from the later of dwell completion and Guide arrival', () => {
+      let g = startGate('a', 4, 0);
+      g = applyGuideSignal(g, { photoId: 'a', arrived: false }, 10);
+      g = applySignal(g, sig({ mode: 'entering', settled: false, seq: 4 }));
+      // Past 1.5 s from dwell completion, the Guide is still walking: no card yet.
+      expect(tickGate(g, CAPTION_CAP_MS + 500).ready).toBe(false);
+      g = applyGuideSignal(g, { photoId: 'a', arrived: true }, 2500);
+      expect(g.ready).toBe(false); // camera still unsettled
+      expect(tickGate(g, 2500 + CAPTION_CAP_MS - 1).ready).toBe(false);
+      expect(tickGate(g, 2500 + CAPTION_CAP_MS).ready).toBe(true);
+    });
+
+    it('counts the cap from dwell completion when the Guide arrives earlier', () => {
+      let g = startGate('a', 4, 1000);
+      g = applySignal(g, sig({ mode: 'entering', settled: false, seq: 4 }));
+      g = applyGuideSignal(g, { photoId: 'a', arrived: true }, 1000);
+      expect(tickGate(g, 1000 + CAPTION_CAP_MS - 1).ready).toBe(false);
+      expect(tickGate(g, 1000 + CAPTION_CAP_MS).ready).toBe(true);
+    });
+
+    it('releases at the ceiling if the Guide never arrives', () => {
+      let g = startGate('a', 4, 0);
+      g = applyGuideSignal(g, { photoId: 'a', arrived: false }, 10);
+      g = applySignal(g, sig({}));
+      expect(tickGate(g, GUIDE_CEILING_MS - 1).ready).toBe(false);
+      expect(tickGate(g, GUIDE_CEILING_MS).ready).toBe(true);
+    });
+
+    it('ignores a Guide signal for another photo', () => {
+      let g = startGate('a', 4, 0);
+      g = applyGuideSignal(g, { photoId: 'b', arrived: false }, 10);
+      expect(applySignal(g, sig({})).ready).toBe(true);
+    });
   });
 });

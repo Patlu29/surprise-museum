@@ -6,7 +6,7 @@
 import { AVATAR_GENDERS, AVATAR_OPTIONS } from '@contract';
 import type { AvatarConfig, AvatarGender } from '@contract';
 import type { BufferGeometry } from 'three';
-import { SkinnedMesh, Vector3 } from 'three';
+import { Group, Matrix4, SkinnedMesh, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { ringsAt, type Ring } from './geometry/surface';
 import { BONE_NAMES } from './geometry/partBuilder';
@@ -855,5 +855,47 @@ describe('preview gender morph API (design spec 9.5)', () => {
     // Generous bound for slow CI; the measured cost is about 1 to 2 ms.
     expect(perFrame).toBeLessThan(25);
     rig.dispose();
+  });
+});
+
+describe('bind pose does not depend on the parent transform (BUG-6)', () => {
+  const inverses = (rig: ReturnType<typeof createAvatarRig>) => {
+    const mesh = rig.root.children.find((o) => o instanceof SkinnedMesh) as SkinnedMesh;
+    return {
+      inv: mesh.skeleton.boneInverses.map((m) => [...m.elements]),
+      bind: [...mesh.bindMatrix.elements],
+    };
+  };
+  const offsetParent = () => {
+    const p = new Group();
+    p.position.set(3.2, 0.6, -1.4);
+    p.rotation.y = 1.1;
+    p.scale.setScalar(1.5);
+    p.updateMatrixWorld(true);
+    return p;
+  };
+
+  it('matches a fresh rig after setAppearance and a morph frame under a moved parent', () => {
+    const start = cfg({ gender: 'neutral', bodyType: 'regular' });
+    const rig = createAvatarRig(start, { role: 'guide' });
+    offsetParent().add(rig.root);
+    const first = inverses(rig);
+    expect(first.bind).toEqual([...new Matrix4().elements]);
+
+    const next = cfg({ gender: 'feminine', bodyType: 'broad' });
+    rig.setAppearance(next);
+    const fresh = createAvatarRig(next, { role: 'guide' });
+    expect(inverses(rig)).toEqual(inverses(fresh));
+
+    rig.beginGenderMorph('masculine');
+    rig.setGenderMorphProgress(0.5);
+    const mid = createAvatarRig(next, { role: 'guide' });
+    mid.beginGenderMorph('masculine', 'feminine');
+    mid.setGenderMorphProgress(0.5);
+    expect(inverses(rig)).toEqual(inverses(mid));
+
+    rig.dispose();
+    fresh.dispose();
+    mid.dispose();
   });
 });

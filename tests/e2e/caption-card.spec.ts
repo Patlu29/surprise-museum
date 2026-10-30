@@ -34,11 +34,6 @@ const CAPTIONS = [words(30, 'Short'), words(140, 'Medium'), words(280, 'Long')];
 const LABELS = ['short (30)', 'medium (140)', 'long (280)'];
 const LONG_GUIDE_NAME = 'Alexandra Montgomery-Ray'; // 24 characters
 
-const BUG_7 =
-  'BUG-7 (frontend-developer): the card never upgrades. The top bar is a keepOut rectangle, the dock starts 12 px below it (CLEARANCE_BELOW_BARS) and the upgrade test grows every candidate by 16 px (UPGRADE_CLEARANCE), so every candidate touches the top bar. Remove this line when fixed.';
-
-const BUG_9 =
-  'BUG-9 (frontend-developer): at 844x390 the card is 256 px wide but its header needs 260 px (fitted or full) or 288 px (strip with Read more), so Close is cut off by 4 to 32 px (spec S4). Remove this line when fixed.';
 const BUG_10 =
   'BUG-10 (scene-developer, frontend-developer): at 360x640 with caption size 1.5 the 124 px strip covers the Guide name label; the framing reserves only the 104 px strip (spec 3.5 footprint). Remove this line when fixed.';
 
@@ -135,7 +130,6 @@ test.describe('caption card, spec 3.5 v1.4', () => {
 
   for (const vp of VIEWPORTS) {
     test(`S1 S3 S4 S5 at ${vp.width}x${vp.height}: short, 140 and 280 character captions at scale 1 (Guide "Sam")`, async ({ page }, testInfo) => {
-      test.fail(vp.width === 844, BUG_9);
       const problems = trackProblems(page);
       const m = await museumWith(page, 'Sam');
       await enterVisit(page, m.shareToken, vp);
@@ -187,7 +181,6 @@ test.describe('caption card, spec 3.5 v1.4', () => {
     });
 
     test(`S1 S2 S4 at ${vp.width}x${vp.height}: scale 1.5 and a 24-character Guide name`, async ({ page }) => {
-      test.fail(vp.width === 844, BUG_9);
       test.fail(vp.width === 360, BUG_10);
       const m = await museumWith(page, LONG_GUIDE_NAME);
       expect(LONG_GUIDE_NAME).toHaveLength(24);
@@ -304,7 +297,6 @@ test.describe('caption card, spec 3.5 v1.4', () => {
 
     for (const size of [WIDE, PORTRAIT]) {
     test(`U1 at ${size.width}x${size.height}: the card upgrades once, 600 to 800 ms after the blocker clears, on the same element, with focus unchanged`, async ({ page }) => {
-      test.fail(true, BUG_7);
       const info = await stripFixture(page, size);
       expect(info.size, 'the fixture forces a strip').toBe('strip');
       await page.waitForTimeout(2500); // past any cool-down
@@ -328,7 +320,6 @@ test.describe('caption card, spec 3.5 v1.4', () => {
     }
 
     test('U5 no upgrade while focus is inside the card; it follows 600 ms after the focus leaves', async ({ page }) => {
-      test.fail(true, BUG_7);
       const info = await stripFixture(page);
       expect(info.size).toBe('strip');
       await page.waitForTimeout(2500);
@@ -344,7 +335,6 @@ test.describe('caption card, spec 3.5 v1.4', () => {
     });
 
     test('U8 an upgrade causes no live-region update (cannot be reached: needs an upgrade, BUG-7)', async ({ page }) => {
-      test.fail(true, BUG_7);
       const info = await stripFixture(page);
       expect(info.size).toBe('strip');
       await page.waitForTimeout(2500);
@@ -359,7 +349,6 @@ test.describe('caption card, spec 3.5 v1.4', () => {
     test.describe('reduced motion', () => {
       test.use({ reducedMotion: 'reduce' });
       test('U7 with reduced motion the upgrade is instant: no cross-fade, same timers', async ({ page }) => {
-        test.fail(true, BUG_7);
         const info = await stripFixture(page);
         expect(info.size).toBe('strip');
         await page.waitForTimeout(2500);

@@ -1,5 +1,30 @@
 # Handoff: scene-developer
 
+## Update 30/10/2026 (QA round 3 fix round 1): BUG-6, BUG-10, `shownYawDeg`
+
+`typecheck`, `lint`, `test` (57 files, 861 tests) and `build` pass.
+
+### BUG-6 (preview character jumps off its plinth): root cause and fix
+- **Root cause (in the kit):** `refreshBones` in `src/scene/characters/kit/rig.ts` ends with `root.updateMatrixWorld(true); skeleton.calculateInverses();`. `updateMatrixWorld` uses the parent's last `matrixWorld`, so the bone inverses include every parent transform (the plinth offset, the three-quarter turn, the pair's yaw). The skinned meshes were bound when the rig had no parent (bind matrix without it). After a bind-pose rebuild (gender or body type) the inverses carry the parent transform and the body is drawn displaced by it: from the plinth to the origin. Hair, skin and height do not call `refreshBones`, and a rig built fresh in place is bound consistently (a reload). The rig root's own transform is never changed (that is why the e2e symptom looked like a jump). The per-frame `setGenderMorphProgress` hits the same path.
+- **Fix in the kit (technical-artist, not applied by me):** compute the inverses with the rig root's parent treated as identity, for example in `refreshBones`: `const parent = root.parent; root.parent = null; root.updateMatrixWorld(true); skeleton.calculateInverses(); root.parent = parent;` (and `makeSkinned` should bind the same way, so a bind matrix never depends on the parent). Once that is in, the wrapper below can be dropped.
+- **Fix now, in my code:** `src/scene/characters/previewAvatar.ts` runs `setAppearance` and `setGenderMorphProgress` through `withoutParent(root, ...)`, which does exactly that from outside. Verified with a unit test that fails without it (4 of 4) and passes with it: `previewAvatar.test.ts` builds the rig under an offset, turned plinth group, changes gender, body type, and both, and asserts the root position, scale and parent are unchanged and a skinned body vertex equals a fresh rig's; also frame by frame through an animated morph.
+- **E2E:** QA's two `BUG-6` `test.fail` tests in `tests/e2e/gender.spec.ts` now report "Expected to fail, but passed" on desktop Chromium. I looked at the end-of-test screenshot: Sam (Woman) is on the left plinth with the brass ring, Alex on the right, no stacking. QA should remove the `test.fail` lines.
+
+### BUG-10 (strip covers the Guide label at 360x640, caption size 1.5)
+- `FramingInput.captionScale` (1, 1.25, 1.5); on portrait the safe rectangle's top is the larger of 30% and 64 px (top bar) + strip height (104, 112, 124) + 8 px. The controller reads the setting like the UI (`captionSize` normal 1, large 1.25, xlarge 1.5). At 360x640 with 1.5 the top is 196 px (was 192); at 390x844 the 30% line is already below the strip, so nothing changes there or at scale 1.
+- Check: 20 pictures x both Guide sides at 360x640, scale 1.5: every fit rectangle top is at least 196 px, no fallback, worst `pictureVisibleFraction` 1.000. The framing is solved once per presentation, so a caption size change mid-presentation applies to the next one.
+
+### `shownYawDeg`
+`snapshot().presentationCamera.shownYawDeg`: the camera's yaw as shown, in degrees, from the actual look direction (atan2 of x and z), updated each frame. Sample it per frame for peak turning speed.
+
+### N-6
+No scene change: the events fire as before (`settled` on arrival or `follow` when no framing), which is compatible with measuring the 1.5 s cap from the later of dwell completion and Guide arrival.
+
+### Requests
+- technical-artist: the `refreshBones` fix above (then tell me and I will remove `withoutParent`).
+- qa-engineer: remove the two BUG-6 `test.fail` markers; BUG-10 can be re-run at 360x640 with caption size 1.5.
+
+
 ## Update 30/10/2026 (round 3): rect tightening and the v1.4 right bound
 
 `typecheck`, `lint`, `test` (712) and `build` pass.

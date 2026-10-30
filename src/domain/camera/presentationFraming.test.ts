@@ -347,3 +347,30 @@ describe('framing right bound R (spec 6.12.2, v1.4)', () => {
     }
   });
 });
+
+describe('caption scale reserves the strip (BUG-10)', () => {
+  it('keeps the fit set below the 124 px strip at 360x640 with caption size 1.5', () => {
+    const layout = layoutFor(20);
+    let worst = 1;
+    for (const slot of layout.slots) {
+      for (const side of [1, -1]) {
+        const sol = solveFraming(inputFor(layout, slot, 360, 640, side, { captionScale: 1.5 }))!;
+        expect(sol).not.toBeNull();
+        const r = sol.rects;
+        const tops = [r.picture, r.visitor, r.visitorLabel];
+        if (!sol.guideDropped) tops.push(r.guide, r.guideLabel);
+        for (const t of tops) expect(t!.top).toBeGreaterThanOrEqual(64 + 124 + 8 - 0.5);
+        worst = Math.min(worst, sol.pictureVisibleFraction);
+      }
+    }
+    expect(worst).toBeGreaterThanOrEqual(0.98);
+  });
+
+  it('is unchanged at scale 1 (the strip is 104 px, above the 30% line)', () => {
+    const layout = layoutFor(20);
+    const slot = layout.slots[3]!;
+    const a = solveFraming(inputFor(layout, slot, 360, 640))!;
+    const b = solveFraming(inputFor(layout, slot, 360, 640, 1, { captionScale: 1 }))!;
+    expect(b.boom).toBe(a.boom);
+  });
+});

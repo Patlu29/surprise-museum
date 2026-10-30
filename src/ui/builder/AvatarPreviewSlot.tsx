@@ -1,5 +1,13 @@
-import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
+import {
+  Component,
+  useCallback,
+  useEffect,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from 'react';
 import type { AvatarConfig } from '@contract';
+import type { AvatarPreviewProps } from '@/state/avatarPreview';
 import { isWebGLAvailable } from '@/lib/webgl';
 import { Button } from '@/ui/components/Button';
 import { NameLabel } from '@/ui/components/NameLabel';
@@ -11,7 +19,32 @@ import { NameLabel } from '@/ui/components/NameLabel';
  * out of the builder's first chunk. If WebGL is unavailable or the canvas fails, the text
  * description is shown and every option still works.
  */
-const LazyPreview = lazy(() => import('@/scene/preview/AvatarPreview'));
+type PreviewComponent = ComponentType<AvatarPreviewProps>;
+
+/**
+ * Loads the preview chunk on mount. `React.lazy` would cache a rejected import for good, so Try
+ * again could never recover (BUG-8); this host is remounted per attempt (keyed) and calls
+ * `import()` afresh, which the browser retries when the earlier request failed.
+ */
+function PreviewHost(props: AvatarPreviewProps & { onLoadError: () => void }) {
+  const { onLoadError, ...previewProps } = props;
+  const [Preview, setPreview] = useState<PreviewComponent | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    import('@/scene/preview/AvatarPreview').then(
+      (module) => {
+        if (!cancelled) setPreview(() => module.default);
+      },
+      () => {
+        if (!cancelled) onLoadError();
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [onLoadError]);
+  return Preview ? <Preview {...previewProps} /> : null;
+}
 
 class PreviewBoundary extends Component<
   { onError: () => void; children: ReactNode },
@@ -67,6 +100,7 @@ export function AvatarPreviewSlot({
   }, [attempt]);
 
   const canRender = webgl && !failed;
+  const onLoadError = useCallback(() => setFailed(true), []);
 
   return (
     <div className="preview-slot">
@@ -78,19 +112,18 @@ export function AvatarPreviewSlot({
         >
           {canRender ? (
             <PreviewBoundary key={attempt} onError={() => setFailed(true)}>
-              <Suspense fallback={null}>
-                <LazyPreview
-                  guide={guide}
-                  visitor={visitor}
-                  guideName={guideName}
-                  visitorName={visitorName}
-                  active={active}
-                  yawDegrees={yawDegrees}
-                  onSelectActive={onSelectActive}
-                  onReady={() => setReady(true)}
-                  onError={() => setFailed(true)}
-                />
-              </Suspense>
+              <PreviewHost
+                onLoadError={onLoadError}
+                guide={guide}
+                visitor={visitor}
+                guideName={guideName}
+                visitorName={visitorName}
+                active={active}
+                yawDegrees={yawDegrees}
+                onSelectActive={onSelectActive}
+                onReady={() => setReady(true)}
+                onError={onLoadError}
+              />
             </PreviewBoundary>
           ) : null}
         </div>
