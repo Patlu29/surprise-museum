@@ -1,5 +1,6 @@
 import { expect, test as base, type Page } from '@playwright/test';
-import { addPhotos, createMuseum, fillWords, layout, openVisit, startVisit, waitForSnap, type PageGlobals } from './support/app';
+import { addPhotos, chooseGender, createMuseum, fillWords, layout, openVisit, seedDraftAndOpen, startVisit, waitForSnap, type PageGlobals } from './support/app';
+import { enterVisit, standAndFrame } from './support/presentation';
 import { makePhotos } from './support/images';
 
 /*
@@ -236,6 +237,64 @@ test.describe('reflow and zoom (WCAG 1.4.10)', () => {
         'document.documentElement.scrollWidth - document.documentElement.clientWidth',
       )) as number;
       expect(overflow, hash).toBeLessThanOrEqual(0);
+    }
+  });
+});
+
+test.describe('axe: CR-1, CR-2 and CR-3 additions (v0.3 and spec v1.4)', () => {
+  test('builder Body tab with the Gender group (Woman and Man chosen), and the Face tab with the Visitor facial hair group', async ({ page, axe }) => {
+    await page.goto('./#/create');
+    await addPhotos(page, makePhotos(1));
+    await fillWords(page, {});
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible();
+    await expect(page.getByText('Getting your characters ready')).toBeHidden({ timeout: 30_000 });
+    await axe(page, 'builder-3-body-gender-neutral');
+    await chooseGender(page, 'Guide', 'Woman');
+    await axe(page, 'builder-3-body-gender-woman');
+    await chooseGender(page, 'Visitor', 'Man');
+    await axe(page, 'builder-3-body-gender-man-visitor');
+    await page.getByRole('tab', { name: 'Face' }).click();
+    await axe(page, 'builder-3-face-visitor-facial-hair');
+  });
+
+  test('the "Photos aren\'t kept" notice on steps 1, 3 and 4 (contrast and structure)', async ({ page, axe }) => {
+    await seedDraftAndOpen(page, { step: 1, visitorName: 'Alex', guideName: 'Sam' });
+    await expect(page.locator('.restored-notice')).toBeVisible();
+    await axe(page, 'notice-step-1');
+    // Next needs a photo, so open the draft again on step 3 (a reload does the same).
+    await seedDraftAndOpen(page, { step: 3, visitorName: 'Alex', guideName: 'Sam' });
+    await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible();
+    await expect(page.locator('.restored-notice')).toBeVisible();
+    await expect(page.getByText('Getting your characters ready')).toBeHidden({ timeout: 30_000 });
+    await axe(page, 'notice-step-3');
+    await page.getByRole('button', { name: 'Next' }).click();
+    await axe(page, 'notice-step-4');
+  });
+
+  test.describe('the caption card at the framed pose', () => {
+    test.use({ reducedMotion: 'reduce' });
+    for (const vp of [
+      { width: 390, height: 844 },
+      { width: 844, height: 390 },
+      { width: 1280, height: 720 },
+    ]) {
+      test(`caption card, strip expanded with Read more, at ${vp.width}x${vp.height}`, async ({ page, axe }) => {
+        test.setTimeout(240_000);
+        const long = 'A long caption that runs over several lines so that the strip has to cut it off and offer Read more. '.repeat(3).trim();
+        const made = await createMuseum(page, { photos: 1, captions: [long] });
+        await enterVisit(page, made.shareToken, vp);
+        await standAndFrame(page, 0);
+        await expect(page.locator('.caption-card')).toBeVisible({ timeout: 20_000 });
+        await page.waitForTimeout(800);
+        await axe(page, `caption-card-${vp.width}x${vp.height}`);
+        const toggle = page.locator('.caption-card__toggle');
+        if (await toggle.count()) {
+          await toggle.click();
+          await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+          await axe(page, `caption-card-expanded-${vp.width}x${vp.height}`);
+        }
+      });
     }
   });
 });

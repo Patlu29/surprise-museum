@@ -342,13 +342,20 @@ test.describe('US-6 and US-7 customise the characters', () => {
   const counts = async (page: Page, group: string) =>
     page.getByRole('radiogroup', { name: group }).getByRole('radio').count();
 
-  test('US-6 AC-1 and US-7 AC-1: option counts meet the minimums; the Guide also has facial hair', async ({ page }) => {
+  test('US-6 AC-1 and US-7 AC-1 (v0.3): option counts meet the minimums; both characters have gender and facial hair; Body opens first', async ({
+    page,
+  }) => {
     await toCharacters(page);
+    // CR-1 / spec 9.4: Body is the first tab and is selected when the step opens.
+    const tabs = page.getByRole('tablist', { name: 'Appearance' }).getByRole('tab');
+    await expect(tabs).toHaveText(['Body', 'Face', 'Hair', 'Outfit']);
+    await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
     // Visitor first.
     await page.getByRole('tab', { name: /^Visitor/ }).click();
-    await page.getByRole('tab', { name: 'Face' }).click(); // Body is the opening tab since v1.1
+    await page.getByRole('tab', { name: 'Face' }).click();
     expect(await counts(page, 'Skin tone')).toBeGreaterThanOrEqual(8);
-    await expect(page.getByRole('radiogroup', { name: 'Facial hair' })).toHaveCount(0);
+    // CR-1 inverts the old assertion: the Visitor now has Facial hair (none plus 3 or more styles).
+    expect(await counts(page, 'Facial hair')).toBeGreaterThanOrEqual(4);
     await page.getByRole('tab', { name: 'Hair' }).click();
     expect(await counts(page, 'Hair style')).toBeGreaterThanOrEqual(8);
     expect(await counts(page, 'Hair colour')).toBeGreaterThanOrEqual(8);
@@ -356,6 +363,7 @@ test.describe('US-6 and US-7 customise the characters', () => {
     expect(await counts(page, 'Outfit style')).toBeGreaterThanOrEqual(5);
     expect(await counts(page, 'Outfit colour')).toBeGreaterThanOrEqual(1);
     await page.getByRole('tab', { name: 'Body' }).click();
+    expect(await counts(page, 'Gender (optional)')).toBe(3);
     expect(await counts(page, 'Body type')).toBeGreaterThanOrEqual(3);
     expect(await counts(page, 'Height')).toBeGreaterThanOrEqual(3);
     // Guide.

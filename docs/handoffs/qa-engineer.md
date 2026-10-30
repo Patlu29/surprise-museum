@@ -1,5 +1,44 @@
 # Handoff: qa-engineer
 
+## Round 3 (CR-1 gender, CR-2 presentation camera, CR-3 notice, caption card v1.4)
+
+### Summary
+Tested the three approved changes and the v1.4 caption card at HEAD 90d884b, tests only. Found five new bugs (three major: BUG-6 preview character jumps off its plinth after a gender or body type change, BUG-7 the card never upgrades, BUG-9 Close is cut off at 844x390; two minor: BUG-8, BUG-10). All are encoded as `test.fail` tests. Results, measurements, what I saw in the baselines and the brow check are in `docs/qa-report.md` (round 3). Totals: 670 passed, 0 failed, 41 skipped across desktop-chromium (230), mobile-chromium (223) and mobile-webkit (217), including 11 expected failures per project; 14 load timeouts of older tests passed on re-run.
+
+### Files changed (tests and docs only)
+- `tests/e2e/builder.spec.ts`: US-6 AC-1 and US-7 AC-1 now checks Body first, Gender group, and the Visitor Facial hair group (assertion inverted)
+- `tests/e2e/gender.spec.ts` (new), `restored-notice.spec.ts` (new), `presentation-camera.spec.ts` (new), `caption-card.spec.ts` (new)
+- `tests/e2e/accessibility.spec.ts`: 5 new axe tests
+- `tests/e2e/visual.spec.ts`: 8 new tests; `presenting-photo-1.png` re-recorded (only that one, CR-2 by design); 6 new baselines
+- `tests/e2e/support/app.ts` (draft seeding, demo-database edits, gender helpers, `onCharacters` hook in `createMuseum`), `support/presentation.ts` (new: camera recorder, card measurement, `fixRects`), `support/images.ts` (PNG decode and pixel diff)
+- `tests/README.md`, `docs/qa-report.md`, this note
+
+### Decisions
+- Gender previews are baselined from a restored draft, not after a click, so the baselines do not record BUG-6.
+- Peak yaw is derived from `yawOffsetDeg` and the move time (the hook has no shown yaw), and labelled as derived.
+- Card-timing checks use "later of camera settled and Guide arrived", and report time from dwell completion as an annotation (N-6) rather than failing on the literal 1.5 s.
+- Upgrade-rule fixtures replace `screenRects` fields with getters; the scene's own writes are ignored.
+- Bug-documenting tests use `test.fail` (project convention).
+
+### Assumptions
+- Tolerances from docs/project-status.md (0.98 / 0.99 / 0.99 / 0.90 visible fraction, 80 in and 101 out).
+- A museum with no `gender` is simulated by deleting it from the mock's IndexedDB record.
+
+### Open questions
+- N-6: is the 1.5 s card cap measured from dwell completion or from the Guide's arrival? (ux-ui-designer, frontend-developer). Measured 1.66 to 2.4 s from dwell completion.
+- Face difference between genders is almost invisible at preview size; is that acceptable? (ux-ui-designer, technical-artist)
+
+### Requests for other agents
+- technical-artist and scene-developer: fix BUG-6 (preview rig loses its plinth offset after `setAppearance`). Then remove the two `test.fail(true, BUG_6)` lines in `gender.spec.ts` and add a baseline taken after a click.
+- technical-artist: brows do not read on `skin-09` and `skin-10` with black or dark brown hair at the default preview size (spec 9.7); raise the Woman brow to 1.00 and lighten or thicken brows on deep skin.
+- frontend-developer: BUG-7 (upgrade margin 16 px against a dock only 12 px below the top bar), BUG-9 (header does not fit in 256 px; Read more strip needs 288 px), BUG-8 (Try again must recreate the lazy preview). Then delete the matching `test.fail` lines.
+- scene-developer: BUG-10 (framing reserves a 104 px strip but the strip is 124 px at caption size 1.5); expose `shownYawDeg` in `snapshot().presentationCamera` so peak yaw can be measured per frame.
+- devops-engineer: still standing: Linux baselines (the new gender and presenting baselines are macOS only), Firefox run, and fewer workers if WebKit visit tests time out (six timed out once under load at 3 workers and passed on re-run).
+
+---
+
+# Round 2 handoff (kept for history)
+
 ## Round 2 (fix round 1 re-test)
 
 ### Summary

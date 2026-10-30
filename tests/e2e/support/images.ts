@@ -1,4 +1,4 @@
-import { deflateSync } from 'node:zlib';
+import { deflateSync, inflateSync } from 'node:zlib';
 
 /**
  * Deterministic test images, generated in Node so no fixtures need committing. PNG is used
@@ -102,4 +102,75 @@ export function withExifGps(jpeg: Buffer): Buffer {
   length.writeUInt16BE(body.length + 2, 0);
   const app1 = Buffer.concat([Buffer.from([0xff, 0xe1]), length, body]);
   return Buffer.concat([jpeg.subarray(0, 2), app1, jpeg.subarray(2)]);
+}
+
+/** Decode a non-interlaced 8-bit PNG (what Playwright screenshots are) to RGBA. Test-only, no dependencies. */
+export function decodePng(png: Buffer): { width: number; height: number; data: Uint8Array } {
+  if (png.readUInt32BE(0) !== 0x89504e47) throw new Error('not a PNG');
+  let offset = 8;
+  let width = 0;
+  let height = 0;
+  let channels = 4;
+  const idat: Buffer[] = [];
+  while (offset < png.length) {
+    const length = png.readUInt32BE(offset);
+    const type = png.toString('ascii', offset + 4, offset + 8);
+    const body = png.subarray(offset + 8, offset + 8 + length);
+    if (type === 'IHDR') {
+      width = body.readUInt32BE(0);
+      height = body.readUInt32BE(4);
+      const colour = body[9]!;
+      channels = colour === 6 ? 4 : colour === 2 ? 3 : colour === 0 ? 1 : colour === 4 ? 2 : 0;
+      if (body[8] !== 8 || body[12] !== 0 || channels === 0) throw new Error('unsupported PNG layout');
+    } else if (type === 'IDAT') idat.push(body);
+    else if (type === 'IEND') break;
+    offset += 12 + length;
+  }
+  const raw = inflateSync(Buffer.concat(idat));
+  const stride = width * channels;
+  const out = new Uint8Array(width * height * 4);
+  let prev = new Uint8Array(stride);
+  for (let y = 0; y < height; y++) {
+    const filter = raw[y * (stride + 1)]!;
+    const line = new Uint8Array(raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1)));
+    for (let x = 0; x < stride; x++) {
+      const a = x >= channels ? line[x - channels]! : 0;
+      const b = prev[x]!;
+      const c = x >= channels ? prev[x - channels]! : 0;
+      let add = 0;
+      if (filter === 1) add = a;
+      else if (filter === 2) add = b;
+      else if (filter === 3) add = (a + b) >> 1;
+      else if (filter === 4) {
+        const p = a + b - c;
+        const pa = Math.abs(p - a);
+        const pb = Math.abs(p - b);
+        const pc = Math.abs(p - c);
+        add = pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+      }
+      line[x] = (line[x]! + add) & 255;
+    }
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      out[i] = line[x * channels]!;
+      out[i + 1] = channels >= 3 ? line[x * channels + 1]! : out[i]!;
+      out[i + 2] = channels >= 3 ? line[x * channels + 2]! : out[i]!;
+      out[i + 3] = channels === 4 ? line[x * channels + 3]! : channels === 2 ? line[x * channels + 1]! : 255;
+    }
+    prev = line;
+  }
+  return { width, height, data: out };
+}
+
+/** Share of pixels whose largest channel difference exceeds `tolerance` (0 to 255). Same size required. */
+export function pixelDiffRatio(a: Buffer, b: Buffer, tolerance = 12): number {
+  const x = decodePng(a);
+  const y = decodePng(b);
+  if (x.width !== y.width || x.height !== y.height) return 1;
+  let different = 0;
+  for (let i = 0; i < x.data.length; i += 4) {
+    const d = Math.max(Math.abs(x.data[i]! - y.data[i]!), Math.abs(x.data[i + 1]! - y.data[i + 1]!), Math.abs(x.data[i + 2]! - y.data[i + 2]!));
+    if (d > tolerance) different++;
+  }
+  return different / (x.width * x.height);
 }

@@ -44,6 +44,23 @@ export interface Snap {
   render: { calls: number; triangles: number; textures: number };
   labels: { visitor: boolean; guide: boolean };
   quality: string | null;
+  /** CR-2 hook (design spec 6.12.9). `pending` and `veil` are as built. */
+  presentationCamera: PresentationCameraSnap;
+}
+export interface PresentationCameraSnap {
+  mode: 'follow' | 'pending' | 'entering' | 'framed' | 'returning' | 'cut';
+  yawOffsetDeg: number;
+  pictureVisibleFraction: number;
+  fallback: boolean;
+  guideDropped: boolean;
+  settled: boolean;
+  pending: boolean;
+  cutSeq: number;
+  settledSeq: number;
+  lastMoveInMs: number;
+  lastMoveOutMs: number;
+  photoId: string | null;
+  veil: number;
 }
 export interface Layout {
   rooms: Array<{ kind: string; minZ: number; maxZ: number }>;
@@ -134,6 +151,8 @@ export interface MuseumOptions {
   guideName?: string;
   title?: string;
   closingMessage?: string;
+  /** Runs while the Characters step is showing, before moving on to Review (CR-1 tests choose genders here). */
+  onCharacters?: (page: Page) => Promise<void>;
 }
 
 export interface Published {
@@ -171,6 +190,10 @@ export async function fillWords(page: Page, o: MuseumOptions): Promise<void> {
     await page.getByLabel('Closing message (optional)').fill(o.closingMessage);
   }
   await page.getByRole('button', { name: 'Next' }).click(); // characters
+  if (o.onCharacters) {
+    await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible();
+    await o.onCharacters(page);
+  }
   await page.getByRole('button', { name: 'Next' }).click(); // review
 }
 
@@ -292,4 +315,158 @@ export function captionCard(page: Page) {
 /** Distance between two points on the floor plan. */
 export function dist(a: { x: number; z: number }, b: { x: number; z: number }): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
+}
+
+
+// ---------------------------------------------------------------------------
+// CR-1 (gender), CR-3 (restored-draft notice) and CR-2 (presentation camera) helpers
+// ---------------------------------------------------------------------------
+
+export const DRAFT_KEY = 'surprise-museum:draft:v1';
+
+/** The two default characters exactly as v0.2 stored them: no `gender` key at all. */
+export const LEGACY_GUIDE_AVATAR = {
+  v: 1,
+  skinTone: 'skin-04',
+  hairStyle: 'short-crop',
+  hairColor: 'dark-brown',
+  outfitStyle: 'shirt-trousers',
+  outfitColor: 'navy',
+  bodyType: 'regular',
+  height: 'medium',
+  facialHair: 'none',
+  glasses: 'none',
+  hat: 'none',
+} as const;
+export const LEGACY_VISITOR_AVATAR = {
+  v: 1,
+  skinTone: 'skin-04',
+  hairStyle: 'bob',
+  hairColor: 'brown',
+  outfitStyle: 'jumpsuit',
+  outfitColor: 'coral',
+  bodyType: 'regular',
+  height: 'medium',
+  facialHair: 'none',
+  glasses: 'none',
+  hat: 'none',
+} as const;
+
+export interface DraftSeed {
+  step?: 1 | 2 | 3 | 4;
+  title?: string;
+  visitorName?: string;
+  guideName?: string;
+  closingMessage?: string;
+  guideAvatar?: Record<string, unknown>;
+  visitorAvatar?: Record<string, unknown>;
+}
+
+/** Write a draft into localStorage (as an earlier visit would have) and open the builder on it. */
+export async function seedDraftAndOpen(page: Page, seed: DraftSeed): Promise<void> {
+  await page.goto('./?e2e=1');
+  const step = seed.step ?? 3;
+  const draft = {
+    version: 1,
+    step,
+    maxStep: step,
+    fields: {
+      title: seed.title ?? '',
+      visitorName: seed.visitorName ?? '',
+      guideName: seed.guideName ?? '',
+      closingMessage: seed.closingMessage ?? '',
+      guideAvatar: seed.guideAvatar ?? LEGACY_GUIDE_AVATAR,
+      visitorAvatar: seed.visitorAvatar ?? LEGACY_VISITOR_AVATAR,
+    },
+  };
+  await page.evaluate(
+    ([key, value]) => (globalThis as unknown as { localStorage: { setItem(k: string, v: string): void } }).localStorage.setItem(key as string, value as string),
+    [DRAFT_KEY, JSON.stringify(draft)] as const,
+  );
+  await page.goto('about:blank');
+  await page.goto('./?e2e=1#/create');
+}
+
+/** Read the draft key back as parsed JSON (or null). */
+export async function savedDraft(page: Page): Promise<{ fields: { guideAvatar: Record<string, unknown>; visitorAvatar: Record<string, unknown> } } | null> {
+  const raw = await page.evaluate((key) => (globalThis as unknown as { localStorage: { getItem(k: string): string | null } }).localStorage.getItem(key), DRAFT_KEY);
+  return raw ? (JSON.parse(raw) as never) : null;
+}
+
+/** Both avatars as the builder store holds them (mode test builds only). */
+export async function builderAvatars(page: Page): Promise<{ guide: Record<string, string>; visitor: Record<string, string> }> {
+  return page.evaluate(`(() => { const s = globalThis.__APP_TEST__.useBuilderStore.getState(); return { guide: { ...s.guideAvatar }, visitor: { ...s.visitorAvatar } }; })()`) as never;
+}
+
+/** Both avatars of the museum currently loaded for a visit or preview. */
+export async function museumAvatars(page: Page): Promise<{ guide: Record<string, string>; visitor: Record<string, string> }> {
+  return page.evaluate(`(() => { const c = globalThis.__APP_TEST__.useMuseumStore.getState().content; return { guide: { ...c.guideAvatar }, visitor: { ...c.visitorAvatar } }; })()`) as never;
+}
+
+/**
+ * Edit the demo backend's stored state in IndexedDB, to build the data an older release would have
+ * written. `mutate` runs in the page on the parsed state (`{ v, museums, photos }`) and may change it.
+ * Returns the number of museums found.
+ */
+export async function rewriteDemoState(page: Page, mutateSource: string): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const open = () => new Promise((resolve, reject) => {
+        const r = globalThis.indexedDB.open('surprise-museum-demo', 1);
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+      const db = await open();
+      const get = () => new Promise((resolve, reject) => {
+        const r = db.transaction('kv', 'readonly').objectStore('kv').get('state');
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+      const text = await get();
+      if (typeof text !== 'string') { db.close(); return 0; }
+      const state = JSON.parse(text);
+      (${mutateSource})(state);
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('kv', 'readwrite');
+        tx.objectStore('kv').put(JSON.stringify(state), 'state');
+        tx.oncomplete = () => resolve(null);
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+      return Object.keys(state.museums).length;
+    })()`,
+  ) as Promise<number>;
+}
+
+/** The stored demo museums, as JSON, for assertions about what was (or was not) written. */
+export async function readDemoState(page: Page): Promise<{ museums: Record<string, { status: string; document: { guideAvatar: Record<string, unknown>; visitorAvatar: Record<string, unknown> } | null }> }> {
+  await rewriteDemoState(page, `(state) => { globalThis.__qaState = JSON.parse(JSON.stringify(state)); }`);
+  return (await page.evaluate(`globalThis.__qaState`)) as never;
+}
+
+/** Remove `gender` from every stored avatar: a museum published before v0.3. */
+export async function makeStoredMuseumsLegacy(page: Page): Promise<number> {
+  return rewriteDemoState(
+    page,
+    `(state) => { for (const m of Object.values(state.museums)) { delete m.document.guideAvatar.gender; delete m.document.visitorAvatar.gender; } }`,
+  );
+}
+
+/** Add 1 photo and reach the Characters step through the real UI. */
+export async function toCharactersStep(page: Page, visitorName = 'Alex', guideName = 'Sam'): Promise<void> {
+  await page.goto('./?e2e=1#/create');
+  await expect(page.getByRole('heading', { level: 1, name: 'Photos' })).toBeVisible();
+  await addPhotos(page, makePhotos(1));
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByLabel(/Who is this museum for/).fill(visitorName);
+  await page.getByLabel(/Your name/).fill(guideName);
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible();
+}
+
+/** Choose a gender tile for a character on the Body tab. */
+export async function chooseGender(page: Page, role: 'Guide' | 'Visitor', label: 'Woman' | 'Man' | 'Neutral'): Promise<void> {
+  await page.getByRole('tab', { name: new RegExp(`^${role}`) }).click();
+  await page.getByRole('tab', { name: 'Body' }).click();
+  await page.getByRole('radiogroup', { name: 'Gender (optional)' }).getByRole('radio', { name: label, exact: true }).click();
 }
