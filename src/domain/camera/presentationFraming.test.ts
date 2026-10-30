@@ -7,6 +7,8 @@ import { cubicBezier, easeCamera } from './easing';
 import { moveInMs, moveOutMs } from './presentationCameraMachine';
 import {
   FRAMING,
+  cardLeftEdge,
+  framingRightBound,
   framedPitchDeg,
   pictureVisibleFraction,
   solveFraming,
@@ -317,5 +319,31 @@ describe('v1.3 targets', () => {
     const base = inputFor(layout, slot, 1280, 720);
     const tall = solveFraming({ ...base, visitor: { ...base.visitor, height: 1.85 } })!;
     expect(tall.visitorHeightFraction).toBeLessThanOrEqual(0.48 + 1e-6);
+  });
+});
+
+describe('framing right bound R (spec 6.12.2, v1.4)', () => {
+  it('is the smaller of 68% and the card left edge minus 8 px', () => {
+    expect(cardLeftEdge('phone-landscape', 844)).toBe(844 - 12 - 256);
+    expect(framingRightBound('phone-landscape', 844)).toBeCloseTo((844 - 12 - 256 - 8) / 844, 6);
+    expect(framingRightBound('phone-landscape', 667)).toBeCloseTo(0.586, 3);
+    expect(cardLeftEdge('wide', 1280)).toBeCloseTo(1280 - 24 - 358.4, 6);
+    expect(framingRightBound('wide', 1280)).toBe(0.68);
+    expect(framingRightBound('wide', 768)).toBeCloseTo(0.583, 3);
+    expect(framingRightBound('phone-portrait', 390)).toBe(0.95);
+  });
+
+  it('keeps every framed rectangle left of the card', () => {
+    const layout = layoutFor(20);
+    for (const [, vw, vh] of VIEWPORTS) {
+      if (vw < 800) continue;
+      const limit = cardLeftEdge(vw === 844 ? 'phone-landscape' : 'wide', vw) - 8;
+      for (const slot of layout.slots) {
+        const sol = solveFraming(inputFor(layout, slot, vw, vh))!;
+        expect(sol.rects.picture.right).toBeLessThanOrEqual(limit + 1);
+        expect(sol.rects.visitor!.right).toBeLessThanOrEqual(limit + 1);
+        if (!sol.guideDropped) expect(sol.rects.guide!.right).toBeLessThanOrEqual(limit + 1);
+      }
+    }
   });
 });

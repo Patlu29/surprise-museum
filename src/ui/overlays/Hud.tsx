@@ -155,18 +155,20 @@ export function Hud({ content, openSheet, onOpenSheet, onReplay }: HudProps) {
   const isBusy = useCallback(
     () =>
       performance.now() < scrollingUntil.current ||
+      cardRef.current?.dataset.expanded === 'true' ||
       Boolean(cardRef.current && cardRef.current.contains(document.activeElement)),
     [],
   );
 
-  const placement = useCaptionDock(
-    card !== null,
+  const placement = useCaptionDock({
+    active: card !== null,
     layout,
-    captionSize !== 'normal',
-    card === 'finale',
+    captionScale: captionSize === 'xlarge' ? 1.5 : captionSize === 'large' ? 1.25 : 1,
+    tall: card === 'finale',
+    resetKey: photo?.id ?? null,
     measure,
     isBusy,
-  );
+  });
 
   const guideOutfit = content.guideAvatar.outfitColor;
   const badgeInk = useMemo(() => badgeInkFor(guideOutfit), [guideOutfit]);
@@ -253,6 +255,7 @@ export function Hud({ content, openSheet, onOpenSheet, onReplay }: HudProps) {
 
       {card === 'caption' && photo && placement ? (
         <CaptionCard
+          key={photo.id}
           placement={placement}
           guideName={content.guideName}
           badgeColor={`var(--avatar-outfit-${guideOutfit})`}

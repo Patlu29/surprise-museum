@@ -410,8 +410,8 @@
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   overflow: hidden;
-  /* Never narrower than 18 rem (design spec 3.5); the card's own width drives its header layout. */
-  min-width: min(18rem, 100vw);
+  /* Never narrower than 16 rem (design spec 3.5); the card's own width drives its header layout. */
+  min-width: min(var(--card-min-width), 100vw);
   container-type: inline-size;
   animation: card-in var(--duration-fast) var(--ease-out);
 }
@@ -447,7 +447,12 @@
 }
 .caption-card__title {
   flex: 1;
-  min-width: 6rem;
+  min-width: 5.5rem;
+}
+.caption-card__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .caption-card__name,
 .finale-card__heading {
@@ -487,17 +492,78 @@
   line-height: var(--leading-reading);
   max-width: var(--measure-reading);
 }
+/* Strip (design spec 5.6, v1.4): 44 px header row, two clamped caption lines, no fade, no clipping. */
+.caption-card.is-strip {
+  gap: 0;
+  padding: var(--space-1) var(--space-3) var(--space-2);
+}
+.caption-card.is-strip .caption-card__header {
+  min-height: var(--touch-target);
+  gap: var(--space-2);
+}
+.caption-card.is-strip .caption-card__badge {
+  width: calc(var(--space-8) - var(--space-1));
+  height: calc(var(--space-8) - var(--space-1));
+}
+.caption-card.is-strip .caption-card__name {
+  font-size: var(--text-md);
+}
+/* "Photo n of N" stays in the region's accessible name; it is drawn again on a wide strip. */
+.caption-card.is-strip .caption-card__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@container (min-width: 22rem) {
+  .caption-card.is-strip .caption-card__label {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip-path: none;
+  }
+}
 .caption-card.is-strip .caption-card__body {
   overflow: hidden;
-  mask-image: linear-gradient(to bottom, #000 55%, transparent);
-  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  border-top: 0;
+  padding-top: 0;
 }
 .caption-card.is-strip .caption-card__text {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  -webkit-line-clamp: var(--panel-strip-lines);
+  line-clamp: var(--panel-strip-lines);
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* Line breaks collapse to spaces so both lines carry as much text as possible. */
+  white-space: normal;
+  font-size: calc(var(--text-md) * var(--caption-scale));
+  line-height: min(var(--leading-reading), 1.4);
+}
+.caption-card__toggle {
+  flex: none;
+  min-height: var(--touch-target);
+  padding-inline: var(--space-2);
+  font-size: var(--text-sm);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.caption-card.is-fitted .caption-card__body {
+  overflow: auto;
+}
+@keyframes card-swap-a {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes card-swap-b {
+  from {
+    opacity: 0;
+  }
 }
 .caption-card__more {
   flex: none;

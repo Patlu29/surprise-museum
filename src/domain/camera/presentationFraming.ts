@@ -53,6 +53,39 @@ export const FRAMING = {
 
 const FORESHORTEN_AT_35 = 0.82;
 
+/**
+ * The caption card's width and edge margin, mirrored from design spec 3.5 and tokens.css
+ * (`--card-width-landscape` clamp(16rem, 30vw, 22rem), `--card-width-wide` clamp(18rem, 28vw, 26rem),
+ * `--card-min-width` 16rem; edge margin `--hud-margin` 12 px on phone landscape, 24 px on wide).
+ * They set the framing's right bound R (6.12.2, v1.4). Change both together.
+ */
+export const CARD = {
+  rem: 16,
+  landscape: { minRem: 16, vw: 0.3, maxRem: 22, edge: 12 },
+  wide: { minRem: 18, vw: 0.28, maxRem: 26, edge: 24 },
+  /** The framing keeps this clear of the card's left edge. */
+  gap: 8,
+  /** Below this R the Guide is dropped from the fit set before narrowing further. */
+  dropGuideBelow: 0.55,
+} as const;
+
+/** Left edge of the card in CSS px for the landscape and wide docks. */
+export function cardLeftEdge(cls: ViewportClass, width: number): number {
+  if (cls === 'phone-portrait') return 0;
+  const c = cls === 'phone-landscape' ? CARD.landscape : CARD.wide;
+  const cardW = Math.min(
+    Math.min(width, Math.max(c.minRem * CARD.rem, Math.min(width * c.vw, c.maxRem * CARD.rem))),
+    width,
+  );
+  return width - c.edge - cardW;
+}
+
+/** The framing's right bound R as a fraction of the width (6.12.2, v1.4). */
+export function framingRightBound(cls: ViewportClass, width: number): number {
+  if (cls === 'phone-portrait') return SPECS[cls].safe.x1;
+  return Math.min(SPECS[cls].safe.x1, (cardLeftEdge(cls, width) - CARD.gap) / width);
+}
+
 /** The widest picture the layout hangs (LAYOUT.photoBoxWidth). */
 const PICTURE_BOX_WIDTH = 1.6;
 
@@ -456,14 +489,17 @@ export function solveFraming(input: FramingInput): FramingSolution | null {
   const safe: Rect = {
     left: spec.safe.x0 * width,
     top: spec.safe.y0 * height,
-    right: spec.safe.x1 * width,
+    right: framingRightBound(cls, width) * width,
     bottom: spec.safe.y1 * height,
   };
+  // Portrait: the dock ends where the safe rectangle starts, less the 8 px growth, so a picture at
+  // the top of the safe rectangle is not counted as touching it. Landscape and wide: the card's
+  // real left edge.
   const dock: Rect = {
-    left: spec.dock.x0 * width,
+    left: cls === 'phone-portrait' ? 0 : cardLeftEdge(cls, width),
     top: spec.dock.y0 * height,
-    right: spec.dock.x1 * width,
-    bottom: spec.dock.y1 * height,
+    right: width,
+    bottom: cls === 'phone-portrait' ? safe.top - FRAMING.growPx : spec.dock.y1 * height,
   };
   const safeW = safe.right - safe.left;
   const safeH = safe.bottom - safe.top;
@@ -723,7 +759,8 @@ export function solveFraming(input: FramingInput): FramingSolution | null {
     };
 
     // Fit set in priority order: picture, Visitor, Guide. Drop the Guide first (6.12.2).
-    const withGuide = run(true);
+    // A narrow framing column (R under 55%) drops the Guide from the fit set at once (v1.4).
+    const withGuide = framingRightBound(cls, width) < CARD.dropGuideBelow ? FAIL : run(true);
     if (withGuide.strict) return withGuide;
     // Not clear of the picture (or not fitting): try again without the Guide in the fit set, which
     // lets her sit partly off screen, and keep whichever leaves less of the picture covered.

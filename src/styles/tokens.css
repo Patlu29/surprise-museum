@@ -221,7 +221,12 @@
   --hud-margin: var(--space-3); /* gap from screen edge, added to the safe-area inset */
 
   --panel-max-width: 26rem; /* caption card width on tablet and desktop */
-  --panel-peek-height: 4rem; /* collapsed one-line strip */
+  --panel-peek-height: 6.5rem; /* caption strip: 44px header row + two caption lines (spec 3.5, 5.6, v1.4) */
+  --panel-fit-min-height: 8rem; /* smallest "fitted" card before the strip is used (spec 3.5) */
+  --panel-strip-lines: 2; /* caption lines shown in a strip */
+  --card-min-width: 16rem; /* no caption dock is narrower than this (MIN_CARD_WIDTH) */
+  --card-width-landscape: clamp(16rem, 30vw, 22rem); /* phone landscape card */
+  --card-width-wide: clamp(18rem, 28vw, var(--panel-max-width)); /* tablet and desktop card */
   --sheet-max-height: 70dvh; /* picture list and settings sheets */
   --content-max-width: 44rem; /* builder text steps */
   --content-wide-max-width: 72rem; /* builder grid and home */

@@ -1,5 +1,47 @@
 # Handoff: ux-ui-designer
 
+## Update v1.4: readable fallback strip, fitted card, upgrade rule, card widths (30/10/2026)
+
+Design spec is now v1.4 (change note at the top of `docs/design-spec.md`; edits in 3.5, 5.6, 6.12.2, 4.1, copy deck). Only the spec, `src/styles/tokens.css` and this note changed. Nothing was run, committed or pushed.
+
+### Files changed (v1.4)
+- `docs/design-spec.md`: v1.4 change note; 3.5 (three sizes, new order table, card widths, expected placement per viewport, selection, upgrade rule, acceptance criteria S1 to S7, U1 to U8, G1); 5.6 strip and fitted variants; 6.12.2 right bound R; 4.1 token row; copy deck rows
+- `src/styles/tokens.css`: `--panel-peek-height` 4rem to 6.5rem; new `--panel-fit-min-height` (8rem), `--panel-strip-lines` (2), `--card-min-width` (16rem), `--card-width-landscape`, `--card-width-wide`
+- `docs/handoffs/ux-ui-designer.md`: this section
+
+### Decisions (v1.4)
+- Strip: 104 px (112 at scale 1.25, 124 at 1.5): 44 px header row (28 px badge, name, one action, Close) plus two clamped caption lines, ellipsis, no fade. "Photo n of N" is dropped visually in the strip (kept as visually hidden text in the region name). I chose a taller strip with the caption under the header over replacing the label alone, because the 44 px Close target cannot shrink and the caption needs a full row
+- Look closer leaves the strip header: **Read more** takes its place when the caption is cut off; if the caption fits in two lines, Look closer stays instead. Read more expands in place to the full card, where Look closer is back. Keyboard path to the viewer is therefore one step longer from a cut-off strip
+- New **Fitted** size (full card cut to the clear height, at least 128 px) is tried before any strip. At 390x844 it should land at about 168 px; at 360x640 the strip (y 64 to 168) clears the picture (starts y 192)
+- Upgrade: yes, with hysteresis. Better candidate clear 600 ms in a row at a 16 px margin (stay test stays 8 px), settled camera only, 1.5 s cool-down (3 s after a downgrade), two upgrades per presentation, never during interaction, same DOM element, never announced. One free re-choice at the first `framed` signal
+- Card widths: **min 16 rem (256 px)**, not 18 rem. The container query for Look closer and a 5.5 rem title minimum are enough to stop the pill collapse; 288 px overran the 30% framing column. Landscape `clamp(16rem, 30vw, 22rem)` confirmed with the 16 rem floor. Wide changes from the 26 rem card to `clamp(18rem, 28vw, 26rem)` (358 px at 1280). Cause of the 1280 failure: the old card plus its 24 px edge started at x 840, left of the framing's 68% bound (870), so the Guide's rect always blocked the dock
+- Framing right bound R = smaller of 68% and the card's left edge minus 8 px (6.12.2), so the framing and card agree at every width
+
+### Assumptions (v1.4)
+- Top bar plus margin is about 64 px in portrait and landscape; the expected numbers in 3.5 depend on it. The dock function measures the real `keepOut`
+- The Guide badge at 28 px in the strip is acceptable (the full card keeps 32 px)
+- `getBoundingClientRect` measurements in QA are enough to check S1; no pixel diff needed
+
+### Open questions (v1.4)
+- If QA finds the full header does not fit at 256 px, the developer may use 17 rem (272 px); the framing's R must use the same constant (frontend-developer to tell the scene-developer)
+
+### Requests for other agents (v1.4)
+- frontend-developer (`src/ui/overlays/chooseCaptionDock.ts`, `Hud.tsx`, `useCaptionDock`, `src/ui/styles/visit.css`):
+  - Set `STRIP_HEIGHT` to 104 (`--panel-peek-height`, 6.5 rem), with 112 and 124 for caption scale 1.25 and 1.5; retire `TALL_STRIP_HEIGHT` (136) unless you still need it for another reason. Set `MIN_CARD_WIDTH` to 256 (16 rem)
+  - Landscape width `clamp(16rem, 30vw, 22rem)` (`--card-width-landscape`) and wide width `clamp(18rem, 28vw, 26rem)` (`--card-width-wide`), replacing the 26 rem `PANEL_MAX_WIDTH` card; keep the 24 px wide edge margin
+  - Add the **Fitted** size and the new candidate order in the 3.5 table; fitted height steps down by 8 px from the full height to the first blocker, valid at 128 px or more (`--panel-fit-min-height`)
+  - Build the strip variant per 5.6: header row 44 px (28 px badge, name with ellipsis, Read more or Look closer, Close), two-line clamp with the caption at `calc(1rem * caption scale)`, no fade, line breaks collapsed in the strip only; detect truncation (scrollHeight against clientHeight, re-check on resize and font load); Read more and Show less with `aria-expanded` and `aria-controls`; name `{Guide}, photo n of N` as visually hidden text; title minimum 5.5 rem
+  - Implement the upgrade rule in `useCaptionDock` (600 ms per-candidate clear timers on the 100 ms samples, 16 px hysteresis, settled-camera gate from the existing `presentation-camera` event, cool-downs, cap of two, interaction guard, free re-choice at the first `framed`); keep the same DOM element and move focus to Close if Read more disappears; no live-region update. Pure parts (timers, hysteresis, cap) belong in a unit-tested module like `captionGate.ts`
+  - Unit tests: the S and U criteria that can be pure (S6 geometry at 390x844, S7 widths, U2 to U4 with a fake clock); new strings through the FR-76 scan
+  - Expose the card's `getBoundingClientRect` data attributes or test ids for the first caption line and the placed size (`data-card-size="full|fitted|strip"`) for QA
+- scene-developer:
+  - Use the new right bound R in 6.12.2 for phone landscape and wide (`R = min(68%, (W - edgeMargin - cardWidth - 8) / W)`, card widths in 3.5; below 55% drop the Guide from the fit set). Share the card-width constants with the frontend (a mirrored constant with a comment pointing to 3.5 is fine)
+  - Still wanted from the earlier note: a tighter Guide rectangle (body plus label), because that is what blocks the full dock at 1280
+- qa-engineer: add acceptance checks S1 to S7, U1 to U8 and G1 from 3.5 (four viewports, three caption lengths, scales 1 and 1.5, 1 and 24 character Guide names); framed screenshots at 844x390, 390x844 and 1280x720 change by design
+- product-manager, architect, technical-artist: nothing
+
+---
+
 ## Update v1.3: presentation camera as built, CR-2 review (30/10/2026)
 
 Design spec is now v1.3 (change note at the top of `docs/design-spec.md`). I edited only the spec, `src/styles/tokens.css` and this note. Nothing was run.

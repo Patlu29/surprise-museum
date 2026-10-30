@@ -1,6 +1,7 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
-import type { PerspectiveCamera } from 'three';
+import { Vector3, type PerspectiveCamera } from 'three';
+import { labelAnchorHeight } from '@/domain/camera/presentationFraming';
 import { dist2, normalize2, type Vec2 } from '@/domain/math/vec2';
 import type { Room } from '@/domain/layout/types';
 import { consumeOrbitDelta, consumeZoomDelta, inputState } from '@/state/inputState';
@@ -307,6 +308,8 @@ function publishReadiness(
   }
 }
 
+const v = new Vector3();
+
 function publishRects(
   rt: ReturnType<typeof useRuntime>,
   camera: PerspectiveCamera,
@@ -352,10 +355,38 @@ function publishRects(
     const body = projectPoints(characterCorners(pos.x, pos.z, heights[role], camera), camera, area);
     return unionScreenRects(body, labels[role]);
   };
+  // While the Guide walks over, publish where she will stand (the presentation spot, which the
+  // framing was solved for), not where she is passing now. A walking Guide close to the camera
+  // projects a huge rectangle that would push the caption card into its fallback strip, and the
+  // card's placement is kept once chosen. At the spot the two are the same.
+  let guideRect = actor('guide', guidePos);
+  const spot = rt.guide.presentSpot;
+  const mode = rt.guide.currentMode;
+  if (spot && (mode === 'approach' || mode === 'present') && presentation.kind === 'photo') {
+    const body = projectPoints(
+      characterCorners(spot.x, spot.z, heights.guide, camera),
+      camera,
+      area,
+    );
+    const el = rt.labels.get('guide');
+    v.set(spot.x, labelAnchorHeight(heights.guide), spot.z).project(camera);
+    let label: ScreenRect | null = null;
+    if (el && v.z >= -1 && v.z <= 1) {
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      label = {
+        x: area.left + (v.x * 0.5 + 0.5) * area.width - w / 2,
+        y: area.top + (-v.y * 0.5 + 0.5) * area.height - h / 2,
+        width: w,
+        height: h,
+      };
+    }
+    guideRect = unionScreenRects(body, label) ?? guideRect;
+  }
   publishScreenRects({
     picture,
     visitor: actor('visitor', visitorPos),
-    guide: actor('guide', guidePos),
+    guide: guideRect,
   });
 }
 

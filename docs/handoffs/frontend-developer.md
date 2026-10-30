@@ -1,5 +1,43 @@
 # Handoff: frontend-developer
 
+## Update: spec v1.4 readable strip, fitted card, upgrade rule, widths (30/10/2026)
+
+### Summary
+Caption placement now follows spec 3.5 v1.4: candidates run full, fitted (128 px or more), strip; the strip is 104/112/124 px with a header row and two clamped caption lines; Read more expands in place; upgrades follow the full anti-flicker rule. `typecheck`, `lint`, `test` (734) and `build` pass. Checked in headless Chromium on a mock build (below).
+
+### Files changed
+- `src/ui/overlays/chooseCaptionDock.ts`: `CardSize` adds `'fitted'`; `candidatesFor(input, clearance)` builds the 3.5 order tables (fitted steps down 8 px from the full height, valid at 128 px or more, never for the finale); `Placement.rank`; `captionScale` input; `stripHeightFor` (104/112/124); `STRIP_HEIGHT` 104; `MIN_CARD_WIDTH` 256; `landscapeCardWidth` (clamp 256 to 352 at 30%) and `wideCardWidth` (clamp 288 to 416 at 28%); fallback strip never covers the picture's centre third if any strip avoids it; `clearUpgradeCandidates` (16 px margin). `TALL_STRIP_HEIGHT` renamed `FINALE_STRIP_HEIGHT` (136): kept because the finale strip holds a heading and two buttons, not a caption; caption cards never use it
+- `src/ui/overlays/captionDockState.ts` (new): pure `stepDock` with the stay rule (400 ms), the upgrade rule (600 ms per-candidate dwell, 16 px hysteresis, 1.5 s cool-down, 3 s after a downgrade, cap 2, interaction hold 600 ms, settled camera only), the one free re-choice (`requestFreeRechoice`), `cameraSettledForUpgrade` (cut counts 300 ms after it ends)
+- `src/hooks/useCaptionDock.ts`: takes an options object; listens to the `presentation-camera` event for camera mode and the first `framed` signal; feeds `stepDock`
+- `src/ui/overlays/CaptionCard.tsx`: strip layout, truncation detection (scrollHeight against clientHeight, ResizeObserver, fonts ready), Read more / Show less (`aria-expanded`, `aria-controls`, focus kept on the toggle across the move between header and foot), Look closer shown in a strip only when the caption is not cut off, "Photo n of N" visually hidden in the strip (in the region's `aria-labelledby`), focus moves to Close if Read more disappears, cross-fade on the same element on a placement change (`card-swap-a/b`, instant under reduced motion because `--duration-fast` is 0), `data-card-size="full|fitted|strip"`, `data-expanded`
+- `src/ui/overlays/Hud.tsx`: new hook call, caption scale 1/1.25/1.5, `key={photo.id}` on the card, expanded counts as busy, pointer down counts as touch
+- `src/ui/styles/visit.css`: `--card-min-width`, 5.5 rem title minimum with ellipsis, strip styles from tokens, no fade mask
+- Tests: `chooseCaptionDock.test.ts` (S2, S5, S6, S7, fitted rules, order, finale), `captionDockState.test.ts` (U1 to U6, free re-choice, downgrade cool-down)
+
+### Decisions
+- Window width for the 30vw and 28vw clamps is taken as the dock viewport width plus twice its left offset, since the function has no window width
+- A least-overlap fallback strip only moves to another fallback via the stay rule; moving to a clear candidate always goes through the upgrade dwell and hysteresis
+- The free re-choice does not count towards the cap but starts the normal 1.5 s cool-down
+- Cross-fade is an opacity restart on the same element, not two layers
+
+### Not unit-tested (browser or QA)
+- S1, S3, S4 DOM geometry, U7 (reduced-motion instant), U8 (no live-region change; the upgrade path never touches the live region), G1 copy scan (the new strings are only "Read more" and "Show less")
+
+### Browser check, headless Chromium, mock build `?e2e=1`, framed presentation of picture 1 (Guide "Sophie")
+| Viewport | Placement | Card | Long (280 character) caption | Short caption |
+|---|---|---|---|---|
+| 360x640 | top strip | 336 x 104 at y 68 | two lines readable, ends in an ellipsis, Read more shown, Look closer hidden | one line, Look closer shown |
+| 390x844 | top fitted | 366 x 176 at y 68 | three lines readable, scrolls inside | readable |
+| 844x390 | right fitted | 256 x 262 at x 576 | header 44 px, text starts below it, scrolls inside | readable |
+| 1280x720 | right full | 358 x 323 at x 898 | five lines readable | readable |
+Picture, Visitor and Guide were clear of the card in all four screenshots.
+
+### Requests for other agents
+- qa-engineer: add S1 to S7, U7, U8, G1 checks in `tests/e2e` using `data-card-size`, `.caption-card__text`, `.caption-card__toggle`
+- scene-developer: none; `MIN_CARD_WIDTH` stays 256 (no need for 17 rem)
+
+---
+
 ## Update: caption card waits for the presentation camera (CR-2, 30/10/2026)
 
 ### Summary

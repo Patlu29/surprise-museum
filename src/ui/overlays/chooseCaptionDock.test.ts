@@ -9,7 +9,12 @@ import {
   isPlacementClear,
   rectsIntersect,
   STRIP_HEIGHT,
-  TALL_STRIP_HEIGHT,
+  FINALE_STRIP_HEIGHT,
+  FIT_MIN_HEIGHT,
+  landscapeCardWidth,
+  pictureCentre,
+  stripHeightFor,
+  wideCardWidth,
 } from './chooseCaptionDock';
 import { detectLayout } from '@/lib/layout';
 
@@ -123,8 +128,8 @@ describe('chooseCaptionDock: first clear candidate wins', () => {
       [1280, 720],
     ];
     for (const [width, height] of viewports) {
-      // A typical default view: picture left of centre, characters low in the frame.
-      const picture = rect(width * 0.12, height * 0.22, width * 0.34, height * 0.26);
+      // A typical default view: picture left of centre, below the dock band, characters low in the frame.
+      const picture = rect(width * 0.12, height * 0.3, width * 0.34, height * 0.26);
       const actors = [
         rect(width * 0.3, height * 0.55, width * 0.12, height * 0.28),
         rect(width * 0.5, height * 0.55, width * 0.12, height * 0.28),
@@ -193,8 +198,8 @@ describe('the finale card (tall)', () => {
   it('uses a taller strip, with room for the heading and both buttons', () => {
     const picture = rect(12, 100, 336, 120);
     const placement = chooseCaptionDock(inputsFor(360, 640, { tall: true, picture }));
-    expect(placement.size === 'strip' ? placement.rect.height : TALL_STRIP_HEIGHT).toBe(
-      TALL_STRIP_HEIGHT,
+    expect(placement.size === 'strip' ? placement.rect.height : FINALE_STRIP_HEIGHT).toBe(
+      FINALE_STRIP_HEIGHT,
     );
   });
 });
@@ -252,5 +257,95 @@ describe('landscape framed geometry (844 by 390, presentation camera)', () => {
   it('wide and portrait docks also respect the minimum', () => {
     expect(chooseCaptionDock(inputsFor(1280, 720)).rect.width).toBeGreaterThanOrEqual(MIN_CARD_WIDTH);
     expect(chooseCaptionDock(inputsFor(360, 640)).rect.width).toBeGreaterThanOrEqual(MIN_CARD_WIDTH);
+  });
+});
+
+describe('v1.4: strip, fitted card and widths (design spec 3.5)', () => {
+  it('S2: strip heights follow the caption scale', () => {
+    const picture = rect(12, 100, 336, 120);
+    const heights = [1, 1.25, 1.5].map(
+      (captionScale) =>
+        chooseCaptionDock(
+          inputsFor(360, 640, { picture, captionScale, bigText: captionScale > 1 }),
+        ).rect.height,
+    );
+    expect(heights).toEqual([104, 112, 124]);
+    expect(stripHeightFor(1)).toBe(STRIP_HEIGHT);
+    expect(STRIP_HEIGHT).toBe(104);
+    expect(MIN_CARD_WIDTH).toBe(256);
+  });
+
+  it('360x640: the top strip clears a picture that starts at y 192, fitted is too short', () => {
+    const picture = rect(40, 200, 280, 140);
+    const p = chooseCaptionDock(inputsFor(360, 640, { picture }));
+    expect(p.dock).toBe('top');
+    expect(p.size).toBe('strip');
+    expect(p.clear).toBe(true);
+    expect(p.rect.y + p.rect.height + 24).toBeLessThanOrEqual(picture.y);
+  });
+
+  it('S6: 390x844 places a fitted card of about 168 px, not a strip', () => {
+    const picture = rect(40, 253, 310, 160);
+    const p = chooseCaptionDock(inputsFor(390, 844, { picture }));
+    expect(p.size).toBe('fitted');
+    expect(p.dock).toBe('top');
+    expect(Math.abs(p.rect.height - 168)).toBeLessThanOrEqual(16);
+    expect(p.rect.height).toBeGreaterThanOrEqual(FIT_MIN_HEIGHT);
+    expect(p.rect.height).toBeLessThan(224);
+  });
+
+  it('fitted is only valid at 128 px or more: 120 px of clearance gives a strip', () => {
+    const picture = rect(40, 68 + 120 + DOCK_CLEARANCE, 280, 140);
+    expect(chooseCaptionDock(inputsFor(360, 640, { picture })).size).toBe('strip');
+    const roomier = rect(40, 68 + 136 + DOCK_CLEARANCE, 280, 140);
+    expect(chooseCaptionDock(inputsFor(360, 640, { picture: roomier })).size).toBe('fitted');
+  });
+
+  it('order: full beats fitted beats strip; landscape tries the left full before right fitted', () => {
+    const blockLower = rect(560, 240, 200, 120);
+    const p = chooseCaptionDock(inputsFor(844, 390, { actors: [blockLower] }));
+    // Left is clear of the Guide's rectangle, so left full wins over a fitted right card.
+    expect(p.dock).toBe('left');
+    expect(p.size).toBe('full');
+    const both = chooseCaptionDock(
+      inputsFor(844, 390, { actors: [blockLower, rect(20, 120, 300, 60)] }),
+    );
+    expect(both.dock).toBe('right');
+    expect(both.size).toBe('fitted');
+  });
+
+  it('never fits the finale card', () => {
+    const picture = rect(12, 56 + 200, 336, 100);
+    expect(chooseCaptionDock(inputsFor(390, 844, { tall: true, picture })).size).not.toBe('fitted');
+  });
+
+  it('S7: widths', () => {
+    expect(landscapeCardWidth(844)).toBe(256);
+    expect(landscapeCardWidth(932)).toBeGreaterThanOrEqual(270);
+    expect(landscapeCardWidth(932)).toBeLessThanOrEqual(280);
+    expect(landscapeCardWidth(1200)).toBe(352);
+    expect(wideCardWidth(1280)).toBeCloseTo(358.4, 1);
+    expect(wideCardWidth(1024)).toBeCloseTo(288, 0);
+    expect(chooseCaptionDock(inputsFor(844, 390)).rect.width).toBe(256);
+    const wide = chooseCaptionDock(inputsFor(1280, 720));
+    expect(wide.rect.width).toBeCloseTo(358.4, 1);
+    // Card left edge: 1280 - 12 - 12 (edge) - 12 (viewport margin) ... must sit right of 68%.
+    expect(wide.rect.x).toBeGreaterThanOrEqual(1280 * 0.68);
+  });
+
+  it('S5: a forced fallback strip keeps off the picture centre third when any candidate can', () => {
+    // Picture fills the top and middle; the bottom strip is the only one off the centre third.
+    const picture = rect(12, 56, 336, 360);
+    const p = chooseCaptionDock(inputsFor(360, 640, { picture }));
+    expect(p.size).toBe('strip');
+    expect(p.clear).toBe(false);
+    expect(rectsIntersect(p.rect, pictureCentre(picture))).toBe(false);
+  });
+
+  it('falls back to the least picture area when every strip covers the centre third', () => {
+    const picture = rect(0, 0, 360, 640);
+    const p = chooseCaptionDock(inputsFor(360, 640, { picture }));
+    expect(p.size).toBe('strip');
+    expect(p.clear).toBe(false);
   });
 });

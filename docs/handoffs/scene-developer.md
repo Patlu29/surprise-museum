@@ -1,5 +1,39 @@
 # Handoff: scene-developer
 
+## Update 30/10/2026 (round 3): rect tightening and the v1.4 right bound
+
+`typecheck`, `lint`, `test` (712) and `build` pass.
+
+### Cause of the blocked dock
+The published character rects were already thin (body plus label). What blocked the card was (a) the Guide walking in: she takes about 2.5 s to arrive, the card's 1.5 s cap fires first, and a Guide passing close to the camera projects up to about 235 x 714 px, and the card's placement is then kept; and (b) the framing's 68% right bound reached x 870 at 1280 while the old card started at x 840.
+
+### Changes
+- `SceneDriver.tsx` `publishRects`: while the Guide is in `approach` or `present` for a photo, her published rect is the body plus label at her presentation spot (the spot the framing was solved for), not where she is passing. At the spot the two are identical. Visible effect: from the first published frame the Guide rect is stable (1280x720: x 687, y 141, 116 x 386, right edge 803) instead of 235 x 714 shrinking over 1.5 s. The Visitor rect is body plus label (about 129 x 440 at 1280, of which the label is 77 x 32 at the top). Rects are published at once when the camera arrives (already the case).
+- Picture rect: frame only (outer frame corners, no padding): 257 x 233 at 1280x720, 207 x 184 at 390x844, 165 x 137 at 844x390.
+- `presentationFraming.ts`: `CARD` constants mirror `--card-width-landscape` clamp(16rem, 30vw, 22rem), `--card-width-wide` clamp(18rem, 28vw, 26rem), `--card-min-width` 16rem and the edge margins (12 px landscape, 24 px wide). `framingRightBound` is R = min(68%, (card left edge - 8) / W); below 55% the Guide is dropped from the fit set first. The dock rect used by the solver is the card's real left edge on landscape and wide, and in portrait it ends 8 px above the safe rectangle (before, an 8 px growth made a picture at the top of the safe rectangle always "touch" the dock, so portrait was never a strict pass).
+- Tests: R at 844, 667, 1280, 768; all framed rectangles stay left of the card.
+
+### Results over the 20-picture fixtures (120 per viewport, no fallback)
+| Viewport | Worst `pictureVisibleFraction` | Target | Right-most framed edge | Card left edge less 8 px |
+|---|---|---|---|---|
+| 360x640 | 1.000 | 0.99 | 342 | n/a (top dock) |
+| 390x844 | 0.986 (picture 12, Guide dropped) | 0.98 | 371 | n/a |
+| 844x390 | 1.000 | 0.90 | 473 | 568 |
+| 1280x720 | 1.000 | 0.99 | 725 | 898 less 8 = 890 |
+
+### Check in the browser (headless Chromium, mock test build, the Visitor walks to picture 1, then settles)
+| Viewport | Picture | Visitor | Guide | Card chosen (current UI build) |
+|---|---|---|---|---|
+| 1280x720 | x 264, y 134, 257 x 233 (right 522) | x 540, y 123, 128 x 436 | x 685, y 143, 114 x 381 (right 799) | **full right dock** at x 840, 416 x 114, caption text visible |
+| 390x844 | x 41, y 254, 207 x 184 | x 234, y 277, 114 x 348 | x 359, y 271, 123 x 329 (partly off screen; the Guide is dropped from the fit set) | top strip, 366 x 64 (header only, text hidden) |
+| 844x390 | x 184, y 65, 165 x 137 | x 353, y 62, 82 x 258 | x 443, y 61, 78 x 227 (right 521) | right strip, 288 x 64 at x 544 (header only) |
+
+At 390x844 and 844x390 the scene rects no longer block anything I can find: the picture, Visitor and Guide all clear the dock rectangles by the old 8 px rule except that the old full candidate is up to 32% of the height (270 px at 844), which reaches the picture top at y 254, and in landscape the old full card started at x 516 to 544 against the Guide's right edge of 521. Both are fixed by the v1.4 card (fitted size, narrower widths, which the frontend-developer is building), not by the scene. The strip at those sizes still hides the caption until that lands. Not re-run with the v1.4 card.
+
+### Requests
+- frontend-developer: nothing new. Share `CARD` values with the card (`src/domain/camera/presentationFraming.ts` exports `cardLeftEdge` and `framingRightBound` if you want one source; the UI may import from `@/domain`).
+
+
 ## Update 30/10/2026 (round 2): CR-2 follow-up for spec v1.3
 
 `typecheck`, `lint`, `test` (53 files, 708 tests) and `build` pass. I checked the framing in headless Chromium (software GL) at 1280x720, 390x844, 844x390 and 360x640.
