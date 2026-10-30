@@ -1,5 +1,37 @@
 # Handoff: qa-engineer
 
+## Round 4 (fix round 1 re-test)
+
+### Summary
+Re-tested BUG-6 to BUG-10, the brow rule, N-6 timing, shown yaw, U7 and U8 at HEAD cf48e01 on desktop-chromium, mobile-chromium and mobile-webkit. BUG-6, BUG-7 and BUG-9 are fixed; BUG-8 is fixed on Chromium only (WebKit logged as new BUG-11); BUG-10 is still open (about 8 px overlap, marker restored); brows now show but are thin. U8 was my harness bug; U7 passes. Counts and details are in `docs/qa-report.md` (round 4).
+
+### Files changed (tests and docs only)
+- `tests/e2e/gender.spec.ts`: BUG-6 and BUG-8 markers removed; `stageShot` helper (whole-pixel scroll, clear of the sticky bar) and `sameLookLimit` (0.0005, or 0.03 on a fractional device pixel ratio); WebKit-only `test.fail` for BUG-11
+- `tests/e2e/caption-card.spec.ts`: U8 watcher starts from the live region's current text (harness bug); BUG-10 marker restored with new numbers; overlap message includes the rectangles
+- `tests/e2e/presentation-camera.spec.ts`, `support/presentation.ts`, `support/app.ts`: peak yaw measured per frame from `shownYawDeg` (`peakYawRate`), card timing from `guidePresenting`, reduced-motion 'cut' span in simulation time
+- `tests/e2e/visual.spec.ts`: comment only; `brows-woman-deep-skin.png` re-recorded (brows only)
+- `docs/qa-report.md`, this note
+
+### Decisions
+- Re-recorded only the brows baseline; the entrance and finale diffs were Guide pose or timing, not brows.
+- A fractional-DPR tolerance for "same look" comparisons rather than a baseline change.
+
+### Assumptions
+- The decision for N-6 is the cap from max(dwell completion, Guide arrival); "never before the camera settles" is asserted separately.
+
+### Open questions
+- Woman brow 0.90 against 0.95 or 1.00 (tech lead): no visible difference at any size I looked at; thickness for all genders is the real lever (see report).
+
+### Requests for other agents
+- scene-developer: BUG-10 (the Guide rectangle with her label starts at y 183.9, the 124 px strip ends at y 192 at 360x640, scale 1.5). Then remove `test.fail(vp.width === 360, BUG_10)`.
+- frontend-developer: BUG-11 (retry the preview import with a changed URL, or reload after the second failure, for WebKit). Then remove the WebKit `test.fail`.
+- technical-artist: optionally thicken brows on deep skin for all genders if the one pixel line at default preview size is too faint.
+- devops-engineer: standing items (Linux baselines, Firefox run, fewer workers; the suite is sensitive to a loaded machine).
+
+---
+
+# Round 3 handoff (kept for history)
+
 ## Round 3 (CR-1 gender, CR-2 presentation camera, CR-3 notice, caption card v1.4)
 
 ### Summary

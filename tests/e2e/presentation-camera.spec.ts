@@ -7,6 +7,7 @@ import {
   intersects,
   leavePicture,
   pc,
+  peakYawRate,
   readRecording,
   right,
   sceneRects,
@@ -25,13 +26,9 @@ import {
  */
 
 /**
- * Peak turning speed of an eased move, in degrees per second, derived from the hook: `--ease-camera` is
- * cubic-bezier(0.37, 0, 0.63, 1) (sine-like), whose steepest slope is about 1.57 times the average. The swing is
- * the yaw offset because the Visitor was put facing the picture with the camera behind (standAtPhoto), so the
- * follow view looks straight at the wall. This is derived from `yawOffsetDeg` and `lastMove*Ms`, not measured
- * from frames: the hook does not expose the shown yaw (see the QA report).
+ * Peak turning speed is measured per frame from `snapshot().presentationCamera.shownYawDeg` against the
+ * simulation clock (`peakYawRate`), over the frames of the move (mode `entering` going in, `returning` going out).
  */
-const peakYawSpeed = (swingDeg: number, ms: number) => (Math.abs(swingDeg) / (ms / 1000)) * 1.5708;
 
 const MOVING_MODES = ['entering', 'pending', 'returning'];
 
@@ -48,8 +45,10 @@ for (const vp of VIEWPORTS) {
       problems,
     }, testInfo) => {
       await enterVisit(page, museum.shareToken, vp);
+      await startRecording(page);
       const results: Array<Record<string, unknown>> = [];
       for (let i = 0; i < 4; i++) {
+        const from = (await readRecording(page)).samples.length;
         const s = await standAndFrame(page, i);
         const cam = s.presentationCamera;
         // Rectangles are published once the presentation is on (the Guide has arrived): wait for them.
@@ -70,8 +69,12 @@ for (const vp of VIEWPORTS) {
         expect(Math.abs(cam.yawOffsetDeg)).toBeLessThanOrEqual(52);
         expect(cam.lastMoveInMs).toBeGreaterThanOrEqual(800);
         expect(cam.lastMoveInMs).toBeLessThanOrEqual(1300);
-        // Calm rule (6.12.9): peak turning speed at most 80 degrees per second moving in.
-        expect(peakYawSpeed(cam.yawOffsetDeg, cam.lastMoveInMs), 'derived peak yaw speed in').toBeLessThanOrEqual(80);
+        // Calm rule (6.12.9): peak turning speed at most 80 degrees per second moving in, measured per frame.
+        const moveIn = peakYawRate({ ...(await readRecording(page)), samples: (await readRecording(page)).samples.slice(from) }, (x) => x.mode === 'entering');
+        results[results.length - 1]!.peakYawInDegPerS = Math.round(moveIn.peak * 10) / 10;
+        results[results.length - 1]!.enteringFrames = moveIn.frames;
+        expect(moveIn.frames, `picture ${i + 1}: frames measured while entering`).toBeGreaterThanOrEqual(3);
+        expect(moveIn.peak, `picture ${i + 1}: measured peak yaw speed in`).toBeLessThanOrEqual(80);
         await leavePicture(page);
       }
       testInfo.annotations.push({ type: 'framed-per-picture', description: JSON.stringify(results) });
@@ -79,7 +82,7 @@ for (const vp of VIEWPORTS) {
       problems.expectClean();
     });
 
-    test(`CR-2 card timing at ${vp.name}: absent while the camera is moving, present once settled and the Guide has arrived (within 1.5 s), and no veil on an ordinary swing`, async ({
+    test(`CR-2 card timing at ${vp.name}: absent while the camera is moving, present within 1.5 s of the later of dwell completion and Guide arrival, and no veil on an ordinary swing`, async ({
       page,
       museum,
     }, testInfo) => {
@@ -94,23 +97,27 @@ for (const vp of VIEWPORTS) {
       expect(modes).toContain('framed');
       const dwellIdx = firstIndex(rec, (s) => s.intent.startsWith('photo:'));
       const settledIdx = firstIndex(rec, (s) => s.mode === 'framed');
-      const arrivedIdx = firstIndex(rec, (s) => s.presentation === 'photo');
+      const arrivedIdx = firstIndex(rec, (s) => s.guideArrived); // N-6: scene event guide-presenting, arrived true
       const cardIdx = firstIndex(rec, (s) => s.card);
       expect(dwellIdx).toBeGreaterThanOrEqual(0);
+      expect(arrivedIdx, 'the scene reported the Guide arriving (guidePresenting.arrived)').toBeGreaterThanOrEqual(0);
       expect(cardIdx).toBeGreaterThan(settledIdx);
       const t = (i: number) => rec.samples[i]!.t;
       // Never while the camera is moving (entering, pending or returning), unless the 1.5 s cap has passed.
-      const early = rec.samples.filter((s) => s.card && MOVING_MODES.includes(s.mode) && s.t - t(arrivedIdx) < 1400);
+      const early = rec.samples.filter((s) => s.card && MOVING_MODES.includes(s.mode));
       expect(early, 'the card must not show while the camera is entering').toEqual([]);
       const dwellToCard = t(cardIdx) - t(dwellIdx);
-      const laterOfSettledAndArrived = Math.max(t(settledIdx), t(arrivedIdx));
+      // N-6 (tech-lead decision): the cap runs from the later of dwell completion and the Guide's arrival. Settling is
+      // also a precondition, so it is part of the reference here: the card never comes before the camera settles.
+      const laterOfSettledAndArrived = Math.max(t(dwellIdx), t(arrivedIdx));
+      expect(t(cardIdx), 'never before the camera settles').toBeGreaterThanOrEqual(t(settledIdx));
       testInfo.annotations.push(
         { type: 'dwell-complete-to-card-ms', description: String(Math.round(dwellToCard)) },
         { type: 'dwell-to-camera-framed-ms', description: String(Math.round(t(settledIdx) - t(dwellIdx))) },
         { type: 'dwell-to-guide-arrived-ms', description: String(Math.round(t(arrivedIdx) - t(dwellIdx))) },
-        { type: 'later-of-settled-and-arrived-to-card-ms', description: String(Math.round(t(cardIdx) - laterOfSettledAndArrived)) },
+        { type: 'later-of-dwell-and-arrival-to-card-ms', description: String(Math.round(t(cardIdx) - laterOfSettledAndArrived)) },
       );
-      expect(t(cardIdx) - laterOfSettledAndArrived, 'the card appears within 1.5 s of the later of settled and arrived').toBeLessThanOrEqual(1500);
+      expect(t(cardIdx) - laterOfSettledAndArrived, 'the card appears within 1.5 s of max(dwell completion, Guide arrival)').toBeLessThanOrEqual(1500);
       // An ordinary swing uses no veil.
       expect(rec.veilMax, 'no veil on a swing of 60 degrees or less').toBe(0);
       expect(rec.veilElementSeen).toBe(false);
@@ -174,7 +181,7 @@ for (const vp of BEHAVIOUR_VIEWPORTS) {
       // Escape
       await standAndFrame(page, 0);
       await expect(page.locator('.caption-card')).toBeVisible({ timeout: 15_000 });
-      const offset = (await pc(page)).yawOffsetDeg;
+      const outFrom = (await readRecording(page)).samples.length;
       await page.keyboard.press('Escape');
       await waitForSnap(page, (s) => s.presentationCamera.mode === 'returning' || s.presentationCamera.mode === 'follow', 5000, 'the camera to start returning');
       await waitForSnap(page, (s) => s.presentationCamera.mode === 'follow', 5000, 'the camera to return');
@@ -182,7 +189,10 @@ for (const vp of BEHAVIOUR_VIEWPORTS) {
       expect(cam.lastMoveOutMs).toBeGreaterThanOrEqual(300);
       expect(cam.lastMoveOutMs).toBeLessThanOrEqual(1000);
       // Calm rule (6.12.9): peak turning speed at most 100 degrees per second moving out (tolerance 101, project-status).
-      expect(peakYawSpeed(offset, cam.lastMoveOutMs), 'derived peak yaw speed out').toBeLessThanOrEqual(101);
+      const recOut = await readRecording(page);
+      const moveOut = peakYawRate({ ...recOut, samples: recOut.samples.slice(outFrom) }, (x) => x.mode === 'returning');
+      expect(moveOut.frames, 'frames measured while returning').toBeGreaterThanOrEqual(3);
+      expect(moveOut.peak, 'measured peak yaw speed out').toBeLessThanOrEqual(101);
       await expect(page.locator('.caption-card')).toHaveCount(0);
       expect((await snap(page)).intent, 'the director ended the presentation').toBe('none');
       // The same picture is not presented again while the Visitor stays close (FR-27).
@@ -239,7 +249,8 @@ test.describe('CR-2 reduced motion: the camera cuts, with no ease and no veil', 
       // 'cut' lasts about 300 ms before 'framed'.
       const cutSamples = rec.samples.filter((s) => s.mode === 'cut');
       if (cutSamples.length > 1) {
-        const span = cutSamples[cutSamples.length - 1]!.t - cutSamples[0]!.t;
+        // Simulation time, not wall time: under software GL and load a frame can take a second of wall clock.
+        const span = (cutSamples[cutSamples.length - 1]!.simTime - cutSamples[0]!.simTime) * 1000;
         expect(span).toBeGreaterThan(150);
         expect(span).toBeLessThan(900);
       }

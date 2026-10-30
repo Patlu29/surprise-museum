@@ -61,6 +61,10 @@ export interface PresentationCameraSnap {
   lastMoveOutMs: number;
   photoId: string | null;
   veil: number;
+  /** The camera's yaw as shown, in degrees, from the look direction (updated every frame). */
+  shownYawDeg: number;
+  /** N-6: the Guide's presentation progress, or null when nothing is being presented. */
+  guidePresenting: { photoId: string; arrived: boolean } | null;
 }
 export interface Layout {
   rooms: Array<{ kind: string; minZ: number; maxZ: number }>;

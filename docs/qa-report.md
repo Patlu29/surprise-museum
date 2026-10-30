@@ -1,5 +1,94 @@
 # QA report: Surprise Museum
 
+## Round 4 (fix round 1 re-test of BUG-6 to BUG-10, brows, N-6, shown yaw), 30/10/2026
+
+Tested at HEAD cf48e01 plus the uncommitted test changes (tests, config and docs only; no application code touched). Built by me with `VITE_API_MODE=mock npm run build -- --mode test` and served with `vite preview` (`PW_REUSE_SERVER=1`). Owner: qa-engineer.
+
+### Summary (round 4)
+
+| Item | Result |
+|---|---|
+| Playwright, final clean pass per project (one project at a time, 3 workers) | **670 passed, 0 failed**, 41 skipped (project-specific). desktop-chromium 230 passed, 7 skipped; mobile-chromium 223 passed, 14 skipped; mobile-webkit 217 passed, 20 skipped |
+| Of the passed | Include expected failures: 1 per Chromium project (BUG-10) and 2 on mobile-webkit (BUG-10, BUG-11) |
+| Re-runs | Desktop had 2 failures in its pass (`US-15 AC-5` Q and E turn, 0.078 against 0.1 turned; `visual: the finale card`, 18% differing); both passed when run alone, so I treat them as load flakes. The finale one is worth watching: a capture 18% different suggests the finale animation was caught mid-way under load |
+| `npm run typecheck`, `lint`, `test`, `build` | All pass (867 unit tests in 58 files) |
+| `desktop-firefox` | Not run (cannot start in the sandbox) |
+| Test totals vs round 3 | Same total (670 passed, 41 skipped): no test added or removed. Round 3 had 11 expected failures per project; now 1 per Chromium project and 2 on WebKit |
+| Open bugs | 2: BUG-10 (minor, scene-developer), BUG-11 (minor, frontend-developer); brow thickness is a tech lead decision |
+
+### Bug status
+
+| Bug | Status | Notes |
+|---|---|---|
+| BUG-6 preview character jumps off its plinth | **Fixed, verified** | Both `test.fail` markers removed. After a gender or body type click the preview equals one rebuilt from the saved choice. On desktop the diff is exactly 0. On Pixel 7 (device pixel ratio 2.625) it is about 1%: found to be a half device pixel shift between two page loads (best fit one pixel off, reload against reload is 0), not a rig difference. The test now centres the stage at a whole scroll position and allows 3% on a fractional ratio (a character off its plinth is well over 10%). Also the sticky step bar covered the top of the stage in the live shot on phones; fixed in the test |
+| BUG-7 card never upgrades | **Fixed, verified** | U1, U5 (both halves) and U7 pass on all three projects after the markers were removed |
+| BUG-8 Try again does not recover | **Fixed on Chromium; open on WebKit as BUG-11** | Chromium (desktop and Pixel 7): Try again brings the preview back with no reload. iPhone WebKit: the same failure message returns (N-9 confirmed, see BUG-11). The WebKit variant is a `test.fail` |
+| BUG-9 header and Close at 256 px | **Fixed, verified** | S1 to S4 at 844x390 pass on all projects; Close is 44x44 |
+| BUG-10 strip covers the Guide label at 360x640, scale 1.5 | **Not fixed (still open, narrower)** | Strip is y 68 to 192, the Guide rectangle starts at y 183.9: overlap about 8 px (was about 12). The 196 px reserve is applied to the picture's safe rectangle but the Guide rectangle, which includes her label, still starts above it. `test.fail` marker restored with the new numbers. 390x844 and 844x390 and 1280x720 pass |
+| Brows (spec 9.7) | **Improved, still thin** | See the brow section |
+| BUG-11 (new) WebKit keeps a failed dynamic import | **Open, minor** | See below |
+
+### N-6: card timing with the `guide-presenting` event
+
+The recorder now reads `snapshot().presentationCamera.guidePresenting` every frame. The test asserts (a) the arrival is reported (`arrived: true`), (b) the card is never shown while the camera is entering, pending or returning, (c) the card is never before the camera settles, and (d) the card appears within 1.5 s of max(dwell completion, Guide arrival). All 12 tests (4 viewports x 3 projects) pass in the full runs. Measured from the later of dwell completion and arrival (software GL):
+
+| Viewport | desktop-chromium | mobile-webkit | mobile-chromium |
+|---|---|---|---|
+| 360x640 | 16 ms | 13 ms | 177 ms |
+| 390x844 | 17 ms | 16 ms | 112 ms |
+| 844x390 | 30 ms | 66 ms | 296 ms |
+| 1280x720 | 210 ms | 66 ms | 280 ms |
+
+From dwell completion to the card: 1.66 to 2.06 s on desktop and WebKit (the Guide arrives at 1.6 to 1.85 s), 2.7 to 5.0 s on the Pixel 7 emulation, where frames are capped and software GL is slow (simulation time is shorter). The decision (cap from the later of the two) is met everywhere.
+
+### Peak yaw per frame (`shownYawDeg`)
+
+Measured per frame against the simulation clock over the frames in mode `entering` (in) and `returning` (out). Limits: 80 degrees per second in, 101 out.
+
+| Move | Result | Notes |
+|---|---|---|
+| In, all four pictures, four viewports, three projects | **Peak 67.6 to 71.4 degrees per second** (limit 80) | 9 to 39 frames measured per move. The derived figure from round 3 was 69 to 71 and agrees. The 52 degree, 1.16 s swings are the highest (71.4) |
+| Out (Escape and Close), 390x844 and 1280x720 | Pass (at most 101) | At least 3 returning frames measured each time |
+
+### U7 and U8
+
+- **U8 was a harness bug, not an app bug.** My watcher started with `last = ''` while the live region already held text, so the first DOM mutation (which the upgrade causes) was logged as a message although the text did not change. I now initialise `last` to the region's current text. U8 passes on all three projects: the live region does not change on an upgrade.
+- **U7 passes** on all projects: with reduced motion the computed animation duration of the card is 0 and the upgrade keeps the same 600 ms dwell. The frontend's `animation: none` fix works.
+
+### Brow check (Woman, `skin-10` and `skin-09`, dark hair; `skin-01`, white hair)
+
+Seen at 4 times zoom on the preview, for Woman, Man and Neutral:
+
+- **Deep skin, black hair (`skin-10`) and dark brown hair (`skin-09`): the brows now show.** Each brow is a thin light grey-blue line above each eye, clearly visible at 4 times zoom (before: a barely visible dark line). The colour reads cool grey rather than warm brown on the brown skin, but it has the contrast the rule asks for. At the preview's default size (DPR 1) it is a faint one pixel line: it is there, it is easy to miss. Woman, Man and Neutral look the same at this size: the brow thickness difference (0.90 against the others) is not visible.
+- **Pale skin, white hair (`skin-01`): the brows are a soft grey line above the eyes**, visible at zoom and a little weaker than on deep skin, for all three genders. No gender difference can be seen.
+- Verdict for the tech lead: the colour fix works. The remaining problem is thickness. Woman 0.90 is not visibly thinner than Neutral at any size I looked at, so 0.95 changes nothing a person would notice. If you want the brows to read at the default preview size, thickness must go up for all genders, not just Woman, and going to 1.00 for Woman would only make Woman equal to Neutral. My view: keep Woman at 0.90 or take 0.95 (no visible effect either way), and ask the technical-artist to thicken brows on deep skin if the one pixel line at default size is judged too faint.
+
+### Baselines (round 4)
+
+- **Re-recorded, one: `brows-woman-deep-skin.png`** (44 pixels differ: the brows only, intended by the brow rule).
+- **Not re-recorded:** `entrance.png`, `entrance-woman-man.png`, `entrance-man-woman.png` (about 0.5 to 0.8% differ, but the Guide's standing pose differs, not the brows: a timing difference in the capture, inside the 2% threshold) and `finale.png` (2.3%, top left, not brows). They still pass at the existing thresholds. Home, welcome card, presenting, previews and viewer are identical.
+
+### New bugs (round 4)
+
+#### BUG-11: WebKit keeps a failed dynamic import, so Try again cannot recover the 3D preview
+- Severity: minor (a reload recovers; the choices stay saved)
+- Owner: **frontend-developer** (`src/ui/builder/AvatarPreviewSlot.tsx`)
+- Steps (iPhone WebKit): block `AvatarPreview-*.js`, open the Characters step, see "We couldn't show the 3D preview", unblock, press Try again.
+- Expected: the preview appears.
+- Actual: the same message returns. The retry imports the same URL and WebKit (like the HTML module map) remembers the failed fetch for the document. Chromium retries the fetch, so BUG-8's remount fix works there only.
+- Suggested fix: on retry, import with a changed URL (for example a query string via a small loader), or reload the page after the second failure.
+- Evidence: `US-46 AC-6: Try again after a failed preview load` (`test.fail` on WebKit only).
+
+### Load flakes seen (not bugs)
+
+The first full run took 29 minutes at 3 workers and had 8 failures: the three BUG-10 tests (now a marked expected failure), three BUG-6 tests on phones (test harness, fixed above), BUG-8 on WebKit (BUG-11) and one WebKit timeout of `US-14 AC-4` that passed alone. A later full run overlapped with a stretch in which the laptop was heavily loaded or asleep (the run reports 4.7 hours; browser launches timed out and `ERR_NETWORK_IO_SUSPENDED` appeared), so its results were discarded and each project was re-run on its own. Other single failures under load (`US-48` text equality on WebKit, `CR-2 reduced motion` span of 'cut' in wall time on Pixel 7) passed alone; the cut span is now measured in simulation time.
+
+### Not verified (round 4)
+
+Firefox (cannot start here); real devices; BUG-10 beyond 360x640 at scale 1.5; WebKit on a real iPhone for BUG-11.
+
+---
+
 ## Round 3 (CR-1 gender, CR-2 presentation camera, CR-3 notice, caption card v1.4), 30/10/2026
 
 Tested at HEAD 90d884b plus the uncommitted test changes (tests only; no application code was touched). Owner: qa-engineer.

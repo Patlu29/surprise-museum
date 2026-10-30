@@ -45,6 +45,9 @@ export interface CamSample {
   visible: number;
   x: number;
   z: number;
+  yawDeg: number;
+  guideArrived: boolean;
+  guidePresenting: boolean;
 }
 export interface CamRecord {
   events: Array<{ t: number; mode: string; settled: boolean; photoId: string | null; seq: number }>;
@@ -78,6 +81,8 @@ export async function startRecording(page: Page): Promise<void> {
         simTime: sn.time, veil: sn.presentationCamera.veil,
         presentation: g.__APP_TEST__.useSessionStore.getState().presentation.kind, intent: sn.intent, guideMode: sn.guide.mode,
         visible: sn.presentationCamera.pictureVisibleFraction, x: sn.camera.x, z: sn.camera.z,
+        yawDeg: sn.presentationCamera.shownYawDeg, guidePresenting: !!sn.presentationCamera.guidePresenting,
+        guideArrived: !!(sn.presentationCamera.guidePresenting && sn.presentationCamera.guidePresenting.arrived),
       });
       g.requestAnimationFrame(loop);
     };
@@ -91,6 +96,26 @@ export async function stopRecording(page: Page): Promise<CamRecord> {
 
 export async function readRecording(page: Page): Promise<CamRecord> {
   return page.evaluate(`globalThis.__qaCam`) as Promise<CamRecord>;
+}
+
+/**
+ * Peak turning speed (degrees per second, simulation time) over consecutive samples that both satisfy `inRun`,
+ * from the per-frame `shownYawDeg`. Frames that share a simulation time are skipped.
+ */
+export function peakYawRate(rec: CamRecord, inRun: (s: CamSample) => boolean): { peak: number; frames: number } {
+  let peak = 0;
+  let frames = 0;
+  for (let i = 1; i < rec.samples.length; i++) {
+    const a = rec.samples[i - 1]!;
+    const b = rec.samples[i]!;
+    if (!inRun(a) || !inRun(b)) continue;
+    const dt = b.simTime - a.simTime;
+    if (dt <= 1e-4) continue;
+    const d = Math.abs((((b.yawDeg - a.yawDeg) % 360) + 540) % 360 - 180);
+    frames++;
+    peak = Math.max(peak, d / dt);
+  }
+  return { peak, frames };
 }
 
 export const pc = async (page: Page) => (await snap(page)).presentationCamera;

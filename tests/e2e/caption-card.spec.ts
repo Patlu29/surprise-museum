@@ -35,7 +35,7 @@ const LABELS = ['short (30)', 'medium (140)', 'long (280)'];
 const LONG_GUIDE_NAME = 'Alexandra Montgomery-Ray'; // 24 characters
 
 const BUG_10 =
-  'BUG-10 (scene-developer, frontend-developer): at 360x640 with caption size 1.5 the 124 px strip covers the Guide name label; the framing reserves only the 104 px strip (spec 3.5 footprint). Remove this line when fixed.';
+  'BUG-10 (scene-developer): at 360x640 with caption size 1.5 the 124 px strip (y 68 to 192) still overlaps the Guide rectangle (top y 183.9) by about 8 px. The framing reserve (196) is applied to the picture, not to the Guide rectangle with her label. Remove this line when fixed.';
 
 const PRONOUNS = /\b(she|her|hers|herself|he|him|his|himself|girlfriend|boyfriend)\b/i;
 
@@ -124,7 +124,7 @@ test.describe('caption card, spec 3.5 v1.4', () => {
     }
     for (const who of ['visitor', 'guide'] as const) {
       const r = rects[who];
-      if (r) expect(intersects(card, r), `${where}: card overlaps the ${who}`).toBe(false);
+      if (r) expect(intersects(card, r), `${where}: card overlaps the ${who}: card ${JSON.stringify(card)}, ${who} ${JSON.stringify(r)}`).toBe(false);
     }
   }
 
@@ -288,7 +288,8 @@ test.describe('caption card, spec 3.5 v1.4', () => {
         let size = card.dataset.cardSize;
         const tick = () => { const c = g.document.querySelector('.caption-card'); if (c && c.dataset.cardSize !== size) { g.__qaWatch.changes.push({ t: performance.now(), from: size, to: c.dataset.cardSize, tag: c.__qaTag || null }); size = c.dataset.cardSize; } g.requestAnimationFrame(tick); };
         tick();
-        let last = '';
+        // Start from the text the region already holds, so a mutation that leaves the text alone is not a message.
+        let last = [...g.document.querySelectorAll('[role=status][aria-live=polite]')].map((e) => e.textContent).join('|');
         new g.MutationObserver(() => { const t = [...g.document.querySelectorAll('[role=status][aria-live=polite]')].map((e) => e.textContent).join('|'); if (t !== last) { last = t; g.__qaWatch.live.push({ t: performance.now(), text: t }); } }).observe(g.document.documentElement, { subtree: true, childList: true, characterData: true });
       })()`);
     }
@@ -334,7 +335,7 @@ test.describe('caption card, spec 3.5 v1.4', () => {
       expect(delay, `upgrade ${Math.round(delay)} ms after focus left`).toBeGreaterThanOrEqual(500);
     });
 
-    test('U8 an upgrade causes no live-region update (cannot be reached: needs an upgrade, BUG-7)', async ({ page }) => {
+    test('U8 an upgrade causes no live-region update', async ({ page }) => {
       const info = await stripFixture(page);
       expect(info.size).toBe('strip');
       await page.waitForTimeout(2500);

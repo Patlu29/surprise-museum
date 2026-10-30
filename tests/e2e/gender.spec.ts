@@ -31,8 +31,23 @@ import { makePhotos, pixelDiffRatio } from './support/images';
 const GENDER_GROUP = 'Gender (optional)';
 const gender = (page: Page) => page.getByRole('radiogroup', { name: GENDER_GROUP });
 const previewReady = (page: Page) => expect(page.locator('.preview-slot__loading')).toBeHidden({ timeout: 30_000 });
-const BUG_6 =
-  'BUG-6 (technical-artist, scene-developer): after setAppearance (a gender or body type change) in the builder preview the character jumps from its plinth to the middle of the preview. Remove this line when fixed.';
+const BUG_11 =
+  'BUG-11 (frontend-developer): WebKit keeps a failed dynamic import for the document (N-9), so Try again re-imports the same URL and fails again; only a reload recovers. Remove this line when fixed.';
+/**
+ * Largest share of differing pixels for "the same picture". Exactly 0 at a whole device pixel ratio (desktop, iPhone). On
+ * a fractional ratio (Pixel 7: 2.625) two page loads sit half a device pixel apart and every figure edge differs (about
+ * 1%, found by shifting one image against the other: best fit at half a pixel; reload against reload is exactly 0). A
+ * character off its plinth changes well over 10%, so 3% still catches BUG-6.
+ */
+const sameLookLimit = async (page: Page) => ((await page.evaluate('window.devicePixelRatio')) as number) % 1 === 0 ? 0.0005 : 0.03;
+/** Put the stage 110 px below the top of the viewport first, so the sticky step bar on a phone never covers part of the shot. */
+const stageShot = async (page: Page) => {
+  const stage = page.locator('.preview-slot__stage');
+  // A whole-pixel scroll, so a rebuilt page lands on the same sub-pixel position.
+  await stage.evaluate((el) => window.scrollTo(0, Math.round(window.scrollY + el.getBoundingClientRect().top - 110)));
+  await page.waitForTimeout(150);
+  return stage.screenshot({ animations: 'disabled' });
+};
 const PRONOUNS = /\b(she|her|hers|herself|he|him|his|himself|girlfriend|boyfriend)\b/i;
 
 /** Everything a person or a screen reader gets from the page: visible text and accessible names. */
@@ -157,41 +172,37 @@ test.describe('US-46 choose each character gender in the builder', () => {
       expect(pixelDiffRatio(after, await shot(left)), 'reduced motion shows the final shape at once').toBeLessThan(SAME);
     });
 
-    test('US-46 AC-2 (BUG-6): after choosing a gender the character stays on its plinth, so the preview equals one rebuilt from the saved choice, and the other character does not move', async ({
+    test('US-46 AC-2: after choosing a gender the character stays on its plinth, so the preview equals one rebuilt from the saved choice, and the other character does not move', async ({
       page,
     }, testInfo) => {
-      test.fail(true, BUG_6);
       await toCharactersStep(page);
       await previewReady(page);
       await page.waitForTimeout(1500);
-      const stage = page.locator('.preview-slot__stage');
       await gender(page).getByRole('radio', { name: 'Woman', exact: true }).click();
       await page.waitForTimeout(1500);
-      const live = await stage.screenshot({ animations: 'disabled' });
+      const live = await stageShot(page);
       await page.reload(); // the draft keeps the choice; the preview is rebuilt from it in one go
       await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible({ timeout: 10_000 });
       await previewReady(page);
       await page.waitForTimeout(1500);
-      const rebuilt = await stage.screenshot({ animations: 'disabled' });
+      const rebuilt = await stageShot(page);
       const ratio = pixelDiffRatio(live, rebuilt);
       testInfo.annotations.push({ type: 'live-vs-rebuilt-diff-ratio', description: String(ratio) });
-      expect(ratio, 'the changed preview matches the rebuilt one').toBeLessThan(0.0005);
+      expect(ratio, 'the changed preview matches the rebuilt one').toBeLessThan(await sameLookLimit(page));
     });
 
-    test('US-46 AC-2 (BUG-6): a body type change also moves the character off its plinth', async ({ page }) => {
-      test.fail(true, BUG_6);
+    test('US-46 AC-2: a body type change leaves the character on its plinth', async ({ page }) => {
       await toCharactersStep(page);
       await previewReady(page);
       await page.waitForTimeout(1500);
-      const stage = page.locator('.preview-slot__stage');
       await page.getByRole('radiogroup', { name: 'Body type' }).getByRole('radio', { name: 'Wider shoulders' }).click();
       await page.waitForTimeout(1500);
-      const live = await stage.screenshot({ animations: 'disabled' });
+      const live = await stageShot(page);
       await page.reload();
       await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible({ timeout: 10_000 });
       await previewReady(page);
       await page.waitForTimeout(1500);
-      expect(pixelDiffRatio(live, await stage.screenshot({ animations: 'disabled' }))).toBeLessThan(0.0005);
+      expect(pixelDiffRatio(live, await stageShot(page))).toBeLessThan(await sameLookLimit(page));
     });
 
     test('US-46 AC-2: Woman, Man and Neutral give three different Guide shapes, and an old draft with no gender equals Neutral', async ({ page }, testInfo) => {
@@ -400,7 +411,7 @@ test.describe('US-46 choose each character gender in the builder', () => {
     await gender(page).getByRole('radio', { name: 'Woman', exact: true }).click();
     await expect(gender(page).getByRole('radio', { name: 'Woman', exact: true })).toBeChecked();
     expect((await savedDraft(page))!.fields.guideAvatar.gender).toBe('feminine');
-    // The preview recovers (here on a reload, because Try again cannot: BUG-8) and shows the saved choice.
+    // The preview recovers (here on a reload, in a fresh document) and shows the saved choice.
     fail = false;
     // iPhone WebKit remembers the failed module for the session (note N-9), so recovery is only checked elsewhere.
     if (browserName === 'webkit') return;
@@ -411,7 +422,8 @@ test.describe('US-46 choose each character gender in the builder', () => {
     await expect(page.locator('.preview-slot__stage[role=img]')).toHaveAttribute('aria-label', /Sam: woman, /, { timeout: 20_000 });
   });
 
-  test('US-46 AC-6 (BUG-8): Try again after a failed preview load brings the preview back without a reload', async ({ page }) => {
+  test('US-46 AC-6: Try again after a failed preview load brings the preview back without a reload', async ({ page, browserName }) => {
+    test.fail(browserName === 'webkit', BUG_11);
     let fail = true;
     await page.route('**/assets/AvatarPreview-*.js', async (route) => {
       if (fail) await route.abort('failed');

@@ -85,8 +85,8 @@ test('visual: the full-screen picture viewer', async ({ page, museum }) => {
 
 // ---------------------------------------------------------------------------------------------
 // CR-1 (gender). The preview baselines are made from a restored draft, so the rigs are built once with
-// the chosen gender. (Changing gender in place currently moves the character off its plinth: BUG-6 in
-// docs/qa-report.md, covered in gender.spec.ts; a baseline taken after a click would record the bug.)
+// the chosen gender. (Changing gender in place used to move the character off its plinth: BUG-6, fixed in round 4 and
+// covered in gender.spec.ts. Restored drafts are kept so the baselines do not depend on click timing.)
 // ---------------------------------------------------------------------------------------------
 
 const waitForPreview = async (page: Parameters<typeof seedDraftAndOpen>[0]) => {
