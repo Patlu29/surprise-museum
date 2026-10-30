@@ -410,6 +410,9 @@
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   overflow: hidden;
+  /* Never narrower than 18 rem (design spec 3.5); the card's own width drives its header layout. */
+  min-width: min(18rem, 100vw);
+  container-type: inline-size;
   animation: card-in var(--duration-fast) var(--ease-out);
 }
 @keyframes card-in {
@@ -444,7 +447,7 @@
 }
 .caption-card__title {
   flex: 1;
-  min-width: 0;
+  min-width: 6rem;
 }
 .caption-card__name,
 .finale-card__heading {
@@ -457,7 +460,8 @@
 .caption-card__look {
   padding-inline: var(--space-3);
 }
-@media (max-width: 399px) {
+/* Icon-only Look closer whenever the card (not the window) is narrower than 24 rem. */
+@container (max-width: 23.99rem) {
   .caption-card__look-text {
     display: none;
   }

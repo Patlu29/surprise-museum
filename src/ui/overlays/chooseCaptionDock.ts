@@ -53,6 +53,13 @@ const PORTRAIT_TALL_MAX_HEIGHT = 340;
 /** `--panel-max-width` (26 rem). */
 const PANEL_MAX_WIDTH = 416;
 const LANDSCAPE_MAX_WIDTH = 352;
+/**
+ * The narrowest a card may ever be (18 rem): badge, a readable name, the icon-only Look closer and
+ * Close fit in one row. Docks are widened to this, never shrunk below it (design spec 3.5).
+ */
+export const MIN_CARD_WIDTH = 288;
+/** Landscape card column as a share of the width: the 30% the presentation framing reserves (6.12.2). */
+const LANDSCAPE_COLUMN = 0.3;
 const PORTRAIT_MAX_HEIGHT = 224;
 const DESKTOP_EDGE = 12;
 const BOTTOM_STRIP_LIFT = 56;
@@ -124,7 +131,10 @@ function candidatesFor(input: DockInputs): Candidate[] {
       height: fullHeight,
     });
   } else if (layout === 'phone-landscape') {
-    const width = Math.min(vp.width * 0.36, LANDSCAPE_MAX_WIDTH);
+    const width = Math.min(
+      vp.width,
+      Math.max(MIN_CARD_WIDTH, Math.min(vp.width * LANDSCAPE_COLUMN, LANDSCAPE_MAX_WIDTH)),
+    );
     const rightX = vp.x + vp.width - width;
     const fullRight: Rect = { x: rightX, y: top, width, height: vp.y + vp.height - top };
     const fullLeft: Rect = { x: vp.x, y: top, width, height: bottomEdge - top };
@@ -132,7 +142,7 @@ function candidatesFor(input: DockInputs): Candidate[] {
     make('left', 'full', fullLeft);
     make('right', 'strip', { ...fullRight, height: stripHeight }, fullRight);
   } else {
-    const width = Math.min(PANEL_MAX_WIDTH, vp.width * 0.9);
+    const width = Math.min(vp.width, Math.max(MIN_CARD_WIDTH, Math.min(PANEL_MAX_WIDTH, vp.width * 0.9)));
     const height = Math.min(vp.height * 0.5 * scale, vp.y + vp.height - top);
     const rightX = vp.x + vp.width - width - DESKTOP_EDGE;
     const leftX = vp.x + DESKTOP_EDGE;
@@ -141,7 +151,7 @@ function candidatesFor(input: DockInputs): Candidate[] {
     make('right', 'full', fullRight);
     make('left', 'full', fullLeft);
     make('right', 'strip', { ...fullRight, height: stripHeight }, fullRight);
-    const stripWidth = Math.min(vp.width * 0.6, 640);
+    const stripWidth = Math.min(vp.width, Math.max(MIN_CARD_WIDTH, Math.min(vp.width * 0.6, 640)));
     const centre: Rect = {
       x: vp.x + (vp.width - stripWidth) / 2,
       y: bottomEdge - stripHeight - BOTTOM_STRIP_LIFT,

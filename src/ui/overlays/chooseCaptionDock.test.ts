@@ -5,6 +5,7 @@ import {
   DOCK_CLEARANCE,
   growRect,
   intersectionArea,
+  MIN_CARD_WIDTH,
   isPlacementClear,
   rectsIntersect,
   STRIP_HEIGHT,
@@ -204,5 +205,52 @@ describe('isPlacementClear', () => {
     const placement = chooseCaptionDock(inputs);
     expect(isPlacementClear(placement, inputs)).toBe(true);
     expect(isPlacementClear(placement, { ...inputs, actors: [placement.rect] })).toBe(false);
+  });
+});
+
+describe('landscape framed geometry (844 by 390, presentation camera)', () => {
+  // Picture upper centre-left, Visitor and Guide beside it (measured from the framed pose).
+  const picture = rect(180, 65, 175, 145);
+  const visitor = rect(375, 120, 70, 205);
+  const guide = rect(440, 70, 90, 180);
+  const hudBar = rect(12, 12, 820, 44);
+  const joystick = rect(12, 214, 164, 164);
+
+  it('docks right, full, at no less than the minimum width', () => {
+    const p = chooseCaptionDock(
+      inputsFor(844, 390, { picture, actors: [visitor, guide], keepOut: [hudBar, joystick] }),
+    );
+    expect(p.dock).toBe('right');
+    expect(p.size).toBe('full');
+    expect(p.clear).toBe(true);
+    expect(p.rect.width).toBeGreaterThanOrEqual(MIN_CARD_WIDTH);
+  });
+
+  it('never narrows below the minimum, even on a short, narrow landscape phone', () => {
+    for (const [w, h] of [
+      [667, 375],
+      [568, 320],
+      [844, 390],
+    ] as const) {
+      const p = chooseCaptionDock(inputsFor(w, h));
+      expect(p.rect.width).toBeGreaterThanOrEqual(MIN_CARD_WIDTH);
+      expect(p.expandedRect.width).toBeGreaterThanOrEqual(MIN_CARD_WIDTH);
+    }
+  });
+
+  it('falls back to a strip at the minimum width when the characters block both columns', () => {
+    const wide = rect(300, 70, 250, 300);
+    const p = chooseCaptionDock(
+      inputsFor(844, 390, { picture, actors: [wide, rect(600, 70, 200, 300)], keepOut: [hudBar] }),
+    );
+    expect(p.size).toBe('strip');
+    expect(p.clear).toBe(false);
+    expect(p.rect.width).toBeGreaterThanOrEqual(MIN_CARD_WIDTH);
+    expect(p.rect.height).toBe(STRIP_HEIGHT);
+  });
+
+  it('wide and portrait docks also respect the minimum', () => {
+    expect(chooseCaptionDock(inputsFor(1280, 720)).rect.width).toBeGreaterThanOrEqual(MIN_CARD_WIDTH);
+    expect(chooseCaptionDock(inputsFor(360, 640)).rect.width).toBeGreaterThanOrEqual(MIN_CARD_WIDTH);
   });
 });
