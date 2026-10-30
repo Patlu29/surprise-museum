@@ -1,6 +1,6 @@
 # Performance report
 
-Version 1.0 | 28/10/2026 | Owner: performance-optimiser | Build measured: `VITE_API_MODE=mock` production build of the working tree (before = HEAD `5c44153` plus read-only test-hook counters)
+Version 1.1 | 30/10/2026 (1.1: section 5 Clock warning wording corrected per ADR 0018; originally 1.0, 28/10/2026) | Owner: performance-optimiser | Build measured: `VITE_API_MODE=mock` production build of the working tree (before = HEAD `5c44153` plus read-only test-hook counters)
 
 ## 1. Summary
 
@@ -107,7 +107,7 @@ Not done, with reasons: texture eviction (memory is flat at 20 MB on Low and 79 
 - **Thresholds in `graphicsQuality.ts` (phone short side under 700 px, 2 GB or 2 cores, the weak-GPU name list) are unchanged and still unverified on real devices.** In this audit: the emulated phone resolved to Low, SwiftShader to Low, and the M4 to High, as designed. Safari hides the GPU name, so on iPhone the decision rests on the coarse-pointer and short-side rule. The adaptive pixel ratio is the safety net if a threshold is wrong in the other direction.
 - **Draw-call peaks of 50 to 59** appear for a few frames when a photo arrives, because the placeholder and the photo are both drawn during the 400 ms cross-fade. The steady figure is 35 to 40. This is above the skill's 50 mobile guide for a moment but far inside the project's 120.
 - **Peak frame time**: single frames of 100 to 230 ms appear on software GL (shader compilation and texture upload); on the M4 the worst frame at 4x throttle is 52 ms. Real phones will show upload hitches as photos arrive; 512 px textures make them a quarter the size, but the first-visit hitch has not been measured on a phone.
-- **Dev-only noise**: `THREE.Clock` deprecation warning from react-three-fiber (it uses `THREE.Clock` internally). Not ours.
+- **Accepted upstream warning**: `THREE.Clock` deprecation warning from react-three-fiber 9.8.2, which creates a `THREE.Clock` internally. It appears in production builds as well as development (three.js logs it in all builds). Not ours, no user impact; accepted in `docs/decisions/0018-accept-three-clock-deprecation-warning.md`.
 
 ## 6. Remaining issues
 
