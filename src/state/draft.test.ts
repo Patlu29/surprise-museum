@@ -119,17 +119,39 @@ describe('buildMuseumDocument', () => {
     expect(document.theme).toBe('default');
   });
 
-  it('never gives the Visitor facial hair (v1)', () => {
+  it('keeps the Visitor facial hair and both genders (CR-1)', () => {
     const document = buildMuseumDocument(
-      fields({ visitorAvatar: { ...DEFAULT_VISITOR_AVATAR, facialHair: 'goatee' } }),
+      fields({
+        visitorAvatar: { ...DEFAULT_VISITOR_AVATAR, facialHair: 'goatee', gender: 'masculine' },
+        guideAvatar: { ...DEFAULT_GUIDE_AVATAR, gender: 'feminine' },
+      }),
       [photo('a')],
     );
-    expect(document.visitorAvatar.facialHair).toBe('none');
+    expect(document.visitorAvatar.facialHair).toBe('goatee');
+    expect(document.visitorAvatar.gender).toBe('masculine');
+    expect(document.guideAvatar.gender).toBe('feminine');
+    expect(document.guideAvatar.facialHair).toBe(DEFAULT_GUIDE_AVATAR.facialHair);
+  });
+
+  it('sends the defaults unchanged when nothing was customised', () => {
+    const document = buildMuseumDocument(fields(), [photo('a')]);
     expect(document.guideAvatar).toEqual(DEFAULT_GUIDE_AVATAR);
+    expect(document.visitorAvatar).toEqual(DEFAULT_VISITOR_AVATAR);
   });
 });
 
 describe('buildPreviewContent', () => {
+  it('keeps the Visitor facial hair and gender, as publishing does', () => {
+    const content = buildPreviewContent(
+      fields({
+        visitorAvatar: { ...DEFAULT_VISITOR_AVATAR, facialHair: 'stubble', gender: 'feminine' },
+      }),
+      [photo('a')],
+    );
+    expect(content.visitorAvatar.facialHair).toBe('stubble');
+    expect(content.visitorAvatar.gender).toBe('feminine');
+  });
+
   it('builds the same shape a published museum has, from local blobs', () => {
     const content = buildPreviewContent(fields(), [
       photo('a', { caption: 'Hi' }),

@@ -5,7 +5,7 @@
  *
  * Labels are from docs/design-spec.md, section 9.2. Ids come from the contract.
  */
-import type { AvatarConfig } from '@contract';
+import { avatarGender, type AvatarConfig, type AvatarGender } from '@contract';
 
 export const SKIN_LABELS: Readonly<Record<AvatarConfig['skinTone'], string>> = {
   'skin-01': 'Very light',
@@ -76,8 +76,17 @@ export const OUTFIT_COLOR_LABELS: Readonly<Record<AvatarConfig['outfitColor'], s
 export const BODY_TYPE_LABELS: Readonly<Record<AvatarConfig['bodyType'], string>> = {
   slim: 'Slim',
   regular: 'Regular',
-  curvy: 'Curvy',
-  broad: 'Broad',
+  // Design spec 9.2 (v1.1): ids unchanged; the text says where the shape is wider, so it can sit
+  // under any gender.
+  curvy: 'Wider hips',
+  broad: 'Wider shoulders',
+};
+
+/** Design spec 9.2: display order is Woman, Man, Neutral. Ids are in the contract (ADR 0020). */
+export const GENDER_LABELS: Readonly<Record<AvatarGender, string>> = {
+  feminine: 'Woman',
+  masculine: 'Man',
+  neutral: 'Neutral',
 };
 
 export const HEIGHT_LABELS: Readonly<Record<AvatarConfig['height'], string>> = {
@@ -97,6 +106,7 @@ export const FACIAL_HAIR_LABELS: Readonly<Record<AvatarConfig['facialHair'], str
 /** Design spec 9.3. Defaults avoid assuming anyone's gender and keep the pair visibly different. */
 export const DEFAULT_GUIDE_APPEARANCE: AvatarConfig = {
   v: 1,
+  gender: 'neutral',
   skinTone: 'skin-04',
   hairStyle: 'short-crop',
   hairColor: 'dark-brown',
@@ -111,6 +121,7 @@ export const DEFAULT_GUIDE_APPEARANCE: AvatarConfig = {
 
 export const DEFAULT_VISITOR_APPEARANCE: AvatarConfig = {
   v: 1,
+  gender: 'neutral',
   skinTone: 'skin-04',
   hairStyle: 'bob',
   hairColor: 'brown',
@@ -131,7 +142,7 @@ const HAIR_PHRASE: Record<AvatarConfig['hairStyle'], (colour: string) => string>
   'short-crop': (c) => `short crop ${c} hair`,
   'side-part': (c) => `side-parted ${c} hair`,
   'curly-short': (c) => `short curly ${c} hair`,
-  bob: (c) => `${c} bob hair`,
+  bob: (c) => `bob ${c} hair`,
   'long-straight': (c) => `long straight ${c} hair`,
   'long-wavy': (c) => `long wavy ${c} hair`,
   ponytail: (c) => `${c} hair in a ponytail`,
@@ -149,6 +160,20 @@ const OUTFIT_PHRASE: Record<AvatarConfig['outfitStyle'], (colour: string) => str
   jumpsuit: (c) => `${c} jumpsuit`,
 };
 
+/** Design spec 9.4: "slim build", "regular build", "wider hips", "wider shoulders". */
+const BODY_PHRASE: Record<AvatarConfig['bodyType'], string> = {
+  slim: 'slim build',
+  regular: 'regular build',
+  curvy: 'wider hips',
+  broad: 'wider shoulders',
+};
+
+/** The gender word appears only in the description of a non-Neutral choice (A-20). */
+const GENDER_PHRASE: Record<Exclude<AvatarGender, 'neutral'>, string> = {
+  feminine: 'woman',
+  masculine: 'man',
+};
+
 /**
  * The live description for the customiser preview (design spec 9.4), for example
  * "Tom: medium height, regular build, short crop dark brown hair, navy shirt and trousers."
@@ -156,13 +181,16 @@ const OUTFIT_PHRASE: Record<AvatarConfig['outfitStyle'], (colour: string) => str
  */
 export function describeAvatar(config: AvatarConfig, name = ''): string {
   const height = { short: 'shorter', medium: 'medium', tall: 'taller' }[config.height];
+  const gender = avatarGender(config);
   const parts = [
+    ...(gender === 'neutral' ? [] : [GENDER_PHRASE[gender]]),
     `${height} height`,
-    `${lower(BODY_TYPE_LABELS[config.bodyType])} build`,
+    BODY_PHRASE[config.bodyType],
     HAIR_PHRASE[config.hairStyle](lower(HAIR_COLOR_LABELS[config.hairColor])),
-    OUTFIT_PHRASE[config.outfitStyle](lower(OUTFIT_COLOR_LABELS[config.outfitColor])),
   ];
+  // Template order (design spec 9.4): hair, then facial hair, then the outfit.
   if (config.facialHair !== 'none') parts.push(lower(FACIAL_HAIR_LABELS[config.facialHair]));
+  parts.push(OUTFIT_PHRASE[config.outfitStyle](lower(OUTFIT_COLOR_LABELS[config.outfitColor])));
   const body = parts.join(', ');
   return name ? `${name}: ${body}.` : `${body.charAt(0).toUpperCase()}${body.slice(1)}.`;
 }

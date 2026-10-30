@@ -1,8 +1,9 @@
-import type { AvatarConfig } from '@contract';
-import { AVATAR_OPTIONS } from '@contract';
+import type { AvatarConfig, AvatarGender } from '@contract';
+import { AVATAR_GENDERS, AVATAR_OPTIONS, avatarGender } from '@contract';
 import {
   BODY_TYPE_LABELS,
   FACIAL_HAIR_LABELS,
+  GENDER_LABELS,
   HAIR_COLOR_LABELS,
   HAIR_STYLE_LABELS,
   HEIGHT_LABELS,
@@ -28,13 +29,14 @@ export type AvatarRole = 'guide' | 'visitor';
 
 /**
  * The options the builder lets the Creator change (accessories are Release 2).
- * `gender` is excluded until the frontend-developer adds the Gender control: it is optional and
- * lives in `AVATAR_GENDERS`, not `AVATAR_OPTIONS` (ADR 0020, docs/handoffs/architect.md).
+ * `gender` is one of them, but it is optional in the contract and its ids live in
+ * `AVATAR_GENDERS`, not `AVATAR_OPTIONS` (ADR 0020).
  */
-export type AvatarOptionKey = Exclude<keyof AvatarConfig, 'v' | 'glasses' | 'hat' | 'gender'>;
+export type AvatarOptionKey = Exclude<keyof AvatarConfig, 'v' | 'glasses' | 'hat'>;
 
 /** Display text and accessible names (design spec 9.2), keyed by option. */
 export const AVATAR_LABELS = {
+  gender: GENDER_LABELS,
   skinTone: SKIN_LABELS,
   hairStyle: HAIR_STYLE_LABELS,
   hairColor: HAIR_COLOR_LABELS,
@@ -45,9 +47,12 @@ export const AVATAR_LABELS = {
   facialHair: FACIAL_HAIR_LABELS,
 } as const satisfies { [K in AvatarOptionKey]: Readonly<Record<string, string>> };
 
-/** Option ids offered by the builder for each option, in contract order. */
+/** Option ids offered by the builder for each option, in display order. */
 export function optionIds<K extends AvatarOptionKey>(key: K): ReadonlyArray<AvatarConfig[K]> {
-  return AVATAR_OPTIONS[key] as unknown as ReadonlyArray<AvatarConfig[K]>;
+  if (key === 'gender') return AVATAR_GENDERS as unknown as ReadonlyArray<AvatarConfig[K]>;
+  return (AVATAR_OPTIONS as Record<string, ReadonlyArray<unknown>>)[
+    key
+  ] as unknown as ReadonlyArray<AvatarConfig[K]>;
 }
 
 export function avatarOptionLabel<K extends AvatarOptionKey>(key: K, id: AvatarConfig[K]): string {
@@ -55,6 +60,21 @@ export function avatarOptionLabel<K extends AvatarOptionKey>(key: K, id: AvatarC
   return table[id as string] ?? String(id);
 }
 
+/** The Gender choice shown for a character: a missing or unknown value reads as Neutral. */
+export function selectedGender(config: AvatarConfig): AvatarGender {
+  return avatarGender(config);
+}
+
+/**
+ * Two avatars are equal when every option matches. A missing `gender` equals `'neutral'` and
+ * differs from `'feminine'` (ADR 0020: read it through `avatarGender`, never directly).
+ */
 export function avatarsEqual(a: AvatarConfig, b: AvatarConfig): boolean {
-  return (Object.keys(a) as Array<keyof AvatarConfig>).every((key) => a[key] === b[key]);
+  if (avatarGender(a) !== avatarGender(b)) return false;
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof AvatarConfig>;
+  keys.delete('gender');
+  for (const key of keys) {
+    if (a[key] !== b[key]) return false;
+  }
+  return true;
 }

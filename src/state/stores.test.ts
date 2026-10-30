@@ -93,11 +93,26 @@ describe('builderStore', () => {
     expect(useBuilderStore.getState().guideAvatar).toEqual(DEFAULT_GUIDE_AVATAR);
   });
 
-  it('offers facial hair to the Guide only (FR-14)', () => {
+  it('offers facial hair to both characters (CR-1)', () => {
     useBuilderStore.getState().setAvatarOption('visitor', 'facialHair', 'goatee');
-    expect(useBuilderStore.getState().visitorAvatar.facialHair).toBe('none');
-    useBuilderStore.getState().setAvatarOption('guide', 'facialHair', 'goatee');
-    expect(useBuilderStore.getState().guideAvatar.facialHair).toBe('goatee');
+    expect(useBuilderStore.getState().visitorAvatar.facialHair).toBe('goatee');
+    useBuilderStore.getState().setAvatarOption('guide', 'facialHair', 'full-beard');
+    expect(useBuilderStore.getState().guideAvatar.facialHair).toBe('full-beard');
+  });
+
+  it('sets gender per character and keeps every other option (CR-1)', () => {
+    const store = useBuilderStore.getState();
+    expect(useBuilderStore.getState().guideAvatar.gender).toBe('neutral');
+    store.setAvatarOption('guide', 'hairStyle', 'afro');
+    store.setAvatarOption('guide', 'gender', 'feminine');
+    store.setAvatarOption('visitor', 'gender', 'masculine');
+    const { guideAvatar, visitorAvatar } = useBuilderStore.getState();
+    expect(guideAvatar.gender).toBe('feminine');
+    expect(guideAvatar.hairStyle).toBe('afro');
+    expect(visitorAvatar.gender).toBe('masculine');
+    store.resetAvatar('guide');
+    expect(useBuilderStore.getState().guideAvatar.gender).toBe('neutral');
+    expect(useBuilderStore.getState().visitorAvatar.gender).toBe('masculine');
   });
 
   it('remembers the furthest step reached', () => {

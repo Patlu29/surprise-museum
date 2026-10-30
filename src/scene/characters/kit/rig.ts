@@ -5,7 +5,9 @@
  *   const rig = createAvatarRig(config, { role: 'guide' });
  *   scene.add(rig.root);                 // feet at root.position, faces +Z at heading 0
  *   rig.applyPose({ walkPhase, walkAmount, idleTime, present });
- *   rig.setAppearance(nextConfig);       // rebuilds only what changed
+ *   rig.setAppearance(nextConfig);       // rebuilds only what changed (gender included)
+ *   rig.beginGenderMorph('feminine');    // preview only: animate a gender change, see below
+ *   rig.setGenderMorphProgress(t);       // t = 0 to 1, once per frame
  *   rig.setOpacity(0.35);                // yield fade
  *   rig.dispose();
  *
@@ -22,15 +24,26 @@ import {
   Skeleton,
   SkinnedMesh,
 } from 'three';
-import type { AvatarConfig } from '@contract';
+import { avatarGender, type AvatarConfig, type AvatarGender } from '@contract';
 import { GlowDecalMaterial } from '../../shaders/glowDecal/GlowDecalMaterial';
 import { createBlobShadowGeometry } from '../../materials/geometry/decals';
 import { BLOB_SHADOW } from '../../materials/palette';
 import { BONE_NAMES, type BoneName } from './geometry/partBuilder';
 import { buildBodyGeometry, type AvatarRole } from './parts/body';
 import { buildHairGeometry } from './parts/hair';
-import { applyPose, HIP_REST_Y, NEUTRAL_POSE, type AvatarPose, type PoseBones } from './pose';
-import { BODY_SHAPES, HEIGHT_SCALE, NOMINAL_HEIGHT, jointsFor, type Joints } from './proportions';
+import { applyPose, NEUTRAL_POSE, type AvatarPose, type PoseBones } from './pose';
+import {
+  BODY_SHAPES,
+  GENDER_SHAPES,
+  HEIGHT_SCALE,
+  NOMINAL_HEIGHT,
+  blendGender,
+  composeShape,
+  jointsFor,
+  type AvatarShape,
+  type GenderShape,
+  type Joints,
+} from './proportions';
 
 export type { AvatarRole } from './parts/body';
 
@@ -58,8 +71,29 @@ export interface AvatarRig {
   /** Total standing height in metres including hair, for the current height setting. */
   readonly height: number;
   readonly stats: Readonly<AvatarRigStats>;
-  /** Replace the appearance. Rebuilds only the parts the change touches. */
+  /**
+   * Replace the appearance. Rebuilds only the parts the change touches. A change of gender
+   * shows the final shape at once (the visit and reduced motion use this). It rebuilds the bind
+   * pose, the body mesh and the hair mesh, which carries the brows.
+   */
   setAppearance(next: AvatarConfig): void;
+  /**
+   * Preview morph, step 1 (design spec 9.5). Starts a morph from the shape on screen now to the
+   * gender `to`, so calling it mid-morph retargets from the blended values. Rebuilds nothing.
+   * Call it before the `setAppearance` that carries the new gender, which then keeps the morph
+   * instead of jumping. Pass `from` only if you already applied the new config.
+   */
+  beginGenderMorph(to: AvatarGender, from?: AvatarGender): void;
+  /**
+   * Preview morph, step 2. Shows the blend at `t` (0 start, 1 target, clamped) by rebuilding
+   * the bind pose, body and hair in place: the meshes, bones and materials are not recreated.
+   * At 1 the morph ends and the shape is vertex-identical to `setAppearance` with that gender.
+   * Returns true while the morph is still running. Call it before `applyPose` in the frame,
+   * because a rebuild resets the bones to rest. No-op (false) when no morph is running.
+   */
+  setGenderMorphProgress(t: number): boolean;
+  /** True between `beginGenderMorph` and the end of the morph. */
+  readonly morphing: boolean;
   /** Set bone rotations for the current frame. Missing fields fall back to the neutral pose. */
   applyPose(pose: Partial<AvatarPose>): void;
   /** The still pose, used for reduced motion. */
@@ -123,6 +157,15 @@ export function createAvatarRig(initial: AvatarConfig, options: AvatarRigOptions
   let hairMesh: SkinnedMesh | null = null;
   let shadowMesh: Mesh | null = null;
   let opacity = 1;
+  let hipRestY = 0;
+  /** Preview morph state. Null for the visit and whenever no morph is running. */
+  let morph: { from: GenderShape; to: GenderShape; target: AvatarGender; t: number } | null = null;
+
+  /** The gender shape on screen: the table entry, or the blend while a morph is running. */
+  const blendOrCurrent = (): GenderShape =>
+    morph ? blendGender(morph.from, morph.to, morph.t) : GENDER_SHAPES[avatarGender(config)];
+  const currentShape = (): AvatarShape =>
+    composeShape(BODY_SHAPES[config.bodyType], blendOrCurrent());
 
   const stats: AvatarRigStats = { triangles: 0, drawCalls: 0 };
 
@@ -175,7 +218,7 @@ export function createAvatarRig(initial: AvatarConfig, options: AvatarRigOptions
   };
 
   const rebuildBody = () => {
-    const geometry = buildBodyGeometry(config, role);
+    const geometry = buildBodyGeometry(config, role, currentShape());
     if (bodyMesh) {
       bodyMesh.geometry.dispose();
       bodyMesh.geometry = geometry;
@@ -185,7 +228,7 @@ export function createAvatarRig(initial: AvatarConfig, options: AvatarRigOptions
   };
 
   const rebuildHair = () => {
-    const geometry = buildHairGeometry(config);
+    const geometry = buildHairGeometry(config, currentShape());
     if (!geometry) {
       if (hairMesh) {
         root.remove(hairMesh);
@@ -205,7 +248,9 @@ export function createAvatarRig(initial: AvatarConfig, options: AvatarRigOptions
   const refreshBones = () => {
     // The bind pose must be captured with every bone at rest.
     for (const name of BONE_NAMES) boneByName[name].rotation.set(0, 0, 0);
-    place(jointsFor(BODY_SHAPES[config.bodyType]));
+    const joints = jointsFor(currentShape());
+    hipRestY = joints.hips[1];
+    place(joints);
     root.updateMatrixWorld(true);
     skeleton.calculateInverses();
   };
@@ -256,19 +301,24 @@ export function createAvatarRig(initial: AvatarConfig, options: AvatarRigOptions
     setAppearance(next) {
       const prev = config;
       config = { ...next };
+      const genderChanged = avatarGender(prev) !== avatarGender(next);
+      if (morph && avatarGender(next) !== morph.target) morph = null;
+      const reshape = genderChanged || morph !== null;
       const bodyChanged =
+        reshape ||
         prev.skinTone !== next.skinTone ||
         prev.outfitStyle !== next.outfitStyle ||
         prev.outfitColor !== next.outfitColor ||
         prev.bodyType !== next.bodyType ||
         prev.facialHair !== next.facialHair;
       const hairChanged =
+        reshape ||
         prev.hairStyle !== next.hairStyle ||
         prev.hairColor !== next.hairColor ||
         prev.facialHair !== next.facialHair ||
         prev.skinTone !== next.skinTone;
-      if (prev.bodyType !== next.bodyType) {
-        // Arm and hip joints move with body type, so the bind pose changes.
+      if (reshape || prev.bodyType !== next.bodyType) {
+        // Arm, hip and neck joints move with body type and gender, so the bind pose changes.
         root.scale.setScalar(1);
         refreshBones();
       }
@@ -278,12 +328,38 @@ export function createAvatarRig(initial: AvatarConfig, options: AvatarRigOptions
       refreshStats();
     },
 
+    beginGenderMorph(to, from) {
+      const start = from ? GENDER_SHAPES[from] : blendOrCurrent();
+      morph = { from: start, to: GENDER_SHAPES[to], target: to, t: 0 };
+    },
+
+    setGenderMorphProgress(t) {
+      if (!morph) return false;
+      morph.t = Math.min(1, Math.max(0, t));
+      if (morph.t >= 1) {
+        // Finish on the exact table values, so the end state equals a plain setAppearance.
+        config = { ...config, gender: morph.target };
+        morph = null;
+      }
+      root.scale.setScalar(1);
+      refreshBones();
+      rebuildBody();
+      rebuildHair();
+      refreshScale();
+      refreshStats();
+      return morph !== null;
+    },
+
+    get morphing() {
+      return morph !== null;
+    },
+
     applyPose(pose) {
-      applyPose(bones, HIP_REST_Y, pose);
+      applyPose(bones, hipRestY, pose);
     },
 
     resetPose() {
-      applyPose(bones, HIP_REST_Y, NEUTRAL_POSE);
+      applyPose(bones, hipRestY, NEUTRAL_POSE);
     },
 
     setOpacity(value) {

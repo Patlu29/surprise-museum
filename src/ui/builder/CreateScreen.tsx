@@ -16,6 +16,7 @@ import { Dialog } from '@/ui/components/Dialog';
 import { CharactersStep } from './CharactersStep';
 import { PhotosStep } from './PhotosStep';
 import { PublishedScreen } from './PublishedScreen';
+import { RestoredDraftNotice } from './RestoredDraftNotice';
 import { ReviewStep } from './ReviewStep';
 import { Stepper } from './Stepper';
 import { WordsStep } from './WordsStep';
@@ -171,6 +172,15 @@ export default function CreateScreen() {
           <h1 ref={headingRef} tabIndex={-1} className="builder__heading">
             {label}
           </h1>
+
+          <RestoredDraftNotice
+            step={step}
+            onAddPhotos={() => {
+              setAttempt(null);
+              goTo(1);
+            }}
+            onDismissed={() => headingRef.current?.focus()}
+          />
 
           {activeAttempt.length > 0 ? (
             <Alert

@@ -17,7 +17,7 @@ import { hex, shade } from '../colour';
 import { PartBuilder, type BoneName } from '../geometry/partBuilder';
 import { ellipsoid, loft, ringsAt, tube, type Ring, type TubeBand } from '../geometry/surface';
 import { AVATAR_FIXED, BADGE_RING_BRASS, SKIN_TONES } from '../palette';
-import { BASE, BODY_SHAPES, HEAD, headCentre, jointsFor, type BodyShape } from '../proportions';
+import { BASE, HEAD, headCentre, jointsFor, shapeFor, type AvatarShape } from '../proportions';
 import { buildFace, mouthLiftFor } from './face';
 import { garmentFor, outfitColour, type Garment, type GarmentExtra } from './outfits';
 import { NECK_Y, WAIST_Y, paint, torsoRings } from './torso';
@@ -42,7 +42,7 @@ function sliceBands(bands: readonly TubeBand[], t0: number, t1: number): TubeBan
 const ARM_SPLIT = BASE.upperArm / (BASE.upperArm + BASE.foreArm);
 const LEG_SPLIT = BASE.thigh / (BASE.thigh + BASE.shin);
 
-function addTorso(b: PartBuilder, shape: BodyShape, garment: Garment): void {
+function addTorso(b: PartBuilder, shape: AvatarShape, garment: Garment): void {
   const g = garment;
   const skirtOnly = g.pelvis === null;
 
@@ -93,7 +93,7 @@ function addTorso(b: PartBuilder, shape: BodyShape, garment: Garment): void {
 function addExtras(
   b: PartBuilder,
   extras: readonly GarmentExtra[],
-  shape: BodyShape,
+  shape: AvatarShape,
   ofs: number,
 ): void {
   for (const e of extras) {
@@ -133,7 +133,7 @@ function addExtras(
   }
 }
 
-function addLimbs(b: PartBuilder, shape: BodyShape, garment: Garment, skin: Color): void {
+function addLimbs(b: PartBuilder, shape: AvatarShape, garment: Garment, skin: Color): void {
   const j = jointsFor(shape);
   const arm = shape.arm;
   const leg = shape.leg;
@@ -255,7 +255,7 @@ function addLimbs(b: PartBuilder, shape: BodyShape, garment: Garment, skin: Colo
 const quatZ = new Vector3(0, 0, 1);
 
 /** The left-chest badge: brass for the Guide, a cream sticker with a rose heart for the Visitor. */
-function addBadge(b: PartBuilder, shape: BodyShape, garment: Garment, role: AvatarRole): void {
+function addBadge(b: PartBuilder, shape: AvatarShape, garment: Garment, role: AvatarRole): void {
   const y = 1.15;
   const x = 0.088 * shape.shoulder;
   const chest = torsoRings(shape, garment.chest.ofs).chest;
@@ -298,15 +298,18 @@ function addBadge(b: PartBuilder, shape: BodyShape, garment: Garment, role: Avat
   }
 }
 
-export function buildBodyGeometry(config: AvatarConfig, role: AvatarRole): BufferGeometry {
-  const shape = BODY_SHAPES[config.bodyType];
+export function buildBodyGeometry(
+  config: AvatarConfig,
+  role: AvatarRole,
+  shape: AvatarShape = shapeFor(config),
+): BufferGeometry {
   const skin = hex(SKIN_TONES[config.skinTone]);
   const garment = garmentFor({
     style: config.outfitStyle,
     outfit: outfitColour(config.outfitColor),
     skin,
   });
-  const b = new PartBuilder();
+  const b = new PartBuilder(shape);
 
   // Head, neck and face.
   const [cx, cy, cz] = headCentre();
@@ -318,14 +321,14 @@ export function buildBodyGeometry(config: AvatarConfig, role: AvatarRole): Buffe
     tube({
       from: [0, NECK_Y - 0.03, 0],
       to: [0, NECK_Y + 0.07, 0],
-      radiusFrom: 0.04,
-      radiusTo: 0.036,
+      radiusFrom: 0.04 * shape.neck,
+      radiusTo: 0.036 * shape.neck,
       bands: [{ until: 1, colour: skin }],
       segments: 10,
     }),
     'neck',
   );
-  const face = buildFace(skin, mouthLiftFor(config.facialHair));
+  const face = buildFace(skin, mouthLiftFor(config.facialHair), shape.eye);
   for (const g of [
     ...face.sclera,
     ...face.eyes,

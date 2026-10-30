@@ -14,7 +14,7 @@ import { hex, luminance, mixColour, shade } from '../colour';
 import { PartBuilder, type BoneName } from '../geometry/partBuilder';
 import { ellipsoid, hairline, loft, shell, tube, type Ring } from '../geometry/surface';
 import { HAIR_COLORS, SKIN_TONES } from '../palette';
-import { HEAD, headCentre } from '../proportions';
+import { HEAD, headCentre, shapeFor, type AvatarShape } from '../proportions';
 import { featureOnHead } from './face';
 
 export type HairStyle = AvatarConfig['hairStyle'];
@@ -274,11 +274,11 @@ const HAIR_BUILDERS: Record<HairStyle, (ctx: Ctx) => void> = {
 };
 
 /** Thin brows in the hair colour. A very light hair colour gets a touch of shade to stay visible. */
-function addBrows(ctx: Ctx): void {
+function addBrows(ctx: Ctx, thickness: number): void {
   const colour = luminance(ctx.hair) > 0.6 ? shade(ctx.hair, 0.78) : ctx.hair;
   for (const s of [-1, 1]) {
     ctx.b.add(
-      featureOnHead(s * 0.38, 0.28, [0.028, 0.0065, 0.007], colour, {
+      featureOnHead(s * 0.38, 0.28, [0.028, 0.0065 * thickness, 0.007], colour, {
         lift: 0.0005,
         roll: s * 0.14,
       }),
@@ -358,14 +358,17 @@ const FACIAL_HAIR_BUILDERS: Record<FacialHair, ((ctx: Ctx) => void) | null> = {
   },
 };
 
-export function buildHairGeometry(config: AvatarConfig): BufferGeometry | null {
+export function buildHairGeometry(
+  config: AvatarConfig,
+  shape: AvatarShape = shapeFor(config),
+): BufferGeometry | null {
   const ctx: Ctx = {
-    b: new PartBuilder(),
+    b: new PartBuilder(shape),
     hair: hex(HAIR_COLORS[config.hairColor]),
     skin: hex(SKIN_TONES[config.skinTone]),
   };
   HAIR_BUILDERS[config.hairStyle](ctx);
-  addBrows(ctx);
+  addBrows(ctx, shape.brow);
   FACIAL_HAIR_BUILDERS[config.facialHair]?.(ctx);
   return ctx.b.build();
 }

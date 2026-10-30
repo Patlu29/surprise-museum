@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { AvatarConfig } from '@contract';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import type { AvatarOptionKey, AvatarRole } from '@/lib/avatars';
-import { avatarOptionLabel, describeAvatar, optionIds } from '@/lib/avatars';
+import { avatarOptionLabel, describeAvatar, optionIds, selectedGender } from '@/lib/avatars';
 import { useBuilderStore } from '@/state/builderStore';
 import { Button } from '@/ui/components/Button';
 import { RadioGroup, type RadioOption } from '@/ui/components/RadioGroup';
@@ -11,12 +11,16 @@ import { AvatarPreviewSlot } from './AvatarPreviewSlot';
 
 type Section = 'face' | 'hair' | 'outfit' | 'body';
 
+/** Body is first and opens by default: Gender sets the base shape the rest sit on (spec 9.4). */
 const SECTIONS: ReadonlyArray<{ id: Section; label: string }> = [
+  { id: 'body', label: 'Body' },
   { id: 'face', label: 'Face' },
   { id: 'hair', label: 'Hair' },
   { id: 'outfit', label: 'Outfit' },
-  { id: 'body', label: 'Body' },
 ];
+
+export const GENDER_HELPER_TEXT =
+  'Changes the shape and face. Your other choices stay as they are.';
 
 const TURN_STEP_DEGREES = 30;
 const BACK_VIEW_DEGREES = 180;
@@ -28,13 +32,16 @@ interface GroupDef {
   variant: 'tiles' | 'swatches';
   /** CSS custom property prefix for swatch colours, from tokens.css. */
   swatchPrefix?: string;
-  guideOnly?: boolean;
+  /** Helper text shown below the options. */
+  description?: string;
+  /** Extra class for layout (the gender row and the two-column body type grid). */
+  className?: string;
 }
 
 const GROUPS: Record<Section, GroupDef[]> = {
   face: [
     { key: 'skinTone', label: 'Skin tone', variant: 'swatches', swatchPrefix: '--avatar-' },
-    { key: 'facialHair', label: 'Facial hair', variant: 'tiles', guideOnly: true },
+    { key: 'facialHair', label: 'Facial hair', variant: 'tiles' },
   ],
   hair: [
     { key: 'hairStyle', label: 'Hair style', variant: 'tiles' },
@@ -50,7 +57,14 @@ const GROUPS: Record<Section, GroupDef[]> = {
     },
   ],
   body: [
-    { key: 'bodyType', label: 'Body type', variant: 'tiles' },
+    {
+      key: 'gender',
+      label: 'Gender (optional)',
+      variant: 'tiles',
+      description: GENDER_HELPER_TEXT,
+      className: 'radio-group--gender',
+    },
+    { key: 'bodyType', label: 'Body type', variant: 'tiles', className: 'radio-group--two-column' },
     { key: 'height', label: 'Height', variant: 'tiles' },
   ],
 };
@@ -61,6 +75,11 @@ function optionsFor(def: GroupDef): Array<RadioOption<string>> {
     label: avatarOptionLabel(def.key, id as never),
     swatch: def.swatchPrefix ? `var(${def.swatchPrefix}${id})` : undefined,
   }));
+}
+
+/** The selected id for a group. Gender is optional in the data and reads as Neutral when missing. */
+function groupValue(config: AvatarConfig, key: AvatarOptionKey): string {
+  return key === 'gender' ? selectedGender(config) : (config[key] as string);
 }
 
 /**
@@ -76,7 +95,7 @@ export function CharactersStep() {
   const resetAvatar = useBuilderStore((state) => state.resetAvatar);
 
   const [role, setRole] = useState<AvatarRole>('guide');
-  const [section, setSection] = useState<Section>('face');
+  const [section, setSection] = useState<Section>('body');
   const [yaw, setYaw] = useState(0);
 
   const config: AvatarConfig = role === 'guide' ? guide : visitor;
@@ -86,9 +105,24 @@ export function CharactersStep() {
     [guideName, guide, visitorName, visitor],
   );
   // The text alternative is announced after changes settle, so typing through options is not noisy.
-  const announced = useDebouncedValue(description, 400);
+  const guideText = describeAvatar(guide, guideName.trim() || 'Guide');
+  const visitorText = describeAvatar(visitor, visitorName.trim() || 'Visitor');
+  const [changed, setChanged] = useState<{ guide: string; visitor: string; role: AvatarRole }>({
+    guide: guideText,
+    visitor: visitorText,
+    role: 'guide',
+  });
+  if (changed.guide !== guideText || changed.visitor !== visitorText) {
+    // Only the character that changed is announced, to keep screen reader chatter low (spec 9.4).
+    setChanged({
+      guide: guideText,
+      visitor: visitorText,
+      role: changed.guide !== guideText ? 'guide' : 'visitor',
+    });
+  }
+  const announced = useDebouncedValue(changed.role === 'guide' ? guideText : visitorText, 400);
 
-  const groups = GROUPS[section].filter((group) => !(group.guideOnly && role !== 'guide'));
+  const groups = GROUPS[section];
   const backView = yaw === BACK_VIEW_DEGREES;
 
   return (
@@ -184,8 +218,10 @@ export function CharactersStep() {
                 label={group.label}
                 variant={group.variant}
                 showValue={group.variant === 'swatches'}
+                description={group.description}
+                className={group.className}
                 options={optionsFor(group)}
-                value={config[group.key] as string}
+                value={groupValue(config, group.key)}
                 onChange={(value) => setAvatarOption(role, group.key, value as never)}
               />
             ))}

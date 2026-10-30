@@ -1,5 +1,72 @@
 # Handoff: scene-developer
 
+## Update 30/10/2026: CR-1 (gender) and CR-2 (presentation camera)
+
+### Summary
+CR-1: `GENDER_LABELS`, `gender: 'neutral'` in both defaults, the 9.4 `describeAvatar` template, label placement tests for every gender, and the builder preview now keeps one rig per character and runs the 250 ms gender morph through the technical-artist's API (instant under reduced motion). CR-2: a pure framing solver and a pure state machine in `src/domain/camera/`, a scene controller that drives them, the veil, input rules, label sliding, a camera-settled signal and the QA hook. `npm run typecheck`, `lint`, `test` (694 plus the new camera and avatar tests) and `build` pass. Nothing was run in a browser this round, so the framing has not been looked at on screen.
+
+### CR-1 details
+- `src/domain/characters/avatarOptions.ts`: `GENDER_LABELS` (Woman, Man, Neutral, in that order), `gender: 'neutral'` in `DEFAULT_GUIDE_APPEARANCE` and `DEFAULT_VISITOR_APPEARANCE`, `BODY_TYPE_LABELS` now "Wider hips" and "Wider shoulders" (ids unchanged), and `describeAvatar` follows the 9.4 template: gender word only when not Neutral (read through `avatarGender`), "slim build", "regular build", "wider hips", "wider shoulders", facial hair before the outfit, and hair phrase "bob brown hair" to match the spec example.
+- Label placement: `src/scene/characters/labelPlacement.test.ts` builds a rig for every gender x body type x height x role and asserts the label sits 0.35 m (scaled) above the head and does not move when only the gender changes.
+- Preview (`src/scene/preview/AvatarPreview.tsx`, new `src/scene/characters/previewAvatar.ts`): the rig is built once per character and a config change calls `update`, which does `beginGenderMorph(to)` then `setAppearance(next)` when the gender changed, and `stepMorph(dt)` calls `setGenderMorphProgress(elapsed / 0.25)` before `applyPose` each frame. Reduced motion calls `setAppearance` alone. Nothing runs per frame when idle. The visit still builds the final shape once (`buildAvatar`). Not changed: kit `index.ts` and `useAvatarRig`.
+- Not verified: the morph on a real phone, and the face and silhouette by eye (the technical-artist also did not render).
+
+### CR-2 details
+Files: `src/domain/camera/{easing,presentationFraming,presentationCameraMachine}.ts` with tests, `src/scene/cameras/PresentationCameraController.ts`, `FollowCameraRig.ts` (override hook, `adopt`, `moveForward`), `controllers/{labelLayout,framingRects}.ts`, and edits to `SceneDriver`, `SceneRoot`, `commands`, `projection`, `testHooks`.
+
+| Spec item | Behaviour |
+|---|---|
+| Solver (6.12.4) | Pure `solveFraming`. Candidates: side nearest the current azimuth first, offsets 35, 45, 52, pitch 12 (saved 14) or the saved pitch limited to 8 to 20, then the same list at 20. Strict pass needs: picture inside the safe rectangle and within size limits, no wall rule broken, Guide out of the camera-to-Visitor corridor, no character or label (grown 8 px) on the picture, the card's default dock clear. If none is strict, the least overlap wins (`relaxed: true`). If a wall rule breaks for all, it returns `null` |
+| Projection | Exactly three.js's, including the constant view offset; tested against a real `PerspectiveCamera.setViewOffset`. FOV and offset are never changed |
+| Walls (6.12.5) | Outer walls and the lectern: aim-to-camera segment kept 0.3 m clear, boom is never shortened, 0.3 m under the ceiling. Partitions: camera-to-corner segments (all four corners) must be clear, so a doorway counts only if it shows the whole picture. Camera on the room side of the wall and not inside any wall |
+| Timing (6.12.3) | In: 150 ms delay then 800 ms, longer swings degrees / 45 per second up to 1,300 ms; out 600 ms; resize 450 ms; interrupted move max(300 ms, 600 ms x remaining); easing is `--ease-camera`. Constants are in `CAMERA_TIMING` with a comment pointing at 6.12 |
+| Veil | Swings over 60 degrees: veil fades in over 200 ms, cut at the midpoint, fades out over 200 ms (400 ms total). The scene draws it itself (a fixed `div` with `--color-night` at `--z-fade`), because the UI's veil has no scene-facing trigger. Return after such a swing keeps the framing's yaw and pitch and eases only boom and pivot (Reset view then appears) |
+| Reduced motion | One-frame cut at the moment the intent starts (the Guide's fade-in starts the same frame) and a cut back |
+| Input (6.12.7) | Movement past 15%: release (reverses a move in progress, a move still in its delay is dropped) and no re-frame for that presentation. Look-around, Q/E, Shift+arrows, wheel, plus/minus: `takeOver` adopts the pose on screen with no ease. Reset view: adopts, then the rig eases. Close, Escape, Enter or Space: the director ends the intent, so the camera returns in 600 ms. A new presentation re-frames from the current pose (150 ms delay). Replay and jump: `snapBehind` cancels. Resize: re-solve after 150 ms of stable size, eased 450 ms. Viewer open, hints, sheets: no effect |
+| Fallback | Solver returns `null`: the follow camera stays, `presentationCamera.fallback` is true |
+| Walking direction | Camera-relative walking uses `rig.moveForward` (the follow direction), not the camera shown, so a camera easing back does not swing the walking direction |
+| Labels (5.5, 6.12.8) | While framed, a label touching the picture (grown 8 px) slides sideways away from the picture centre by up to half its width, then the overlap rule raises the farther label. Never hidden or scaled. Offsets are reset when the presentation ends |
+| Rectangles | Published at once when the camera arrives, then every 100 ms. The character rectangle is now a thin bound (a body radius of 0.3 m either side of feet and head, along the camera's right) shared by the solver, the published rects and the QA hook |
+
+### Camera-settled signal (for the card change)
+The UI may not import the scene and I may not edit `src/state/`, so the signal is a DOM contract plus the test hook:
+- `window` event `surprise-museum:presentation-camera` with `detail: { mode, settled, photoId, seq }`, fired on each mode change. `settled` is true when `mode` is not `entering` or `returning`. `seq` increases at each arrival.
+- Attribute `data-presentation-camera="follow|entering|framed|returning|cut"` on the canvas element.
+- `snapshot().presentationCamera` (test hook): `{ mode, yawOffsetDeg, pictureVisibleFraction, fallback, guideDropped, settled, cutSeq, settledSeq, lastMoveInMs, lastMoveOutMs, photoId, veil }`. `pictureVisibleFraction` uses no pixels. After a hard cut `mode` is `cut` for 300 ms, then `framed`.
+- When no framing happens (fallback, blocked, finale, walking) `mode` stays `follow`, so `settled` is already true and the card must not wait. Timing worst case: 150 + 1,300 = 1,450 ms, inside the 1.5 s cap.
+- The card should wait for `settled`, or 1.5 s from dwell completion, and re-measure `chooseCaptionDock` on the next event or on the 100 ms rects.
+
+### Decisions
+- Framing waits for the Visitor to stop: if she is still walking when the presentation starts, framing begins after 0.25 s of stillness (otherwise a walk up to a picture would almost never frame). Once released by movement, no re-frame (as written). Easy to switch off in `PresentationCameraController.tick` (`waitStill`).
+- Lateral and vertical centring: the solver shifts the pivot sideways and vertically (never yaw, pitch, FOV or the view offset) so the group centres in the safe rectangle. Without it the phone landscape column layout (x 5 to 68%) cannot fit.
+- Picture width minimum is scaled by the picture's own width over 1.6 m (portrait pictures) and by 0.82 (the 35 degree foreshortening in 6.12.2). Without both, the table's minimum cannot be met at 360 px wide or for tall pictures.
+- The picture's minimum width has priority over the Visitor's maximum height (6.12.2: the picture never shrinks), so the boom stops growing once the picture reaches its minimum.
+- The Guide must not stand in the camera-to-Visitor corridor at the framed pose, or she would sidestep out of the framing (the Guide's yield rule).
+- Veil is scene-drawn (see table).
+
+### Spec issues for the ux-ui-designer
+- 6.12.3 says peak turning speed stays under about 80 degrees per second. With `--ease-camera` the peak is about 2.6 times the average, about 115 to 120 degrees per second for 35 degrees in 800 ms. The curve and durations cannot both hold. I followed the tokens.
+- 6.12.2 Wide: "picture at least 20% of viewport width" and "Visitor at most 34% of height" cannot both hold for a 1.6 m picture at 35 degrees (needs Visitor about 46%). Picture minimum won, so QA check (b) will see Visitors above the table maximum on wide and phone landscape, unless the Guide was dropped.
+- 6.12.3 says the veil is `--duration-fade-through` total; the UI's replay veil uses that duration each way. I used 400 ms total as the camera spec reads.
+
+### Measured (headless maths, 20 pictures, landscape, portrait and square, both Guide sides)
+Solver succeeds for every picture at 360x640, 390x844, 844x390 and 1280x720 (no fallback). Strict (nothing covers the picture) is common on portrait phones and wide, and is the exception on phone landscape, where bodies can cover up to 28% of the picture in the worst case (worst `pictureVisibleFraction` about 0.72). The 0.99 acceptance check will not pass there. Not tried: real fonts for label widths (the solver uses the measured label size when the label exists, else 110 x 32 px), safe-area insets (not passed in).
+
+### Not done / open
+- No browser check of the framing, the veil, label sliding or the morph; the Playwright baseline `presenting-photo-1.png` will change by design.
+- The R2 "Move the camera" switch is out of scope as instructed.
+- The caption card change is for the frontend-developer (see signal above).
+
+### Requests for other agents
+- frontend-developer: card waits for `surprise-museum:presentation-camera` with `settled: true` (or 1.5 s), then re-measures; optionally add a `cameraSettled` field to `src/state/screenRects.ts` or the session store if a store is preferred over the event.
+- ux-ui-designer: the three spec issues above.
+- qa-engineer: acceptance checks use `snapshot().presentationCamera`; expect `cut` for 300 ms after a cut, and phone landscape below 0.99 until the spec is settled.
+- technical-artist: optional export of the new morph methods from kit `index.ts`.
+
+---
+
+## Previous update (integration round 1)
+
 ## Summary
 I built the pure domain layer (layout, collision, navigation, presentation director, Guide AI, character sources and registry, camera maths, animation maths, photo load queue) with unit tests, including the NFR-26 30-minute soak, and the R3F scene on top of it: museum, frames, characters with name labels, follow camera, nearest-first photo loading, screen-rectangle output, replay, jump, hint and Playwright test hooks. I checked it end to end in headless Chromium and WebKit (iPhone) through the real `VisitExperience`: welcome, Start, presentation, finale, jump, replay, dismiss, reduced motion, a full route walk, React StrictMode, no console errors. Look and feel is placeholder behind one seam file, ready for the technical-artist.
 

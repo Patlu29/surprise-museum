@@ -346,6 +346,7 @@ test.describe('US-6 and US-7 customise the characters', () => {
     await toCharacters(page);
     // Visitor first.
     await page.getByRole('tab', { name: /^Visitor/ }).click();
+    await page.getByRole('tab', { name: 'Face' }).click(); // Body is the opening tab since v1.1
     expect(await counts(page, 'Skin tone')).toBeGreaterThanOrEqual(8);
     await expect(page.getByRole('radiogroup', { name: 'Facial hair' })).toHaveCount(0);
     await page.getByRole('tab', { name: 'Hair' }).click();

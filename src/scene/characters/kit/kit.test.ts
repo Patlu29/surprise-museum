@@ -164,7 +164,7 @@ describe('describeAvatar', () => {
   it('mentions facial hair and works without a name', () => {
     const text = describeAvatar(withConfig({ facialHair: 'goatee', height: 'tall' }));
     expect(text).toBe(
-      'Taller height, regular build, short crop dark brown hair, navy shirt and trousers, goatee.',
+      'Taller height, regular build, short crop dark brown hair, goatee, navy shirt and trousers.',
     );
   });
 });

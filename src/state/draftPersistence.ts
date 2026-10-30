@@ -1,6 +1,6 @@
-import { AVATAR_OPTIONS } from '@contract';
+import { AVATAR_OPTIONS, avatarGender, isAvatarGender } from '@contract';
 import type { AvatarConfig } from '@contract';
-import { DEFAULT_GUIDE_AVATAR, DEFAULT_VISITOR_AVATAR } from '@/lib/avatars';
+import { avatarsEqual, DEFAULT_GUIDE_AVATAR, DEFAULT_VISITOR_AVATAR } from '@/lib/avatars';
 import type { BuilderStep, DraftFields } from './draft';
 import { safeLocalStorage } from './safeStorage';
 
@@ -42,10 +42,15 @@ function isStep(value: unknown): value is BuilderStep {
   return value === 1 || value === 2 || value === 3 || value === 4;
 }
 
-/** Keeps only option ids the app still offers; anything else falls back to the default. */
+/**
+ * Keeps only option ids the app still offers; anything else falls back to the default.
+ * `gender` is optional in older drafts: a missing or unknown value restores as Neutral
+ * (ADR 0020), so the restored avatar always carries an explicit `gender`.
+ */
 function restoreAvatar(value: unknown, fallback: AvatarConfig): AvatarConfig {
-  const result: AvatarConfig = { ...fallback };
+  const result: AvatarConfig = { ...fallback, gender: avatarGender(fallback) };
   if (!isRecord(value)) return result;
+  if (isAvatarGender(value.gender)) result.gender = value.gender;
   for (const key of AVATAR_KEYS) {
     const offered = AVATAR_OPTIONS[key] as ReadonlyArray<unknown> | undefined;
     const candidate = value[key];
@@ -84,6 +89,21 @@ export function parsePersistedDraft(raw: string | null): PersistedDraft | null {
   const maxStep = isStep(data.maxStep) ? data.maxStep : 1;
   const step = isStep(data.step) ? data.step : 1;
   return { fields, step, maxStep: Math.max(step, maxStep) as BuilderStep };
+}
+
+/**
+ * True when a restored draft holds something the Creator would miss: any text, a character
+ * choice that is not the default, or a saved step later than 1 (design spec 5.17). A draft that
+ * equals the defaults shows no "photos weren't kept" notice, because nothing was lost.
+ */
+export function holdsMoreThanDefaults(draft: PersistedDraft): boolean {
+  const { fields } = draft;
+  return (
+    draft.step > 1 ||
+    STRING_FIELDS.some((key) => fields[key].trim() !== '') ||
+    !avatarsEqual(fields.guideAvatar, DEFAULT_GUIDE_AVATAR) ||
+    !avatarsEqual(fields.visitorAvatar, DEFAULT_VISITOR_AVATAR)
+  );
 }
 
 export function serialiseDraft(draft: PersistedDraft): string {

@@ -18,6 +18,8 @@ interface RadioGroupProps<T extends string> {
   showValue?: boolean;
   /** Hide the visible label (the group keeps its accessible name). */
   labelHidden?: boolean;
+  /** Helper text shown below the options and linked with `aria-describedby`. */
+  description?: string;
   className?: string;
 }
 
@@ -34,9 +36,11 @@ export function RadioGroup<T extends string>({
   variant = 'tiles',
   showValue,
   labelHidden,
+  description,
   className,
 }: RadioGroupProps<T>) {
   const labelId = useId();
+  const descriptionId = useId();
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
   const selectedIndex = Math.max(
     0,
@@ -81,7 +85,12 @@ export function RadioGroup<T extends string>({
           <span className="radio-group__value">: {selected.label}</span>
         ) : null}
       </p>
-      <div role="radiogroup" aria-labelledby={labelId} className="radio-group__options">
+      <div
+        role="radiogroup"
+        aria-labelledby={labelId}
+        aria-describedby={description ? descriptionId : undefined}
+        className="radio-group__options"
+      >
         {options.map((option, index) => {
           const checked = option.value === value;
           const style = option.swatch
@@ -118,6 +127,11 @@ export function RadioGroup<T extends string>({
           );
         })}
       </div>
+      {description ? (
+        <p id={descriptionId} className="radio-group__help">
+          {description}
+        </p>
+      ) : null}
     </div>
   );
 }

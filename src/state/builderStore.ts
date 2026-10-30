@@ -2,11 +2,11 @@ import { create } from 'zustand';
 import type { AvatarConfig } from '@contract';
 import { LIMITS } from '@contract';
 import type { AvatarOptionKey, AvatarRole } from '@/lib/avatars';
-import { DEFAULT_GUIDE_AVATAR, DEFAULT_VISITOR_AVATAR } from '@/lib/avatars';
+import { avatarsEqual, DEFAULT_GUIDE_AVATAR, DEFAULT_VISITOR_AVATAR } from '@/lib/avatars';
 import { limitText } from '@/lib/text';
 import type { BuilderStep, DraftFields, DraftPhoto } from './draft';
 import { createInitialFields } from './draft';
-import { clearSavedDraft, loadDraft, saveDraft } from './draftPersistence';
+import { clearSavedDraft, holdsMoreThanDefaults, loadDraft, saveDraft } from './draftPersistence';
 
 /**
  * The Creator's draft (architecture section 8). The character choices, text fields and step
@@ -48,6 +48,13 @@ export interface BuilderState extends DraftFields {
   /** True once the Creator has ticked "I've saved my edit link" on the published screen. */
   editLinkAcknowledged: boolean;
   publish: PublishState;
+  /**
+   * True while the "Photos aren't kept" notice should show (design spec 5.17): set once at
+   * restore time when a draft with content came back without photos. Memory only, never saved.
+   */
+  restoredDraftNotice: boolean;
+  /** True once the notice has been announced, so it is announced once per page load. */
+  restoredDraftNoticeAnnounced: boolean;
 
   setStep: (step: BuilderStep) => void;
   setText: (field: 'title' | 'visitorName' | 'guideName' | 'closingMessage', value: string) => void;
@@ -72,6 +79,9 @@ export interface BuilderState extends DraftFields {
   acknowledgeEditLink: (value: boolean) => void;
   /** Clears the whole draft. Call `discardDraft()` in uploadQueue, which also frees blobs. */
   reset: () => void;
+  /** Hides the notice for this page load (Dismiss). Not saved. */
+  dismissRestoredDraftNotice: () => void;
+  markRestoredDraftNoticeAnnounced: () => void;
 }
 
 const TEXT_LIMITS = {
@@ -99,18 +109,30 @@ function initialState() {
     editToken: null as string | null,
     editLinkAcknowledged: false,
     publish: { ...initialPublish },
+    restoredDraftNotice: false,
+    restoredDraftNoticeAnnounced: false,
   };
 }
 
-function restoredState() {
+/**
+ * The state on page load: the saved draft if there is one. Photos are never restored, so a saved
+ * draft that holds more than the defaults earns the "Photos aren't kept" notice (design spec 5.17).
+ */
+export function createRestoredState() {
   const saved = loadDraft();
   return saved
-    ? { ...initialState(), ...saved.fields, step: saved.step, maxStep: saved.maxStep }
+    ? {
+        ...initialState(),
+        ...saved.fields,
+        step: saved.step,
+        maxStep: saved.maxStep,
+        restoredDraftNotice: holdsMoreThanDefaults(saved),
+      }
     : initialState();
 }
 
 export const useBuilderStore = create<BuilderState>()((set) => ({
-  ...restoredState(),
+  ...createRestoredState(),
 
   setStep: (step) =>
     set((state) => ({ step, maxStep: Math.max(state.maxStep, step) as BuilderStep })),
@@ -124,8 +146,6 @@ export const useBuilderStore = create<BuilderState>()((set) => ({
   setAvatarOption: (role, key, value) =>
     set((state) => {
       const target = role === 'guide' ? 'guideAvatar' : 'visitorAvatar';
-      // The Visitor has no facial hair in v1 (FR-14).
-      if (role === 'visitor' && key === 'facialHair') return state;
       return { [target]: { ...state[target], [key]: value } } as Pick<BuilderState, typeof target>;
     }),
 
@@ -138,7 +158,12 @@ export const useBuilderStore = create<BuilderState>()((set) => ({
 
   setConsent: (consent) => set({ consent }),
 
-  addPhotoItems: (items) => set((state) => ({ photos: [...state.photos, ...items] })),
+  addPhotoItems: (items) =>
+    set((state) => ({
+      photos: [...state.photos, ...items],
+      // The notice goes the moment a photo row is created (design spec 5.17).
+      restoredDraftNotice: items.length > 0 ? false : state.restoredDraftNotice,
+    })),
 
   patchPhoto: (localId, patch) =>
     set((state) => ({
@@ -176,13 +201,20 @@ export const useBuilderStore = create<BuilderState>()((set) => ({
   dismissRejections: () => set({ rejections: [] }),
 
   setEditToken: (editToken) => set({ editToken }),
-  setPublish: (patch) => set((state) => ({ publish: { ...state.publish, ...patch } })),
+  setPublish: (patch) =>
+    set((state) => ({
+      publish: { ...state.publish, ...patch },
+      restoredDraftNotice: patch.phase === 'done' ? false : state.restoredDraftNotice,
+    })),
   acknowledgeEditLink: (editLinkAcknowledged) => set({ editLinkAcknowledged }),
 
   reset: () => {
     clearSavedDraft();
     set(initialState());
   },
+
+  dismissRestoredDraftNotice: () => set({ restoredDraftNotice: false }),
+  markRestoredDraftNoticeAnnounced: () => set({ restoredDraftNoticeAnnounced: true }),
 }));
 
 function isBlank(state: BuilderState): boolean {
@@ -193,8 +225,8 @@ function isBlank(state: BuilderState): boolean {
     state.visitorName === blank.visitorName &&
     state.guideName === blank.guideName &&
     state.closingMessage === blank.closingMessage &&
-    JSON.stringify(state.guideAvatar) === JSON.stringify(blank.guideAvatar) &&
-    JSON.stringify(state.visitorAvatar) === JSON.stringify(blank.visitorAvatar)
+    avatarsEqual(state.guideAvatar, blank.guideAvatar) &&
+    avatarsEqual(state.visitorAvatar, blank.visitorAvatar)
   );
 }
 

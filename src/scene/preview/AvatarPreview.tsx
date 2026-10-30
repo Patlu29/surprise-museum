@@ -16,7 +16,7 @@ import { NameLabelPill } from '../characters/NameLabel';
 import { PREVIEW_BACKGROUND } from '../materials/lighting';
 import { PreviewLighting } from '../materials/MuseumLighting';
 import { SCENE_PALETTE } from '../materials/palette';
-import { buildAvatar } from '../seams';
+import { buildPreviewAvatar } from '../characters/previewAvatar';
 
 /**
  * The builder's live 3D preview (design spec 6.11 and Appendix A): both characters side by
@@ -205,11 +205,21 @@ const projected = new Vector3();
 
 function Figure({ role, config, x, turn, active, clock, label, onSelect }: FigureProps) {
   const anchor = useRef<Group>(null);
-  const configKey = JSON.stringify(config);
-  // A change rebuilds the character, which is well inside the 1 s target (FR-15).
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- configKey is the stable identity of config
-  const rig = useMemo(() => buildAvatar(config, role), [configKey, role]);
+  // One rig per character. A config change goes through `update` (setAppearance, with the gender
+  // morph) instead of rebuilding the rig, so nothing is rebuilt per frame while idle (FR-15).
+  const applied = useRef<AvatarConfig | null>(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- built once per role; later changes use update()
+  const rig = useMemo(() => buildPreviewAvatar(config, role), [role]);
   useEffect(() => () => rig.dispose(), [rig]);
+  useEffect(() => {
+    if (applied.current === null) {
+      applied.current = config; // the rig was built from this config
+      return;
+    }
+    if (applied.current === config) return;
+    applied.current = config;
+    rig.update(config, getEffectiveReducedMotion());
+  }, [rig, config]);
 
   const hitMaterial = useMemo(
     () => new MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
@@ -217,8 +227,9 @@ function Figure({ role, config, x, turn, active, clock, label, onSelect }: Figur
   );
   useEffect(() => () => hitMaterial.dispose(), [hitMaterial]);
 
-  useFrame((state) => {
+  useFrame((state, dt) => {
     const reduced = getEffectiveReducedMotion();
+    rig.stepMorph(Math.min(dt, 0.1));
     // Put the label under the plinth, in screen space.
     const el = label.current;
     if (el && anchor.current) {

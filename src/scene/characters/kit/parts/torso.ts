@@ -3,7 +3,7 @@
  * always follow the body type exactly.
  */
 import type { Color } from 'three';
-import { BASE, type BodyShape } from '../proportions';
+import { BASE, type AvatarShape } from '../proportions';
 import type { Ring } from '../geometry/surface';
 
 const WAIST_Y = BASE.hipY + BASE.waistRise;
@@ -17,7 +17,7 @@ export interface TorsoRings {
 }
 
 /** Rings for the body at `ofs` metres outside the skin. Colour is applied by the caller. */
-export function torsoRings(shape: BodyShape, ofs = 0): TorsoRings {
+export function torsoRings(shape: AvatarShape, ofs = 0): TorsoRings {
   const hipY = BASE.hipY;
   const pelvis: Ring[] = [
     { y: hipY - 0.1, rx: 0, rz: 0, pole: true },
@@ -28,9 +28,13 @@ export function torsoRings(shape: BodyShape, ofs = 0): TorsoRings {
   ];
   const chest: Ring[] = [
     { y: WAIST_Y, rx: 0.128 * shape.waist + ofs, rz: 0.1 + ofs },
-    { y: WAIST_Y + 0.1, rx: 0.138 * shape.chest + ofs, rz: 0.108 * shape.chest + ofs },
-    { y: 1.16, rx: 0.15 * shape.shoulder + ofs, rz: 0.106 * shape.chest + ofs },
-    { y: 1.26, rx: 0.158 * shape.shoulder + ofs, rz: 0.1 * shape.chest + ofs },
+    {
+      y: WAIST_Y + 0.1,
+      rx: 0.138 * shape.chest + ofs,
+      rz: 0.108 * shape.chest * shape.depth + ofs,
+    },
+    { y: 1.16, rx: 0.15 * shape.shoulder + ofs, rz: 0.106 * shape.chest * shape.depth + ofs },
+    { y: 1.26, rx: 0.158 * shape.shoulder + ofs, rz: 0.1 * shape.chest * shape.depth + ofs },
     { y: 1.31, rx: 0.11 * shape.shoulder + ofs, rz: 0.08 + ofs },
     { y: NECK_Y + 0.005, rx: 0.05 + ofs, rz: 0.046 + ofs },
     { y: NECK_Y + 0.015 + ofs, rx: 0, rz: 0, pole: true },

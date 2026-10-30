@@ -592,3 +592,63 @@ textarea.field__control {
 .radio-group--segmented .radio-option:focus-visible {
   border-radius: 0;
 }
+
+/* ------------------------------------------------------------------ Gender row and helper text (design spec 9.5) */
+.radio-group__help {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+.radio-group--gender .radio-group__options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5rem, 1fr));
+}
+.radio-group--two-column .radio-group__options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* ------------------------------------------------------------------ Restored-draft notice (design spec 5.17) */
+.restored-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-info-tint);
+  color: var(--color-text);
+  border: var(--hairline) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  max-height: 40rem;
+  transition:
+    opacity var(--duration-fast) var(--ease-standard),
+    max-height var(--duration-fast) var(--ease-standard),
+    padding var(--duration-fast) var(--ease-standard);
+}
+.restored-notice.is-leaving {
+  opacity: 0;
+  max-height: 0;
+  padding-block: 0;
+  border-width: 0;
+}
+.restored-notice__icon {
+  flex: none;
+  margin-top: var(--space-2);
+  color: var(--color-accent);
+}
+.restored-notice__body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+.restored-notice__title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+.restored-notice__detail {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}

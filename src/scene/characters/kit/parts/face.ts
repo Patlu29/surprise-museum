@@ -89,17 +89,21 @@ export function mouthLiftFor(facialHair: string): number {
   return 0.0025;
 }
 
-export function buildFace(skin: Color, mouthLift = 0.0025): FaceParts {
+export function buildFace(skin: Color, mouthLift = 0.0025, eyeSize = 1): FaceParts {
   const eye = hex(AVATAR_FIXED.eye);
   const blush = mixColour(skin, hex(SKIN_BLUSH.hex), SKIN_BLUSH.alpha);
 
   const deep = luminance(skin) < 0.1;
   const eyes = [-1, 1].map((s) =>
-    featureOnHead(s * 0.37, 0.04, [0.0145, 0.021, 0.008], eye, { lift: deep ? 0.0012 : -0.002 }),
+    featureOnHead(s * 0.37, 0.04, [0.0145 * eyeSize, 0.021 * eyeSize, 0.008], eye, {
+      lift: deep ? 0.0012 : -0.002,
+    }),
   );
   const sclera = deep
     ? [-1, 1].map((s) =>
-        featureOnHead(s * 0.37, 0.04, [0.0215, 0.028, 0.007], hex('#efe6dc'), { lift: -0.0015 }),
+        featureOnHead(s * 0.37, 0.04, [0.0215 * eyeSize, 0.028 * eyeSize, 0.007], hex('#efe6dc'), {
+          lift: -0.0015,
+        }),
       )
     : [];
   const nose = featureOnHead(0, -0.13, [0.013, 0.012, 0.014], shade(skin, 0.92), { lift: 0.001 });

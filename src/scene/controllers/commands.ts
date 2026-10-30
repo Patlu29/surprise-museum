@@ -2,6 +2,7 @@ import type { Vec2 } from '@/domain/math/vec2';
 import { useMuseumStore } from '@/state/museumStore';
 import { useSessionStore } from '@/state/sessionStore';
 import type { FollowCameraRig } from '../cameras/FollowCameraRig';
+import type { PresentationCameraController } from '../cameras/PresentationCameraController';
 import { isReducedMotion } from '../runtime/motion';
 import type { SceneRuntime } from '../runtime/SceneRuntime';
 import { jumpTo, replay } from './actions';
@@ -13,7 +14,11 @@ import { FRAME_COMMANDS } from './frameQueue';
  * queue work; the SceneDriver runs it at the start of the next frame, so the simulation is never
  * changed mid-tick. Returns an unsubscribe function.
  */
-export function installCommands(runtime: SceneRuntime, rig: FollowCameraRig): () => void {
+export function installCommands(
+  runtime: SceneRuntime,
+  rig: FollowCameraRig,
+  presenter: PresentationCameraController,
+): () => void {
   const queue = (fn: () => void): void => {
     FRAME_COMMANDS.queue.push(fn);
   };
@@ -42,6 +47,9 @@ export function installCommands(runtime: SceneRuntime, rig: FollowCameraRig): ()
       (s) => s.resetViewSeq,
       () =>
         queue(() => {
+          // Reset view during a presentation: the camera hands over where it is, then eases to
+          // the default behind the Visitor (design spec 6.12.7). The presentation continues.
+          presenter.beforeReset();
           const heading = runtime.registry.getSource('visitor').read().heading;
           rig.requestReset(heading, isReducedMotion());
         }),

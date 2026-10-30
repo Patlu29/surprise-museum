@@ -1,4 +1,5 @@
 import { Vector3, type Camera } from 'three';
+import { characterPoints } from '@/domain/camera/presentationFraming';
 import { LAYOUT } from '@/domain/layout/constants';
 import type { PhotoSlot } from '@/domain/layout/types';
 import type { ScreenRect } from '@/state/screenRects';
@@ -49,17 +50,19 @@ export function frameCorners(slot: PhotoSlot): Array<[number, number, number]> {
   ];
 }
 
-/** Eight corners of a box around a standing character, for a conservative on-screen rectangle. */
+/**
+ * The points that bound a standing character on screen, one body radius either side of the feet
+ * and of the head top along the camera's right. The same shape the presentation-camera solver
+ * uses (`characterPoints`), so the published rectangles, the solver and QA agree.
+ */
 export function characterCorners(
   x: number,
   z: number,
   height: number,
+  camera: Camera,
 ): Array<[number, number, number]> {
-  const r = 0.35;
-  const out: Array<[number, number, number]> = [];
-  for (const dx of [-r, r])
-    for (const dz of [-r, r]) for (const y of [0, height]) out.push([x + dx, y, z + dz]);
-  return out;
+  const e = camera.matrixWorld.elements;
+  return characterPoints(x, z, height, e[0] ?? 1, e[2] ?? 0);
 }
 
 export function unionRect(a: ScreenRect | null, b: DOMRect | null): ScreenRect | null {

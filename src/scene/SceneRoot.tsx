@@ -2,6 +2,7 @@ import type { MuseumContent } from '@contract';
 import { useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FollowCameraRig } from './cameras/FollowCameraRig';
+import { PresentationCameraController } from './cameras/PresentationCameraController';
 import { CharacterView } from './characters/CharacterView';
 import { CanvasInput } from './controllers/CanvasInput';
 import { installCommands } from './controllers/commands';
@@ -41,6 +42,7 @@ function contentKey(c: MuseumContent): string {
 interface Session {
   runtime: SceneRuntime;
   rig: FollowCameraRig;
+  presenter: PresentationCameraController;
 }
 
 /**
@@ -90,12 +92,15 @@ export function SceneRoot({ content, anisotropy, quality, canvasInput }: SceneRo
       { w: window.innerWidth, h: window.innerHeight },
     );
 
-    const offCommands = installCommands(runtime, rig);
+    const presenter = new PresentationCameraController(runtime, rig);
+    presenter.attachCanvas(gl.domElement);
+
+    const offCommands = installCommands(runtime, rig, presenter);
     const offPresentation = runtime.registry.onPresentationChange((role, presentation) => {
       // Only the Guide presents. The store marks a presented photo as viewed (A-17).
       if (role === 'guide') useSessionStore.getState().setPresentation(presentation);
     });
-    const offHooks = installTestHooks(runtime, rig, gl);
+    const offHooks = installTestHooks(runtime, rig, gl, presenter);
 
     // Context loss (NFR-11): tell the UI, which offers a reload.
     const canvas = gl.domElement;
@@ -116,12 +121,13 @@ export function SceneRoot({ content, anisotropy, quality, canvasInput }: SceneRo
 
     // The runtime owns WebGL resources and downloads, so it must be built and disposed in step
     // with this effect (StrictMode runs it twice). Publishing it to render is the one setState.
-    setSession({ runtime, rig });
+    setSession({ runtime, rig, presenter });
     return () => {
       offCommands();
       offPresentation();
       offHooks();
       offReady();
+      presenter.dispose();
       canvas.removeEventListener('webglcontextlost', onLost);
       attachCursor(null);
       delete canvas.dataset.sceneReady;
@@ -133,7 +139,7 @@ export function SceneRoot({ content, anisotropy, quality, canvasInput }: SceneRo
   }, [stableContent, anisotropy, gl]);
 
   if (!session) return null;
-  const { runtime, rig } = session;
+  const { runtime, rig, presenter } = session;
   return (
     <RuntimeContext.Provider value={runtime}>
       <SceneLights quality={quality} />
@@ -148,7 +154,7 @@ export function SceneRoot({ content, anisotropy, quality, canvasInput }: SceneRo
         config={stableContent.visitorAvatar}
         name={stableContent.visitorName}
       />
-      <SceneDriver rig={rig} />
+      <SceneDriver rig={rig} presenter={presenter} />
       {canvasInput && <CanvasInput />}
     </RuntimeContext.Provider>
   );

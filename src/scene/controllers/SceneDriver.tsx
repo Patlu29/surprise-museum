@@ -4,14 +4,19 @@ import type { PerspectiveCamera } from 'three';
 import { dist2, normalize2, type Vec2 } from '@/domain/math/vec2';
 import type { Room } from '@/domain/layout/types';
 import { consumeOrbitDelta, consumeZoomDelta, inputState } from '@/state/inputState';
-import { clearScreenRects, publishScreenRects } from '@/state/screenRects';
+import { clearScreenRects, publishScreenRects, type ScreenRect } from '@/state/screenRects';
 import { useSessionStore } from '@/state/sessionStore';
 import { avatarHeight } from '../characters/avatarRig';
 import type { FollowCameraRig } from '../cameras/FollowCameraRig';
+import {
+  MOVE_DEAD_ZONE,
+  type PresentationCameraController,
+} from '../cameras/PresentationCameraController';
 import { isReducedMotion } from '../runtime/motion';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { FRAME_COMMANDS } from './frameQueue';
-import { characterCorners, frameCorners, projectPoints, unionRect } from './projection';
+import { layoutLabels, resetLabels } from './labelLayout';
+import { characterCorners, frameCorners, projectPoints } from './projection';
 
 /**
  * The per-frame conductor (priority -10 so it runs before anything that draws):
@@ -32,7 +37,13 @@ function roomOf(rooms: readonly Room[], p: Vec2): Room | null {
   return null;
 }
 
-export function SceneDriver({ rig }: { rig: FollowCameraRig }) {
+export function SceneDriver({
+  rig,
+  presenter,
+}: {
+  rig: FollowCameraRig;
+  presenter: PresentationCameraController;
+}) {
   const runtime = useRuntime();
   const camera = useThree((s) => s.camera) as PerspectiveCamera;
   const gl = useThree((s) => s.gl);
@@ -85,6 +96,7 @@ export function SceneDriver({ rig }: { rig: FollowCameraRig }) {
     }
 
     // ---- Camera input and composition -----------------------------------------------------
+    presenter.camera = camera;
     rig.setViewport(camera, size.width, size.height);
     rt.view.fovY = rig.fovYRadians;
     rt.view.aspect = size.width / Math.max(1, size.height);
@@ -93,6 +105,16 @@ export function SceneDriver({ rig }: { rig: FollowCameraRig }) {
     if (blocked) {
       // Input is ignored while the welcome screen or the full-screen viewer is up.
     } else {
+      // Look-around and zoom take the camera from a presentation at once, with no ease (6.12.7).
+      if (
+        drag.yaw !== 0 ||
+        drag.pitch !== 0 ||
+        zoom !== 0 ||
+        inputState.orbitRate.yaw !== 0 ||
+        inputState.orbitRate.pitch !== 0
+      ) {
+        presenter.takeOver();
+      }
       rig.applyInput(dt, {
         rateYawDeg: inputState.orbitRate.yaw,
         ratePitchDeg: inputState.orbitRate.pitch,
@@ -114,7 +136,7 @@ export function SceneDriver({ rig }: { rig: FollowCameraRig }) {
       } else {
         const next = rt.nav.findPath(vp, auto.target)?.[0] ?? auto.target;
         const d = normalize2({ x: next.x - vp.x, z: next.z - vp.z });
-        const f = rig.pose.forward;
+        const f = rig.moveForward;
         const fl = Math.hypot(f.x, f.z) || 1;
         const fwd = { x: f.x / fl, z: f.z / fl };
         auto.intent.x = d.x * -fwd.z + d.z * fwd.x;
@@ -127,14 +149,27 @@ export function SceneDriver({ rig }: { rig: FollowCameraRig }) {
     rt.registry.tickAll(dt, {
       time: rt.time,
       reducedMotion: reduced,
+      // Position is where the camera is; forward is the follow direction, which is what walking
+      // is relative to, so an easing presentation camera never swings the walking direction.
       camera: {
         position: rig.pose.position,
-        forward: rig.pose.forward,
+        forward: rig.moveForward,
       },
     });
     const visitor = rt.registry.getSource('visitor').read();
     const teleported = visitor.teleportSeq !== last.current.visitorSeq;
     last.current.visitorSeq = visitor.teleportSeq;
+    // The presentation camera decides after the director has run this frame (6.12).
+    const moving =
+      !blocked &&
+      (Math.hypot(inputState.move.x, inputState.move.y) > MOVE_DEAD_ZONE || auto.target !== null);
+    const settledBefore = presenter.machine.settledSeq;
+    presenter.tick({
+      dt,
+      reduced,
+      moving,
+      viewport: { width: size.width, height: size.height },
+    });
     rig.update(
       dt,
       camera,
@@ -205,6 +240,8 @@ export function SceneDriver({ rig }: { rig: FollowCameraRig }) {
     timers.current.rects -= dt;
     const guide = rt.registry.getSource('guide').read();
     const presenting = guide.presentation.kind !== 'none';
+    // Publish at once when the camera arrives, so the caption card measures the settled pose.
+    if (presenter.machine.settledSeq !== settledBefore) timers.current.rects = 0;
     if (presenting && timers.current.rects <= 0) {
       timers.current.rects = RECT_INTERVAL;
       timers.current.rectsLive = true;
@@ -216,10 +253,12 @@ export function SceneDriver({ rig }: { rig: FollowCameraRig }) {
         guide.presentation,
         visitor.position,
         guide.position,
+        presenter.machine.active,
       );
     } else if (!presenting && timers.current.rectsLive) {
       timers.current.rectsLive = false;
       clearScreenRects();
+      resetLabels([rt.labels.get('visitor'), rt.labels.get('guide')]);
     }
   }, -10);
 
@@ -276,6 +315,7 @@ function publishRects(
   presentation: { kind: string; photoId?: string },
   visitorPos: { x: number; z: number },
   guidePos: { x: number; z: number },
+  framed: boolean,
 ): void {
   const r = canvas.getBoundingClientRect();
   const area = { left: r.left, top: r.top, width: r.width, height: r.height };
@@ -286,40 +326,48 @@ function publishRects(
     if (slot) picture = projectPoints(frameCorners(slot), camera, area);
   }
 
-  const labelRect = (role: 'visitor' | 'guide'): DOMRect | null => {
-    const el = rt.labels.get(role);
-    if (!el || Number(el.style.opacity || 0) < 0.05) return null;
-    return el.getBoundingClientRect();
+  // Labels slide off the picture while framed, then the overlap rule runs (design spec 5.5).
+  const labels = layoutLabels(
+    [
+      {
+        role: 'visitor',
+        element: rt.labels.get('visitor') ?? null,
+        x: visitorPos.x,
+        z: visitorPos.z,
+        height: heights.visitor,
+      },
+      {
+        role: 'guide',
+        element: rt.labels.get('guide') ?? null,
+        x: guidePos.x,
+        z: guidePos.z,
+        height: heights.guide,
+      },
+    ],
+    camera,
+    area,
+    framed ? picture : null,
+  );
+  const actor = (role: 'visitor' | 'guide', pos: { x: number; z: number }): ScreenRect | null => {
+    const body = projectPoints(characterCorners(pos.x, pos.z, heights[role], camera), camera, area);
+    return unionScreenRects(body, labels[role]);
   };
-  const actor = (role: 'visitor' | 'guide', pos: { x: number; z: number }) => {
-    const body = projectPoints(characterCorners(pos.x, pos.z, heights[role]), camera, area);
-    return unionRect(body, labelRect(role));
-  };
-  const visitor = actor('visitor', visitorPos);
-  const guide = actor('guide', guidePos);
-  publishScreenRects({ picture, visitor, guide });
+  publishScreenRects({
+    picture,
+    visitor: actor('visitor', visitorPos),
+    guide: actor('guide', guidePos),
+  });
+}
 
-  // If the two labels overlap on screen, raise the one farther from the camera by its own height
-  // plus 4 px. The test uses where each label would be without the raise, so it does not flip.
-  const lv = rt.labels.get('visitor');
-  const lg = rt.labels.get('guide');
-  if (lv && lg) {
-    const cam = camera.position;
-    const dv = Math.hypot(cam.x - visitorPos.x, cam.z - visitorPos.z);
-    const dg = Math.hypot(cam.x - guidePos.x, cam.z - guidePos.z);
-    const far = dv > dg ? lv : lg;
-    const near = far === lv ? lg : lv;
-    near.style.translate = '';
-    near.dataset.raised = '0';
-    const raisedBy = far.dataset.raised === '1' ? far.offsetHeight + 4 : 0;
-    const a = near.getBoundingClientRect();
-    const b = far.getBoundingClientRect();
-    const bTop = b.top + raisedBy;
-    const bBottom = b.bottom + raisedBy;
-    const shown = Number(lv.style.opacity || 0) > 0.05 && Number(lg.style.opacity || 0) > 0.05;
-    const overlap =
-      shown && a.left < b.right && a.right > b.left && a.top < bBottom && a.bottom > bTop;
-    far.dataset.raised = overlap ? '1' : '0';
-    far.style.translate = overlap ? `0 -${far.offsetHeight + 4}px` : '';
-  }
+function unionScreenRects(a: ScreenRect | null, b: ScreenRect | null): ScreenRect | null {
+  if (!a) return b;
+  if (!b) return a;
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return {
+    x,
+    y,
+    width: Math.max(a.x + a.width, b.x + b.width) - x,
+    height: Math.max(a.y + a.height, b.y + b.height) - y,
+  };
 }

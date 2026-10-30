@@ -1,7 +1,69 @@
 # Handoff: technical-artist
 
 ## Summary
-I built the museum look and the avatar kit entirely from code: no downloaded art, no GLB files and no HDR, so the look adds nothing to the first-view download. There are palette mirrors with token-drift tests, procedural textures, vertex-coloured geometry builders, three mobile-safe shaders, a materials factory, lighting, and a skinned "designer toy" avatar rig (three draw calls and at most 5,750 triangles per character). I also supplied two adapters (`buildAvatar` and `createSceneMaterials`) that match the scene-developer's `src/scene/seams.ts` shapes, plus the home and not-found SVG illustrations. My folders pass typecheck, lint and 38 unit tests, and `npm run build` succeeds. I checked renders in headless Chromium (software GL) only. Details are under Checks.
+I built the museum look and the avatar kit entirely from code: no downloaded art, no GLB files and no HDR, so the look adds nothing to the first-view download. There are palette mirrors with token-drift tests, procedural textures, vertex-coloured geometry builders, three mobile-safe shaders, a materials factory, lighting, and a skinned "designer toy" avatar rig (three draw calls and at most 5,878 triangles per character). I also supplied two adapters (`buildAvatar` and `createSceneMaterials`) that match the scene-developer's `src/scene/seams.ts` shapes, plus the home and not-found SVG illustrations. My folders pass typecheck, lint and 38 unit tests, and `npm run build` succeeds. I checked renders in headless Chromium (software GL) only. Details are under Checks.
+
+## CR-1 update (30/10/2026): gender in the avatar kit
+
+Woman, Man and Neutral (`feminine`, `masculine`, `neutral`) are in the kit. Neutral is exactly 1.00 everywhere and is vertex-identical to the v1.0 output (bit-exact fingerprint test). The three genders share one topology: the worst character is still 5,878 of 6,000 triangles, with 3 draw calls, so the 122-triangle headroom is untouched. The kit grew the three.js chunk (`NameLabel-*.js`) from 968,836 to 970,705 bytes (+1.9 kB minified, +0.8 kB gzip) against the 8 kB limit, and 970.70 kB is still under the 1,000 kB warning. No new three.js classes are imported.
+
+### How the shape is built
+| Piece | Where | What it does |
+|---|---|---|
+| `GENDER_SHAPES` | `proportions.ts` | Multipliers from design spec 9.1: shoulder, waist, hip, chest depth, neck, limb thickness, torso length, jaw, brow, eye |
+| `shapeFor(config)`, `composeShape` | `proportions.ts` | Reads gender with `avatarGender(config)` (missing or unknown is Neutral), multiplies body type on top. Every builder takes the resulting `AvatarShape` (a new optional last argument, so old calls still work) |
+| Torso and limbs | `parts/torso.ts`, `parts/body.ts`, `proportions.ts` | Rings, arm pivots, hip joints, neck radius and mitten hands read the composed multipliers. Chest depth scales `rz` only, so the width never changes. Outfits, sleeves, the dress skirt and the badge follow because they are built from the same rings |
+| Torso and leg length | `heightWarp` in `proportions.ts`, applied in `PartBuilder.add` and `jointsFor` | A vertical remap of existing vertices and joints. The leg multiplier is derived (`legs = (0.78 + 0.55 (1 - torso)) / 0.78`), so total height is identical for all three. Everything from the neck base up (head, hair, label anchor) does not move |
+| Jaw | `jawScale` in `proportions.ts`, applied in `PartBuilder.add` to every part skinned to `head` | Displaces the x of existing vertices below the head equator, easing from 1.00 at the equator to the jaw value at the chin. Hair caps, facial hair, ears and features are warped by the same function, so beards follow the jaw and cannot float or clip |
+| Eyes and brows | `parts/face.ts` (`eyeSize`), `parts/hair.ts` (`addBrows`) | Eye and eye-white radii by the eye multiplier, brow thickness by the brow multiplier. The mouth, nose and blush are the same on all three |
+
+Neutral skips every warp (`jaw === 1`, `torso === 1`), so its vertices are untouched.
+
+### Values tuned from the spec (all inside the 0.03 allowance)
+| Value | Spec | Built | Why |
+|---|---|---|---|
+| Woman shoulder | 0.95 | **0.945** | The spec limit for Slim Woman shoulders is 0.34 m, which allows no lower. On the real mesh (shoulder row of the whole silhouette over the hip row of the torso) Woman to Neutral was 8.7% apart, short of the 10% rule |
+| Woman hip | 1.06 | **1.07** | Same reason. Woman with Wider hips is 0.3595 m, under the 0.36 m limit |
+| Man shoulder | 1.07 | **1.08** | Keeps Neutral to Man above 10% on the real mesh. Man with Wider shoulders is 0.497 m, under 0.50 m |
+
+Result: neighbouring shapes are 10.1% to 12.2% apart on the real mesh for all four body types (spec numbers: 11.6% and 11.3%). Nothing is tuned beyond 0.03.
+
+### Preview morph API (for the scene-developer)
+Preview only. The visit calls `setAppearance` with the final gender and builds the final shape once. Reduced motion does the same.
+
+```ts
+rig.beginGenderMorph(to: AvatarGender, from?: AvatarGender): void;
+rig.setGenderMorphProgress(t: number): boolean;   // returns true while still morphing
+rig.morphing: boolean;                            // read-only
+```
+
+Flow in the builder preview, when only the active character's gender changed:
+1. `rig.beginGenderMorph(nextGender)`. This rebuilds nothing. It records the shape on screen now as the start (if a morph is running, that is the blended shape, which is how retargeting works, with no queue).
+2. `rig.setAppearance(nextConfig)` with the new gender in it, as usual. A `setAppearance` whose gender equals the morph target keeps the morph running. The shape stays at the start until step 3. Every other field in `nextConfig` applies at once, including mid-morph changes to hair, outfit or skin.
+3. Each frame, before `rig.applyPose(...)`: `rig.setGenderMorphProgress(elapsedMs / 250)` (with reduced motion, skip steps 1 and 3 and call only `setAppearance`). It clamps `t` to 0 to 1, blends every gender parameter linearly, and rebuilds the bind pose, body and hair meshes in place. The rig, meshes, bones, skeleton and materials are the same objects, and the body never shows an unclothed, hairless or empty frame. At `t >= 1` it ends on the exact table values: the result is vertex-identical to `setAppearance` with that gender (tested by hash), `morphing` becomes false and the call returns false.
+
+Rules:
+- Call `setGenderMorphProgress` **before** `applyPose` in the frame. A rebuild resets the bones to rest and applyPose then poses them. The rig also now uses a gender-specific hip rest height inside `applyPose`, so do not hard-code 0.78 (the old `HIP_REST_Y` export is no longer used by the rig).
+- If you called `setAppearance` first by mistake, pass the old gender as `from`: `beginGenderMorph(to, from)`.
+- A `setAppearance` with a gender other than the running target cancels the morph and jumps to that gender.
+- `useAvatarRig` is unchanged: it calls `setAppearance` on every config change, which jumps. For the animated preview call `beginGenderMorph` just before that effect (for example in the same effect, ahead of `rig.setAppearance`), or use `createAvatarRig` directly.
+- Cost: one frame is a body plus hair rebuild of the active character, about 1 to 2 ms in Node on the heaviest character (15 frames took about 17 ms). The 250 ms morph is about 15 frames. Measure on a phone: not done. Do not run it on both characters.
+- `rig.config.gender` is the target as soon as step 2 has run. `rig.height` and `labelAnchor` never change with gender, so label placement is stable during the morph.
+
+### Tests added (`gender.test.ts`, `neutralSnapshot.testutil.ts`)
+- Neutral equality: bit-exact hashes of position, normal and index for 16 groups (4 body types across all outfits, both roles, two skins, three facial hair styles; 12 hair styles across two hair colours, two skins, all facial hair), taken from the kit before CR-1. Run with no gender and with `neutral`; an unknown stored gender also equals Neutral.
+- Budget: every gender x body type x outfit x role x skin (`skin-01`, `skin-10`) x facial hair for the body mesh, and every gender x hair style x skin x facial hair for the hair mesh. The character total is body plus hair plus the 2-triangle shadow, so checking the two lists is exhaustive. Asserts at most 6,000 triangles (worst is exactly 5,878), identical counts across the three genders for every combination, 3 draw calls, and `rig.stats` equal to the sum.
+- Width limits for the 12 gender x body type combinations (shoulders 0.34 to 0.50 m, hips 0.26 to 0.36 m), the table ordering, the 0.03 tuning cap, identical total height, and the 10% silhouette separation (spec numbers, real mesh, and a 120 px snapped version).
+- Clipping and fit: hair against the back of the torso for all 12 hair styles x 12 shapes (never buried, and within 6 mm of Neutral's gap); beard, stubble, goatee and moustache against the displaced jaw for all genders x 12 hair styles; arms attached and neck inside the collar for all 12 shapes; the badge on the chest for all 6 outfits x 12 shapes; finite, bounded vertices for every gender x outfit x height with curvy and braids.
+- Rig: a gender change rebuilds the bind pose, body and hair (and a non-gender change leaves the hair alone); any path of `setAppearance` calls ends vertex-identical to a fresh rig; the hip rest height follows the gender.
+- Morph: nothing before `begin`; no new meshes, bones or materials; start, middle and end; monotonic vertices; retarget from the blend; other changes mid-morph; a different gender cancels; reduced motion path; explicit `from`; per-frame cost bound.
+- `kit.test.ts`: the `describeAvatar` expectation now matches the scene-developer's 9.4 template (facial hair before the outfit).
+
+### Not verified (CR-1)
+- **No render this round.** I did not look at the new faces or silhouettes. The 120 px silhouette check is geometric (a measured silhouette width, snapped to a 120 px figure), not an image comparison. Someone should look at all three genders from the front and back in the builder preview.
+- Design spec 9.7: Woman brows in black or dark brown on `skin-09` and `skin-10`. The brow is 0.90 of Neutral (about 11.7 mm tall), which is about 0.8 px at 120 px, against 0.9 px for Neutral. Judge it by eye at the preview's default size. If it does not read, set `GENDER_SHAPES.feminine.brow` to 1.00 (one number, no other change).
+- Outfit fit (216 combinations) is verified by construction (garments, sleeves, the dress skirt and the badge are built from the same ring and joint functions as the body) plus the badge, arm and hair tests above, not by a mesh-to-mesh intersection test. The hair curtains (`long-straight`, `long-wavy`, `braids`) already sink into the sides of the shoulders in v1.0 and still do, by the same amount.
+- Pose and walk cycle with the Man and Woman shapes were not run in a browser.
 
 ## Assets (file size and triangle count)
 
@@ -61,10 +123,11 @@ All paths are under `/Users/prakashrajan/Documents/boringTask/surprise`.
 **Avatar kit (`src/scene/characters/kit/`)**
 - `palette.ts`, `palette.test.ts`: typed `--avatar-*` mirror, keyed by the contract's option ids, with a drift test.
 - `options.ts`: labels, defaults (design spec 9.3) and `describeAvatar`. Pure TypeScript.
-- `proportions.ts`, `pose.ts`, `rig.ts`, `useAvatarRig.ts`, `sceneAvatar.ts`, `index.ts`.
+- `proportions.ts` (gender table, `shapeFor`, `heightWarp`, `jawScale`), `pose.ts`, `rig.ts` (gender rebuild and morph API), `useAvatarRig.ts`, `sceneAvatar.ts`, `index.ts`.
+- CR-1 edits: `geometry/partBuilder.ts` (jaw and height warps), `parts/torso.ts`, `parts/body.ts`, `parts/face.ts`, `parts/hair.ts`.
 - `geometry/surface.ts`, `geometry/partBuilder.ts`, `colour.ts`.
 - `parts/torso.ts`, `parts/outfits.ts`, `parts/body.ts`, `parts/face.ts`, `parts/hair.ts`.
-- Tests: `kit.test.ts`, `sceneAvatar.test.ts`.
+- Tests: `kit.test.ts`, `sceneAvatar.test.ts`, `gender.test.ts`, `neutralSnapshot.testutil.ts` (CR-1).
 
 **Illustrations and docs**
 - `public/textures/illustrations/home.svg`, `public/textures/illustrations/not-found.svg`.
@@ -129,7 +192,8 @@ const rig = createAvatarRig(config, { role: 'guide' });   // AvatarConfig comes 
 scene.add(rig.root);                                      // feet at root.position, faces +Z at heading 0
 rig.applyPose({ walkPhase, walkAmount, idleTime, present, lookYaw });
 rig.resetPose();                                          // still pose (reduced motion)
-rig.setAppearance(next);                                  // rebuilds only what changed
+rig.setAppearance(next);                                  // rebuilds only what changed; a gender change shows the final shape at once
+rig.beginGenderMorph('feminine'); rig.setGenderMorphProgress(t); // preview-only morph, see CR-1 update
 rig.setOpacity(0.35);                                     // yield and relocate fades
 rig.labelAnchor;                                          // Object3D 0.35 m above the head, scaled with height
 rig.stats;                                                // { triangles, drawCalls }
@@ -236,4 +300,11 @@ All fragment shaders use `mediump`, no loops and no texture reads. Additive outp
   - Check the brass badge and heart sticker are visible on the default Guide and Visitor at 120 px tall.
 - **performance-optimiser**
   - The tuning knobs are `GraphicsQuality` (`QUALITY_FEATURES`), texture scale, dropping the environment map, and merging frames, picture lights and washes with `mergePlaced`.
-  - The avatar triangle ceiling is 5,750 against a 6,000 budget, so there is little headroom if outfits grow.
+  - The avatar triangle ceiling is 5,878 against a 6,000 budget (122 spare, ADR 0020 section 7), so there is little headroom if outfits grow. The three.js chunk is 970.70 kB against the 1,000 kB warning.
+  - The gender preview morph rebuilds the active character's body and hair meshes each frame for 250 ms (about 1 to 2 ms in Node). Please measure it on the reference phone.
+- **scene-developer (CR-1)**
+  - Use the preview morph API under "CR-1 update" for the 250 ms gender change in the builder preview (reduced motion: `setAppearance` alone). Call `setGenderMorphProgress` before `applyPose`, and do not hard-code the hip rest height 0.78. The visit and the Visitor preview build the final shape with `createAvatarRig(config)` or `setAppearance`, so they never morph.
+  - `useAvatarRig` always jumps on a gender change. Either call `rig.beginGenderMorph(next.gender)` before its `setAppearance` effect runs, or move the preview to `createAvatarRig` and drive it yourself. I did not touch the hook's call order because `src/scene/` views are yours.
+- **qa-engineer (CR-1)**
+  - Visual regression: Neutral must match the existing baselines. All three genders, front and back, with at least `long-wavy`, `braids`, `afro`, a full beard, `dress` and `suit`, and the deepest skin tone with black hair.
+

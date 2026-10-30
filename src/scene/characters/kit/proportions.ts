@@ -2,11 +2,13 @@
  * Proportions and joint positions for the "designer toy" avatar (design spec 9.1).
  *
  * Medium height is 1.70 m: legs 0.80, torso 0.55, neck 0.05, head 0.32 (0.30 wide). Body type
- * changes torso, hip and limb widths only; the head never changes. Height scales the whole rig
+ * changes torso, hip and limb widths only; the head never changes. Gender (design spec 9.1, v1.1)
+ * is a second set of multipliers applied first, with body type multiplied on top; Neutral is
+ * exactly 1.00 everywhere, so a Neutral character is the v1.0 character bit for bit. Height scales the whole rig
  * uniformly (0.91, 1.00, 1.09). All numbers are metres in model space: feet at y = 0, facing +Z,
  * the character's left on +X.
  */
-import type { AvatarConfig } from '@contract';
+import { avatarGender, type AvatarConfig, type AvatarGender } from '@contract';
 
 export type BodyType = AvatarConfig['bodyType'];
 export type HeightId = AvatarConfig['height'];
@@ -37,6 +39,138 @@ export const BODY_SHAPES: Readonly<Record<BodyType, BodyShape>> = {
   curvy: { shoulder: 1, chest: 1.04, waist: 0.96, hip: 1.12, arm: 1, leg: 1.1 },
   broad: { shoulder: 1.15, chest: 1.08, waist: 1.08, hip: 1, arm: 1.12, leg: 1.05 },
 };
+
+/**
+ * Gender shape multipliers (design spec 9.1 and 9.6). Same topology for every gender: these move
+ * rings, joints and existing vertices, and resize the existing brows and eyes, nothing more.
+ * Spec values, with three tunings inside the 0.03 allowance (9.1 and 9.6) so that the silhouette
+ * from behind differs by 10% or more between neighbours when measured on the real mesh: Woman
+ * shoulder 0.95 to 0.945 (the Slim Woman 0.34 m limit allows no lower), Woman hip 1.06 to 1.07
+ * (Wider hips Woman is 0.36 m), Man shoulder 1.07 to 1.08. `torso` is the torso length; the leg length that
+ * keeps the total height identical is derived in `composeShape`.
+ */
+export interface GenderShape {
+  shoulder: number;
+  waist: number;
+  hip: number;
+  /** Chest front-to-back depth only (the width never changes). */
+  depth: number;
+  neck: number;
+  /** Arm and leg thickness; the mitten hands follow the arms. */
+  limb: number;
+  torso: number;
+  /** Lower-head width. */
+  jaw: number;
+  brow: number;
+  eye: number;
+}
+
+export const GENDER_SHAPES: Readonly<Record<AvatarGender, GenderShape>> = {
+  feminine: {
+    shoulder: 0.945,
+    waist: 0.92,
+    hip: 1.07,
+    depth: 1.04,
+    neck: 0.92,
+    limb: 0.94,
+    torso: 0.98,
+    jaw: 0.94,
+    brow: 0.9,
+    eye: 1.06,
+  },
+  neutral: {
+    shoulder: 1,
+    waist: 1,
+    hip: 1,
+    depth: 1,
+    neck: 1,
+    limb: 1,
+    torso: 1,
+    jaw: 1,
+    brow: 1,
+    eye: 1,
+  },
+  masculine: {
+    shoulder: 1.08,
+    waist: 1.02,
+    hip: 0.97,
+    depth: 1.02,
+    neck: 1.12,
+    limb: 1.06,
+    torso: 1.02,
+    jaw: 1.06,
+    brow: 1.15,
+    eye: 0.97,
+  },
+};
+
+const GENDER_KEYS = Object.keys(GENDER_SHAPES.neutral) as (keyof GenderShape)[];
+
+/** Linear blend of two gender shapes, for the preview morph. `t` is 0 (from) to 1 (to). */
+export function blendGender(from: GenderShape, to: GenderShape, t: number): GenderShape {
+  const out = { ...to };
+  for (const k of GENDER_KEYS) out[k] = from[k] + (to[k] - from[k]) * t;
+  return out;
+}
+
+/** Everything the builders need: body type and gender combined, plus the face parameters. */
+export interface AvatarShape extends BodyShape {
+  depth: number;
+  neck: number;
+  /** Torso length multiplier. */
+  torso: number;
+  /** Leg length multiplier, derived so that torso plus legs keep the Neutral total height. */
+  legs: number;
+  jaw: number;
+  brow: number;
+  eye: number;
+}
+
+/** Gender first, body type multiplied on top. Neutral multiplies by exactly 1. */
+export function composeShape(body: BodyShape, g: GenderShape): AvatarShape {
+  return {
+    shoulder: g.shoulder * body.shoulder,
+    chest: body.chest,
+    waist: g.waist * body.waist,
+    hip: g.hip * body.hip,
+    arm: g.limb * body.arm,
+    leg: g.limb * body.leg,
+    depth: g.depth,
+    neck: g.neck,
+    torso: g.torso,
+    legs: (BASE.hipY + BASE.torsoLength * (1 - g.torso)) / BASE.hipY,
+    jaw: g.jaw,
+    brow: g.brow,
+    eye: g.eye,
+  };
+}
+
+/** The shape for a config, reading gender through `avatarGender` (missing means Neutral). */
+export function shapeFor(config: AvatarConfig): AvatarShape {
+  return composeShape(BODY_SHAPES[config.bodyType], GENDER_SHAPES[avatarGender(config)]);
+}
+
+/**
+ * Vertical remap for torso and leg length: legs scale about the floor, the torso about the hip,
+ * and everything from the neck base up (head, hair, face) stays put. Null when nothing changes.
+ */
+export function heightWarp(shape: AvatarShape): ((y: number) => number) | null {
+  if (shape.torso === 1) return null;
+  const hip = BASE.hipY;
+  const neck = hip + BASE.torsoLength;
+  const hipNow = hip * shape.legs;
+  return (y) => (y <= hip ? y * shape.legs : y < neck ? hipNow + (y - hip) * shape.torso : y);
+}
+
+/**
+ * Jaw width factor at a point `dy` metres from the head centre (negative below). One at and above
+ * the equator, easing to `jaw` at the chin, so the jaw gets rounder or squarer on the same mesh.
+ */
+export function jawScale(jaw: number, dy: number): number {
+  if (dy >= 0) return 1;
+  const t = Math.min(1, -Math.asin(Math.max(-1, dy / HEAD.ry)) / 1.1);
+  return 1 + (jaw - 1) * t * t;
+}
 
 export const HEAD = {
   /** Head ellipsoid radii (0.30 wide, 0.32 tall). */
@@ -92,7 +226,7 @@ export interface Joints {
 }
 
 /** Model-space joint positions (bind pose) for a body shape. */
-export function jointsFor(shape: BodyShape): Joints {
+export function jointsFor(shape: AvatarShape): Joints {
   const hipY = BASE.hipY;
   const waistY = hipY + BASE.waistRise;
   const neckY = hipY + BASE.torsoLength;
@@ -128,7 +262,7 @@ export function jointsFor(shape: BodyShape): Joints {
   const r = arm(-1);
   const ll = leg(1);
   const lr = leg(-1);
-  return {
+  const joints: Joints = {
     hips: [0, hipY, 0],
     spine: [0, waistY, 0],
     neck: [0, neckY, 0],
@@ -147,6 +281,15 @@ export function jointsFor(shape: BodyShape): Joints {
     ankleL: ll.ankle,
     ankleR: lr.ankle,
   };
+  const warp = heightWarp(shape);
+  if (!warp) return joints;
+  // Same remap as the vertices, so the bind pose and the mesh agree.
+  const out = {} as Record<keyof Joints, readonly [number, number, number]>;
+  for (const k of Object.keys(joints) as (keyof Joints)[]) {
+    const [x, y, z] = joints[k];
+    out[k] = [x, warp(y), z];
+  }
+  return out;
 }
 
 /** Head centre in model space. */

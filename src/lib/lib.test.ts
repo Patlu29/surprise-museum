@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AVATAR_OPTIONS } from '@contract';
+import { AVATAR_GENDERS, AVATAR_OPTIONS } from '@contract';
 import {
   areaAnnouncement,
   directionPhrase,
@@ -13,10 +13,13 @@ import {
 } from './announcements';
 import {
   AVATAR_LABELS,
+  avatarOptionLabel,
   avatarsEqual,
   DEFAULT_GUIDE_AVATAR,
   DEFAULT_VISITOR_AVATAR,
   describeAvatar,
+  optionIds,
+  selectedGender,
 } from './avatars';
 import {
   DEFAULT_GUIDE_APPEARANCE,
@@ -135,6 +138,39 @@ describe('avatars', () => {
   it('compares avatars by value', () => {
     expect(avatarsEqual(DEFAULT_GUIDE_AVATAR, { ...DEFAULT_GUIDE_AVATAR })).toBe(true);
     expect(avatarsEqual(DEFAULT_GUIDE_AVATAR, DEFAULT_VISITOR_AVATAR)).toBe(false);
+  });
+
+  it('treats a missing gender as neutral and different from the other genders (ADR 0020)', () => {
+    const { gender: _ignored, ...legacy } = DEFAULT_GUIDE_AVATAR;
+    expect(avatarsEqual(legacy, { ...legacy, gender: 'neutral' })).toBe(true);
+    expect(avatarsEqual({ ...legacy, gender: 'neutral' }, legacy)).toBe(true);
+    expect(avatarsEqual(legacy, { ...legacy, gender: 'feminine' })).toBe(false);
+    expect(avatarsEqual({ ...legacy, gender: 'feminine' }, legacy)).toBe(false);
+    expect(
+      avatarsEqual({ ...legacy, gender: 'masculine' }, { ...legacy, gender: 'feminine' }),
+    ).toBe(false);
+    expect(avatarsEqual(legacy, { ...legacy, hairStyle: 'afro' })).toBe(false);
+  });
+
+  it('offers Woman, Man and Neutral in that order, and defaults to Neutral', () => {
+    expect(optionIds('gender')).toEqual([...AVATAR_GENDERS]);
+    expect(optionIds('gender').map((id) => avatarOptionLabel('gender', id))).toEqual([
+      'Woman',
+      'Man',
+      'Neutral',
+    ]);
+    expect(selectedGender(DEFAULT_GUIDE_AVATAR)).toBe('neutral');
+    expect(selectedGender(DEFAULT_VISITOR_AVATAR)).toBe('neutral');
+    expect(selectedGender({ ...DEFAULT_GUIDE_AVATAR, gender: 'nonsense' as never })).toBe(
+      'neutral',
+    );
+  });
+
+  it('shows the body type labels Wider hips and Wider shoulders without changing ids', () => {
+    expect(avatarOptionLabel('bodyType', 'curvy')).toBe('Wider hips');
+    expect(avatarOptionLabel('bodyType', 'broad')).toBe('Wider shoulders');
+    expect(AVATAR_OPTIONS.bodyType).toContain('curvy');
+    expect(AVATAR_OPTIONS.bodyType).toContain('broad');
   });
 });
 

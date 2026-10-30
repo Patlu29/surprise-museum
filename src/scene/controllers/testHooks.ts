@@ -2,6 +2,11 @@ import type { WebGLRenderer } from 'three';
 import { useMuseumStore } from '@/state/museumStore';
 import { useSessionStore } from '@/state/sessionStore';
 import type { FollowCameraRig } from '../cameras/FollowCameraRig';
+import type {
+  PresentationCameraController,
+  PresentationCameraSnapshot,
+} from '../cameras/PresentationCameraController';
+import { computePictureVisibleFraction } from './framingRects';
 import type { SceneRuntime } from '../runtime/SceneRuntime';
 import { jumpTo, replay } from './actions';
 
@@ -54,6 +59,8 @@ export interface TestSnapshot {
     photoTextureBytes: number;
   };
   labels: { visitor: boolean; guide: boolean };
+  /** The presentation camera (design spec 6.12.9 QA hook). */
+  presentationCamera: PresentationCameraSnapshot;
   /** Opacity of each internal wall; below 1 means it is fading because it blocks the camera. */
   partitionOpacity: number[];
   /** The graphics tier in use: 'low' or 'high'. */
@@ -101,6 +108,7 @@ export function installTestHooks(
   runtime: SceneRuntime,
   rig: FollowCameraRig,
   gl: WebGLRenderer,
+  presenter: PresentationCameraController,
 ): () => void {
   if (!testHooksEnabled()) return () => undefined;
 
@@ -153,6 +161,15 @@ export function installTestHooks(
           programs: gl.info.programs?.length ?? 0,
           photoTextures: runtime.photos.residentStats().count,
           photoTextureBytes: runtime.photos.residentStats().bytes,
+        },
+        presentationCamera: {
+          ...presenter.snapshot,
+          pictureVisibleFraction: computePictureVisibleFraction(
+            runtime,
+            presenter.camera,
+            gl.domElement,
+            presenter.snapshot.photoId,
+          ),
         },
         partitionOpacity: [...runtime.partitionOpacity],
         quality: document.documentElement.dataset.graphicsQuality ?? null,

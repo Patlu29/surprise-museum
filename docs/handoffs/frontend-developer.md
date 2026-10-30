@@ -1,5 +1,57 @@
 # Handoff: frontend-developer
 
+## Update: CR-1 gender option and CR-3 "Photos aren't kept" notice (30/10/2026)
+
+### Summary
+Gender radiogroup (Woman, Man, Neutral) is the first group on the Body tab, which is now the first tab and opens by default. Facial hair is offered to the Visitor, body types read "Wider hips" and "Wider shoulders", drafts persist `gender` (old drafts restore as Neutral, key and version unchanged), `avatarsEqual` reads gender through `avatarGender`, and a FR-76 guard test scans every string literal and JSX text under `src/`. The restored-draft information notice (design spec 5.17) is built with unit tests. `npm run typecheck`, `lint` and `build` pass; `npm run test` passes except one scene-owned test (below).
+
+### Files changed
+- `src/lib/avatars.ts`: `gender` is now an `AvatarOptionKey`; `optionIds('gender')` returns `AVATAR_GENDERS`; `AVATAR_LABELS.gender = GENDER_LABELS`; new `selectedGender()`; `avatarsEqual` compares `avatarGender(a)` and `avatarGender(b)` plus the other keys over the union of both key sets
+- `src/ui/builder/CharactersStep.tsx`: tab order Body, Face, Hair, Outfit and Body opens; Gender group ("Gender (optional)", helper text) first on Body; Body type two columns; facial hair for both characters; only the changed character's description is announced (debounced 400 ms)
+- `src/ui/components/RadioGroup.tsx`: optional `description` (helper text, linked by `aria-describedby`)
+- `src/ui/builder/RestoredDraftNotice.tsx` (new), `src/ui/builder/CreateScreen.tsx`: the notice, placed directly under the step heading and above the error summary
+- `src/ui/styles/components.css`: helper text, gender row (`repeat(auto-fit, minmax(5rem, 1fr))`), two-column grid, notice styles (tokens only)
+- `src/state/builderStore.ts`: Visitor facial hair guard removed; `restoredDraftNotice`, `restoredDraftNoticeAnnounced`; exported `createRestoredState()`; `isBlank` uses `avatarsEqual`
+- `src/state/draftPersistence.ts`: `restoreAvatar` keeps `gender` only if `isAvatarGender`, and always sets an explicit `gender` (Neutral when missing); new `holdsMoreThanDefaults()`
+- `src/state/draft.ts`: no longer forces Visitor `facialHair: 'none'` in `buildMuseumDocument` or `buildPreviewContent`
+- Tests: `src/lib/lib.test.ts`, `src/state/stores.test.ts`, `src/state/draft.test.ts`, `src/state/draftPersistence.test.ts` (updated and extended), new `src/ui/builder/RestoredDraftNotice.test.tsx`, new `src/lib/pronouns.test.ts` (FR-76 guard)
+- `tests/e2e/builder.spec.ts` (QA's file): one selector fix only, see Risks
+
+### Store shape additions (`useBuilderStore`, read by the builder UI only)
+| Field or action | Type | Meaning |
+|---|---|---|
+| `guideAvatar.gender`, `visitorAvatar.gender` | `AvatarGender` (explicit after restore, reset and the defaults) | Per-character gender. Readers must use `avatarGender(config)` |
+| `setAvatarOption(role, 'gender', value)` | action | Sets gender; touches nothing else. `resetAvatar` returns the defaults, including Neutral |
+| `restoredDraftNotice` | `boolean` | True while the notice shows. Set once at load by `createRestoredState()` when a stored draft held more than the defaults and photos are always empty. Memory only, never saved |
+| `restoredDraftNoticeAnnounced` | `boolean` | Set after the single announcement |
+| `dismissRestoredDraftNotice()`, `markRestoredDraftNoticeAnnounced()` | actions | Dismiss (this load only); mark announced |
+
+The notice clears in `addPhotoItems` (non-empty), `dismissRestoredDraftNotice`, `setPublish({phase:'done'})` and `reset()`. It never returns after photos are removed. The scene does not read any of these fields.
+
+### Decisions
+- Notice announcement uses the shared `announce()` region, 600 ms after the step announcement, once per page load (flag in the store), cancelled if the notice goes first. The visible notice has no role (spec allows this); removal and dismissal are silent. Tests are store and markup level because vitest runs in node with no DOM library.
+- Removal fades and collapses over `--duration-fast`: the node stays mounted for 200 ms, `inert` and `aria-hidden`, then unmounts.
+- "Something beyond defaults" = any trimmed text, any avatar differing under `avatarsEqual`, or saved `step > 1` (`maxStep` is not used). A defaults-only draft, including an old one with no gender, shows nothing (tech-lead decision).
+- FR-76 audit: no app-written string literal or JSX text under `src/` contained a gendered pronoun or noun, so no copy changed. The guard scans literals and JSX text of non-test files (comments excluded) for she, her, hers, herself, he, him, his, himself, girlfriend, boyfriend; "woman" and "man" are not banned. Pronouns remain in code comments in `src/ui/visit`, `src/state/sessionStore.ts` and the scene and domain; I did not reword them.
+
+### Assumptions
+- `GENDER_LABELS` and the new body type labels come from `src/domain/characters/avatarOptions.ts` (present when I finished). `describeAvatar` is the scene-developer's.
+
+### Open questions
+- None new.
+
+### Requests for other agents
+- scene-developer: `src/scene/characters/kit/kit.test.ts` "mentions facial hair and works without a name" fails. The new `describeAvatar` puts facial hair before the outfit (spec 9.4 template: "..., goatee, navy shirt and trousers."), and the test still expects the old order. Update the test expectation.
+- qa-engineer: `tests/e2e/builder.spec.ts` "US-6 AC-1 and US-7 AC-1" needed a Face tab click before reading Skin tone (Body opens first); I added that line. The same test still asserts the Visitor has no Facial hair group (`toHaveCount(0)`), which now fails by design (CR-1). Please invert it, and rename the test. Other tests that assume the Face tab opens first, or that the first radiogroup after the tabs is Skin tone, should be checked. New checks to add: notice shown only after reload with a non-default draft and no photos, Dismiss moves focus to the step heading, announced once, gone on adding a photo.
+
+### Risks
+- Tab-order change (Body first) breaks the e2e noted above; I ran no e2e.
+- Deploy order (ADR 0020): the new bundle sends `gender` and a Visitor beard, so the functions must be deployed first in live mode.
+
+---
+
+# Previous handoff (kept for reference)
+
 ## Fix round 1 (QA bugs BUG-1 to BUG-4)
 
 | Bug | Fix |

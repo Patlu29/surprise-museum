@@ -185,7 +185,7 @@ export function buildMuseumDocument(
     openingGreeting: '',
     closingMessage: sanitiseMultiline(fields.closingMessage),
     theme: 'default',
-    visitorAvatar: { ...fields.visitorAvatar, facialHair: 'none' },
+    visitorAvatar: { ...fields.visitorAvatar },
     guideAvatar: { ...fields.guideAvatar },
     photos: publishablePhotos(photos).map((photo) => ({
       photoId: photo.photoId as string,
@@ -209,7 +209,7 @@ export function buildPreviewContent(
     openingGreeting: '',
     closingMessage: sanitiseMultiline(fields.closingMessage),
     theme: 'default',
-    visitorAvatar: { ...fields.visitorAvatar, facialHair: 'none' },
+    visitorAvatar: { ...fields.visitorAvatar },
     guideAvatar: { ...fields.guideAvatar },
     photos: usablePhotos(photos).map((photo, index) => ({
       id: photo.photoId ?? photo.localId,
