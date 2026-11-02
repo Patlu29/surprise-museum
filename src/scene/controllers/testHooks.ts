@@ -63,6 +63,12 @@ export interface TestSnapshot {
   presentationCamera: PresentationCameraSnapshot;
   /** Opacity of each internal wall; below 1 means it is fading because it blocks the camera. */
   partitionOpacity: number[];
+  /**
+   * Opacity of the ceiling (design spec 6.3): 1 at the default view, falling to 0 as the camera
+   * rises to within 0.1 m of it (1 - smoothstep(H - 0.6, H - 0.1, camera y); under reduced motion
+   * a hard step, off above H - 0.35 and on below H - 0.55). 0 means it is not drawn.
+   */
+  ceilingOpacity: number;
   /** The graphics tier in use: 'low' or 'high'. */
   quality: string | null;
 }
@@ -172,6 +178,7 @@ export function installTestHooks(
           ),
         },
         partitionOpacity: [...runtime.partitionOpacity],
+        ceilingOpacity: runtime.ceilingOpacity,
         quality: document.documentElement.dataset.graphicsQuality ?? null,
         labels: {
           visitor: Number(runtime.labels.get('visitor')?.style.opacity ?? 0) > 0.5,

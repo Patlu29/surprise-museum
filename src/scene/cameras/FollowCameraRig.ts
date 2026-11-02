@@ -10,6 +10,7 @@ import {
 } from '@/domain/camera/composition';
 import type { Aabb } from '@/domain/navigation/geometry';
 import { angleDiff, smoothingFactor } from '@/domain/math/vec2';
+import { boomLimitForHeight } from './ceilingFade';
 import { createPose, type CamPose } from '@/domain/camera/presentationCameraMachine';
 
 const DEG = Math.PI / 180;
@@ -227,7 +228,12 @@ export class FollowCameraRig {
       this.pivot.y += (targetY - this.pivot.y) * k;
     }
 
-    const wanted = clampBoom(this.composition.boom + this.boomOffset);
+    // The camera never rises far above the ceiling: a long boom at a steep pitch is shortened for
+    // the height (pitch and the zoom setting are untouched, so lowering the pitch gives it back).
+    const wanted = Math.min(
+      clampBoom(this.composition.boom + this.boomOffset),
+      boomLimitForHeight(this.pivot.y, this.pitch),
+    );
     const blocked = occludedBoom(
       this.pivot,
       this.yaw,

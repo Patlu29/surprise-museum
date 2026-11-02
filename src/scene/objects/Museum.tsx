@@ -20,6 +20,7 @@ import {
   type LookMaterials,
   type MuseumMaterials,
 } from '../seams';
+import { CeilingFade } from './CeilingFade';
 import { FrameGlows } from './FrameGlows';
 import { buildMuseumDressing } from './museumDressing';
 import { buildMuseumShell } from './museumGeometry';
@@ -31,7 +32,7 @@ import { TitlePlaque } from './TitlePlaque';
 /**
  * The museum built from the generated layout, dressed with the technical-artist's look: linen
  * walls, oak floors and the claret runner on plain merged boxes (shader dressing), walnut frames
- * with cream mounts, brass picture lights, soft wall washes, ceiling roses, the finale podium,
+ * with cream mounts, brass picture lights, soft wall washes, the finale podium,
  * lectern, light cone and dust motes, and the entrance title plaque. About 20 draw calls for the
  * shell and dressing, plus 2 per picture.
  *
@@ -59,6 +60,7 @@ export function Museum({ quality }: { quality: GraphicsQuality }) {
   useEffect(() => () => shell.dispose(), [shell]);
   useEffect(() => () => dressing.dispose(), [dressing]);
   useEffect(() => () => partitionMaterials.dispose(), [partitionMaterials]);
+  const ceilingMesh = useRef<Mesh>(null);
 
   // Advance the dust motes' clock and honour reduced motion.
   useFrame((state) => {
@@ -81,7 +83,13 @@ export function Museum({ quality }: { quality: GraphicsQuality }) {
       <PartitionFade partitions={layout.partitions} materials={partitionMaterials.materials} />
       <mesh geometry={shell.floors} material={materials.floor} raycast={() => null} />
       <mesh geometry={shell.floorsFinale} material={materials.floorFinale} raycast={() => null} />
-      <mesh geometry={shell.ceilings} material={materials.ceiling} raycast={() => null} />
+      <mesh
+        ref={ceilingMesh}
+        geometry={shell.ceilings}
+        material={materials.ceiling}
+        raycast={() => null}
+      />
+      <CeilingFade mesh={ceilingMesh} material={materials.ceiling} />
       <mesh geometry={shell.runner} material={materials.runner} raycast={() => null} />
 
       <mesh geometry={dressing.decor} material={look.decor} raycast={() => null} />

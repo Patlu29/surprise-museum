@@ -1,5 +1,41 @@
 # Handoff: scene-developer
 
+## Update 02/11/2026: the ceiling no longer blocks a high camera (user feedback)
+
+### Cause
+- The ceiling was a closed 0.1 m box over every room (`buildMuseumShell`, `ceilings`), with a top face that is visible from above. The orbit is pivot (0.9 m) + boom x sin(pitch), so a camera at the default 4.2 m boom is higher than the 3.2 m ceiling from a pitch of about 33 degrees, and at 6 m boom and 55 degrees it is at 5.8 m. From there the roof's top face filled the screen with the ceiling colour (reproduced at 1280x720: from pitch 34 degrees, camera y 3.26 m, the whole canvas is the ceiling; nothing else visible).
+- Every way of raising the camera goes through `FollowCameraRig.applyInput`, which clamps pitch to 4 to 55 degrees and boom to 2.5 to 6 m: mouse or touch drag (0.25 / 0.3 degrees per px), Shift + Up/Down arrows (60 degrees per second), wheel, plus and minus (boom). Nothing else raises it: the presentation camera keeps 8 to 26 degrees and 0.3 m under the ceiling, Reset eases to 14 degrees. Keyboard note: Shift + ArrowDown raises the camera, ArrowUp lowers it.
+- Below the ceiling nothing blocks: at a steep pitch the ceiling is not in the view (the top edge of the view is about 31 to 33 degrees above the look axis, so for pitch above about 33 degrees no ray points up), so a pitch-based fade would change nothing visible. The cause is purely the camera being above the roof.
+
+### Fix (three parts, independent of each other)
+1. **Culled from above.** `ceilings` is now one flat quad per room at y = 3.2, normal and winding facing down, with the existing front-side material. From above it is back-face culled, so it can never occlude and needs no sorting. No new mesh or draw call (the old box had 12 triangles per room, now 2). From below it renders exactly as the box's underside did.
+2. **Fade by height (spec 6.3, v2.0 as committed).** `ceilingOpacityFor(cameraY)` in `src/scene/cameras/ceilingFade.ts` is `1 - smoothstep(H - 0.6, H - 0.1, y)` (H = 3.2: opaque at 2.6 m and below, clear from 3.1 m); no timer, so it follows the user's input and cannot flicker. The default camera is at most 2.35 m in every viewport class (tested with the real wall height and `computeComposition`), at least 0.85 m under the ceiling, so the default view is exactly as opaque as before and the "start at defaultCameraY + 0.1" fallback is not needed. Reduced motion: `ceilingReducedStep`, a hard step with hysteresis, off above H - 0.35 (2.85 m) and on below H - 0.55 (2.65 m), state kept between. Below an opacity of 0.02 the mesh is `visible = false` (not drawn: the top view makes 20 draw calls against 25 at the default pose). `CeilingFade.tsx` applies it each frame with no allocation; the ceiling is `transparent` (depth write off) only while partly faded and goes back to the opaque material at 1, like `PartitionFade`. It is one flat surface with nothing else transparent in front of it, so sorting cannot produce artefacts.
+3. **Height cap.** `FollowCameraRig.update` limits the boom so the camera is at most 2 m above the ceiling (5.2 m): `boomLimitForHeight`. It trims only a long boom at a steep pitch (pitch 55 and 6 m boom: 5.25 m boom, camera 5.2 m instead of 5.8 m). The stored pitch and zoom are untouched (lowering the pitch gives the zoom back), the 4 to 55 degree range is unchanged, and the default boom (4.2 to 5 m) is never trimmed at 55 degrees. This is the "clamp" the coordinator asked for; the designer's spec says "do not clamp the pitch", which holds.
+- The presentation camera is untouched (it composes from its own pose, 0.3 m under the ceiling, pitch at most 26), so `pictureVisibleFraction` and the 80 / 101 degrees per second limits are as before; the presentation-camera e2e result is below.
+
+### QA hook
+`snapshot().ceilingOpacity`: 1 at the default pose; falls to 0 as the camera rises (0 means not drawn); reduced motion is 0 or 1 only. `snapshot().camera.y` is the camera height. Measured on desktop 1280x720 (software GL, auto tier = low): y 1.92 and 2.35 give 1; 2.75 gives 0.78; 3.26 gives 0; pitch 55 with the default boom gives y 4.36 and 0. Reduced motion: 2.75 gives 1, 3.14 gives 0.
+
+### Changes the other roles must know about
+- **Ceiling roses and the finale oculus ring are no longer in the dressing.** `createCeilingRoseGeometry` builds them facing UP (a RingGeometry turned by -PI/2 has its normal on +Y), so the front-side decor material never drew them from inside the room (they were invisible before, so no baseline loses a rose). In the cutaway they would float as rings under the culled ceiling. Spec 6.3 says the rose fades with the ceiling, so it needs a facing-down rose and a fadable material. Request to technical-artist below; I will re-add them in `museumDressing.ts` when they exist.
+- The ceiling quad has no vertex colour (as the old box had none), so `SCENE_PALETTE.ceiling` is not applied to it and its look from below is unchanged. If the technical-artist wants the palette colour on it, add a `color` attribute in `ceilingQuad` (`museumGeometry.ts`) or give me the helper. The ceiling material is the technical-artist's `materials.ceiling`; it already supports opacity (I set `opacity` and `transparent` on it at runtime, only while it fades).
+- Wall tops are bare linen boxes, which show in the cutaway. Spec 6.3 / 12.8.3 has the technical-artist adding a 0.06 m `--look-dado-rail` cap.
+
+### Files changed
+- `src/scene/cameras/ceilingFade.ts` (new): opacity rule and height-cap maths (pure).
+- `src/scene/cameras/ceilingFade.test.ts`, `src/scene/cameras/followCameraCeiling.test.ts` (new): the rule (default pose opaque in five viewports, clear near the ceiling, monotone, no step, draw threshold, the reduced-motion hysteresis), the cap at every pitch and boom, no change at the default boom, pitch and zoom untouched.
+- `src/scene/objects/museumGeometry.ts`, `museumGeometry.test.ts` (new test): down-facing single quads (normals, winding, one per room, at 3.2 m, exact plan coverage).
+- `src/scene/objects/CeilingFade.tsx` (new), `Museum.tsx`: apply the fade to the ceiling mesh.
+- `src/scene/objects/museumDressing.ts`: roses removed (see above).
+- `src/scene/cameras/FollowCameraRig.ts`: boom limited for height.
+- `src/scene/runtime/SceneRuntime.ts`, `src/scene/controllers/testHooks.ts`: `ceilingOpacity`.
+
+### Requests
+- technical-artist: (1) `createCeilingRoseGeometry` faces up; make it face down (rotateX(+PI/2) or flip), and provide a way to fade it with the ceiling (own material with opacity, or a `uOpacity` on the decor glow material); the oculus ring too. (2) Optionally colour the ceiling with `SCENE_PALETTE.ceiling` (`createCeilingGeometry` has the colour attribute, but is a box; a down-facing quad is needed for the cutaway). (3) `palette.test.ts` currently fails against the designer's uncommitted `tokens.css` (`--scene-ceiling` #30232b against palette #3b2c33), which is the pending "update palette.ts" task, not this change. (4) The wall cap.
+- ux-ui-designer: 6.3 could add one line for the height cap (camera at most 2 m above the ceiling; pitch range unchanged) and that the ceiling is single-sided (culled from above), which is why a pitch rule is not needed.
+- qa-engineer: assert `snapshot().ceilingOpacity` (1 default; 0 at pitch 55 with the default boom), and `snapshot().camera.y`. Repro keys: Shift + ArrowDown raises the camera.
+
+
 ## Update (fix round 2, extra attempt): BUG-10, labels slide clear of the strip
 
 - **Real cause (instrumented at 360x640, scale 1.5, 24-character name):** the solver picked its only valid candidate (-35 deg, pitch 12) with the Guide dropped from the fit set (`guideDropped`, `relaxed`). Her body was fine (top 259) but her label, wrapped to two lines (158 x 68 px), sat at y 183.9 to 251.9, under the strip (bottom 192). No other candidate was valid (picture minimum width against the Visitor and the safe height), so a framing-only fix cannot work; my first attempt (a strip band test in the solver) therefore changed nothing and is reverted.

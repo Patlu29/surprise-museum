@@ -33,6 +33,8 @@ export interface SceneRuntime {
   finaleSignal: FinaleSignal;
   /** Current opacity of each internal wall (1 opaque, about 0.25 while it blocks the camera). */
   partitionOpacity: number[];
+  /** Opacity of the ceiling (1 opaque; 0 when the camera is high and it is not drawn). Spec 6.3. */
+  ceilingOpacity: number;
   /** Index of the picture under the mouse (desktop hover), or -1. */
   hoverIndex: number;
   /** Frame glow requested by the hint control (design spec 5.11). */
@@ -118,6 +120,7 @@ export function createSceneRuntime(options: RuntimeOptions): SceneRuntime {
     autopilot,
     finaleSignal: new FinaleSignal(),
     partitionOpacity: layout.partitions.map(() => 1),
+    ceilingOpacity: 1,
     hoverIndex: -1,
     hint: { target: null, until: 0 },
     time: 0,
