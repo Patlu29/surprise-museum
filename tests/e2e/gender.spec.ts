@@ -31,8 +31,6 @@ import { makePhotos, pixelDiffRatio } from './support/images';
 const GENDER_GROUP = 'Gender (optional)';
 const gender = (page: Page) => page.getByRole('radiogroup', { name: GENDER_GROUP });
 const previewReady = (page: Page) => expect(page.locator('.preview-slot__loading')).toBeHidden({ timeout: 30_000 });
-const BUG_11 =
-  'BUG-11 (frontend-developer): WebKit keeps a failed dynamic import for the document (N-9), so Try again re-imports the same URL and fails again; only a reload recovers. Remove this line when fixed.';
 /**
  * Largest share of differing pixels for "the same picture". Exactly 0 at a whole device pixel ratio (desktop, iPhone). On
  * a fractional ratio (Pixel 7: 2.625) two page loads sit half a device pixel apart and every figure edge differs (about
@@ -422,8 +420,7 @@ test.describe('US-46 choose each character gender in the builder', () => {
     await expect(page.locator('.preview-slot__stage[role=img]')).toHaveAttribute('aria-label', /Sam: woman, /, { timeout: 20_000 });
   });
 
-  test('US-46 AC-6: Try again after a failed preview load brings the preview back without a reload', async ({ page, browserName }) => {
-    test.fail(browserName === 'webkit', BUG_11);
+  test('US-46 AC-6: Try again after a failed preview load brings the preview back without a reload', async ({ page }) => {
     let fail = true;
     await page.route('**/assets/AvatarPreview-*.js', async (route) => {
       if (fail) await route.abort('failed');

@@ -21,17 +21,46 @@ import { NameLabel } from '@/ui/components/NameLabel';
  */
 type PreviewComponent = ComponentType<AvatarPreviewProps>;
 
+type PreviewModule = { default: PreviewComponent };
+
+/**
+ * iPhone WebKit remembers a failed module import for the whole session, so importing the same URL
+ * again can never succeed (BUG-11). The chunk's own file name is written into this module's chunk
+ * by the build, so a retry reads it from there and imports it with a throwaway query value, which
+ * is a different URL to the browser. Returns null when the name cannot be found (development
+ * server, or a changed build), so the caller falls back to a plain import.
+ */
+async function importPreviewFresh(attempt: number): Promise<PreviewModule | null> {
+  try {
+    const source = await (await fetch(import.meta.url, { cache: 'reload' })).text();
+    const name = /AvatarPreview-[\w-]+\.js/.exec(source)?.[0];
+    if (!name) return null;
+    const url = new URL(name, import.meta.url);
+    url.searchParams.set('retry', String(attempt));
+    return (await import(/* @vite-ignore */ url.href)) as PreviewModule;
+  } catch {
+    return null;
+  }
+}
+
+async function loadPreview(attempt: number): Promise<PreviewModule> {
+  if (attempt > 0) {
+    const fresh = await importPreviewFresh(attempt);
+    if (fresh) return fresh;
+  }
+  return import('@/scene/preview/AvatarPreview');
+}
+
 /**
  * Loads the preview chunk on mount. `React.lazy` would cache a rejected import for good, so Try
- * again could never recover (BUG-8); this host is remounted per attempt (keyed) and calls
- * `import()` afresh, which the browser retries when the earlier request failed.
+ * again could never recover (BUG-8); this host is remounted per attempt (keyed) and loads afresh.
  */
-function PreviewHost(props: AvatarPreviewProps & { onLoadError: () => void }) {
-  const { onLoadError, ...previewProps } = props;
+function PreviewHost(props: AvatarPreviewProps & { attempt: number; onLoadError: () => void }) {
+  const { attempt, onLoadError, ...previewProps } = props;
   const [Preview, setPreview] = useState<PreviewComponent | null>(null);
   useEffect(() => {
     let cancelled = false;
-    import('@/scene/preview/AvatarPreview').then(
+    loadPreview(attempt).then(
       (module) => {
         if (!cancelled) setPreview(() => module.default);
       },
@@ -42,7 +71,7 @@ function PreviewHost(props: AvatarPreviewProps & { onLoadError: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, [onLoadError]);
+  }, [attempt, onLoadError]);
   return Preview ? <Preview {...previewProps} /> : null;
 }
 
@@ -113,6 +142,7 @@ export function AvatarPreviewSlot({
           {canRender ? (
             <PreviewBoundary key={attempt} onError={() => setFailed(true)}>
               <PreviewHost
+                attempt={attempt}
                 onLoadError={onLoadError}
                 guide={guide}
                 visitor={visitor}
@@ -146,16 +176,24 @@ export function AvatarPreviewSlot({
                 : "We couldn't show the 3D preview. Your choices are still saved."}
             </p>
             {failed && webgl ? (
-              <Button
-                variant="secondary"
-                icon="retry"
-                onClick={() => {
-                  setFailed(false);
-                  setAttempt((value) => value + 1);
-                }}
-              >
-                Try again
-              </Button>
+              attempt > 0 ? (
+                // The retry also failed. The draft is saved on every change, including the step, so a
+                // reload comes back to the same place.
+                <Button variant="secondary" icon="retry" onClick={() => window.location.reload()}>
+                  Reload the page
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  icon="retry"
+                  onClick={() => {
+                    setFailed(false);
+                    setAttempt((value) => value + 1);
+                  }}
+                >
+                  Try again
+                </Button>
+              )
             ) : null}
           </div>
         ) : null}
