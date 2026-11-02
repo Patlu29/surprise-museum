@@ -1,6 +1,8 @@
 # User stories: Virtual 3D Photo Museum
 
-Version 0.3 | 29/10/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.3)
+Version 0.4 | 02/11/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.4)
+
+Change in v0.4 (CR-4, Improved UI, user request 02/11/2026): new Epic E10 with US-49 to US-61, covering visual polish, the landing page, mobile ergonomics, builder clarity, character definition, scene look and the no-regression guard rails. The direction is to polish the current look, keeping the identity, layout and flows; no existing story is changed. Reference viewports are in A-23: 360 by 640, 390 by 844, landscape 640 by 360, tablet 768 by 1024 and desktop 1280 by 720. Q-25 (the user's specific feedback) is open; when it arrives, add stories here or extend these ones.
 
 Change in v0.3 (user feedback, 29/10/2026: gender for the Guide and the Visitor): US-6 and US-7 changed (gender and facial hair offered on both characters); new US-46 (choose gender in the builder), US-47 (published museums render it, older museums still load) and US-48 (visit text avoids gendered pronouns). All Must, recommended for the current MVP.
 
@@ -463,11 +465,144 @@ As a Creator, I want options for flexibility, so that the Visitor can adjust her
 
 ---
 
+## Epic E10: Interface polish (CR-4)
+
+### US-49: Every screen looks consistent and clear (FR-77, FR-78, Must)
+As a Creator or a Visitor, I want every screen to look like part of the same finished product with an obvious main action, so that I always know what to do next.
+
+**Acceptance criteria**
+- Given I review the landing page, each builder step, the welcome, loading and error screens, the HUD, the caption card, the picture viewer, the picture list, settings and the finale card, when I compare them, then spacing, type sizes, corner radii and shadows come from the documented scales and the same kind of control (buttons, fields, cards, dialogs) has the same style everywhere
+- Given any screen, dialog or overlay, when I look at it, then exactly one action is visually primary, secondary actions are less prominent, and destructive actions (delete, start again, replace) are visibly distinct from both
+- Given I compare a before and after screenshot of any surface, when I look at the colours, logo, tone and layout, then it is recognisably the same product (A-24)
+- Given a first-time user is shown any screen for five seconds, when they are asked what it is for and what to do next, then at least 4 of 5 answer correctly
+- Given I use only the keyboard, when I tab through any restyled screen, then the focus order is unchanged and the focus indicator is visible
+
+### US-50: Controls feel responsive and finished (FR-79, Should)
+As a Creator or a Visitor, I want controls to react clearly when I touch or select them, and empty or error screens to be friendly, so that the app feels polished and I trust it.
+
+**Acceptance criteria**
+- Given any button, field or link, when I hover it with a pointer, focus it by keyboard, press it, or it is disabled or loading, then each state looks different from the others and from the default
+- Given I open or close a dialog, sheet or card, when it animates, then the transition takes 250 ms or less
+- Given the operating system requests reduced motion, when I open or close any dialog, sheet or card, then it appears and disappears instantly with no movement
+- Given there are no photos yet, an upload fails, a link is not found or WebGL is unavailable, when the screen shows, then it has a heading, a plain-language explanation and a next action, and it contains no gendered pronouns (FR-76)
+
+### US-51: A clear first impression on the landing page (FR-80, Should)
+As a Creator arriving at the home page, I want to understand what this is and how to start without scrolling, so that I begin quickly.
+
+**Acceptance criteria**
+- Given I open the home page at 360 by 640 and at 1280 by 720, when it loads, then the product name, a one-sentence description and the Create a museum button are all visible without scrolling
+- Given I scroll the page, when I read the how-it-works content, then there are three steps, each with a short heading and one idea
+- Given the home page loads on a throttled 4G connection, when I wait, then it is interactive within 5 seconds, has no 3D content and shows no layout shift larger than 0.1
+- Given I use only the keyboard, when the page loads, then the first Tab stop is a useful control and Enter on Create a museum opens the builder
+
+### US-52: Tap targets and text are comfortable on a phone (FR-81, FR-83, Must)
+As a Creator or a Visitor on a phone, I want controls I can tap without mistakes and text I can read without zooming, so that the app is easy to use one-handed.
+
+**Acceptance criteria**
+- Given a 360 px wide screen in portrait and in landscape, when I measure every interactive control in the builder, HUD and overlays (including stepper segments, reorder handles, Move up and Move down, remove and replace, dialog buttons, close controls, arrow buttons), then each target is at least 44 by 44 CSS pixels
+- Given two controls sit side by side, when I measure the gap, then it is at least 8 CSS pixels
+- Given a 360 px wide screen, when I read body, input and caption text, then it is at least 16 CSS pixels; label and helper text are at least 14 CSS pixels; and no text is smaller than 12 CSS pixels
+- Given the browser text size is 200%, when I use the builder and open the overlays, then every action is still reachable and there is no horizontal scrolling at 320 px wide
+- Given a long name, caption or error message, when it is shown, then it wraps or scrolls and is not cut off so that its meaning is lost
+
+### US-53: Key actions are within thumb reach and the phone's screen is respected (FR-82, FR-84, Must)
+As a Creator or a Visitor on a phone, I want the buttons I use most to be where my thumb is, and nothing hidden behind the browser bars or the keyboard, so that I never get stuck.
+
+**Acceptance criteria**
+- Given a phone in portrait (390 by 844), when I view each builder step, then Back, Next, Preview and Publish are in the lower 60% of the screen
+- Given I am roaming in the museum on a phone in portrait, when a panel is open, then the joystick and arrow buttons are in the lower 60% of the screen, and I can dismiss the panel from the lower 60% (a control there, or by tapping outside the panel)
+- Given a phone with a notch or a home indicator, when I view any bar or HUD control, then none sits under the notch, rounded corners or home indicator
+- Given the browser's address bar shows or hides as I scroll, when I look at the builder's action bar and the bottom HUD controls, then they are never hidden behind the browser toolbar
+- Given I tap a caption or name field and the on-screen keyboard opens, when I type, then the focused field stays visible, the page does not zoom, and I can still reach Next by scrolling or tapping
+- Given I rotate the phone while the keyboard is open or a dialog is showing, when the layout changes, then my typed text is kept and the dialog stays usable
+
+### US-54: I can always see my progress in the builder (FR-85, Must)
+As a Creator, I want to see where I am and what is still needed, so that the builder never feels long or confusing.
+
+**Acceptance criteria**
+- Given I am on any builder step, when I look at the screen, then I can see which step I am on, which steps are complete and what is still required to publish, without opening a dialog
+- Given a required item is outstanding (for example, no Guide name), when I tap it in the list, then I am taken to the field that fixes it
+- Given I complete a required item, when I do so, then it disappears from the outstanding list and the step shows as complete when its required items are done
+- Given I choose Preview with items missing, when the dialog opens, then it shows the same list as the builder
+- Given I use a screen reader, when the step or the outstanding list changes, then a polite announcement says so, for example "Step 3 of 4: Characters"
+- Given the builder is loading or a draft is restoring, when the screen first shows, then the progress area shows a loading state and not wrong counts
+
+### US-55: Required and optional are obvious, and defaults do the work (FR-86, Must)
+As a Creator, I want to know what I must fill in and what I can skip, so that I can finish quickly.
+
+**Acceptance criteria**
+- Given I open any builder step, when I read the fields, then each is grouped under a short heading and marked Required or Optional in text, not by colour alone
+- Given a field has a sensible default (for example, both characters start on Neutral and the museum title defaults to "A museum for <Visitor name>"), when I first open it, then it is already filled in or selected
+- Given I supply only at least 1 photo, a Visitor name, a Guide name and the consent confirmation, when I press Next three times and then Publish, then I reach publishing with no step skipped, removed or blocked
+- Given optional fields (for example, the closing message and museum title), when I view a step, then they are visually secondary to the required fields and I can leave them empty
+- Given I am on a phone in portrait, when I view any step, then the required fields appear before the optional ones
+
+### US-56: Help and errors appear where I need them (FR-87, FR-88, Should, Could)
+As a Creator, I want short guidance at each step and errors beside the field, so that I fix mistakes without hunting.
+
+**Acceptance criteria**
+- Given I open a builder step, when it loads, then a one-line statement says what the step is for
+- Given I leave a required field empty, when I leave the field or press Next, then a message appears next to that field saying how to fix it, and not before I have had a chance to type
+- Given I fix the problem, when the field becomes valid, then the message disappears and focus and the screen-reader announcement make the change clear
+- Given the step list is showing, when I look at it, then each step shows a rough time (for example, "about 2 minutes") based on observed usability-test times (Could)
+- Given a message is shown, when I read it, then it is in Australian English and contains no gendered pronouns (FR-76)
+
+### US-57: Characters are clear and well defined (FR-89, FR-90, Must)
+As a Creator and a Visitor, I want to see each character clearly, so that I recognise the people they represent.
+
+**Acceptance criteria**
+- Given the default visit camera at 360 by 640, when I look at the Guide and the Visitor against the floor and walls, then head, torso, arms, legs, hands and feet are distinguishable, with an edge or shading contrast of at least 3:1 against the backdrop for every skin tone, hair colour and outfit colour offered
+- Given the default camera and the closer presentation camera, when a reviewer looks at each character, then they can identify the eyes, brows, nose and mouth, the hair as a distinct shape with volume, the facial hair when selected, the hands apart from the sleeves, and the outfit's top and bottom as separate regions
+- Given I switch between Woman, Man and Neutral, when I compare the shapes and faces, then the differences are at least as distinguishable as before the change
+- Given I view the same character in the customiser preview, the builder preview and the visit, when I compare them, then the improvements appear identically in all three, and a museum published before CR-4 shows the improved look with no change to its settings
+- Given a combination of options cannot reach 3:1 edge contrast (for example, a white outfit against a pale wall), when it is found, then the cause is recorded and a fix or an accepted exception is agreed
+- Given the characters are still loading or fail to load in the preview, when that happens, then the loading or error state defined for US-6 is shown
+
+### US-58: Walking and standing read clearly (FR-91, Should)
+As a Visitor, I want the characters' walking and standing to look natural, so that the museum feels alive.
+
+**Acceptance criteria**
+- Given a character is walking at the default camera distance, when I watch it, then a stride and arm swing are visible
+- Given a character is standing, when I watch it for 5 seconds, then there is a subtle movement so that it does not look frozen
+- Given reduced motion is requested, when characters are standing or walking, then the idle movement is removed or minimised as defined for FR-62, and walking still plays only while the character is moving (FR-18)
+
+### US-59: The museum looks finished (FR-92, Must)
+As a Visitor, I want the museum interior to look rich and well made, so that walking through it feels like a real gallery.
+
+**Acceptance criteria**
+- Given I compare the interior before and after CR-4, when I look at the floor, walls, frames and finale podium, then materials, trim and lighting show visible refinement and the layout, identity and colours are recognisable
+- Given I stand in front of any picture, when I look at it, then it is evenly lit with no glare or shadow hiding the photo, as in US-17
+- Given I roam the museum, when I look for the standing pools and the finale podium, then they are at least as visible as before
+- Given the scene is loading or a photo fails to load, when I look at a frame, then the placeholder and Retry control from US-30 still work and look consistent with the new finish
+
+### US-60: The scene has depth and atmosphere (FR-93, Should)
+As a Visitor, I want soft shadows and subtle ambient detail, so that the museum feels three-dimensional.
+
+**Acceptance criteria**
+- Given the quality setting is Auto, when I roam, then characters and frames show soft contact shadows and at least one ambient depth cue
+- Given the quality setting is Low, when I roam, then those cues are simplified or removed, and the frame rate on the reference phone stays at or above 30 FPS
+- Given reduced motion is requested, when I roam, then no ambient effect animates
+
+### US-61: Polish does not break anything (NFR-27 to NFR-31, Must)
+As the product owner, I want the improvements to stay inside the existing budgets and rules, so that the app is better and no less fast, accessible or compatible.
+
+**Acceptance criteria**
+- Given the production build, when the bundle is measured, then the three.js chunk is under 1,000 kB minified, the first view is under 10 MB, and the landing page's transferred size has grown by no more than 100 KB
+- Given every offered gender, body type, outfit, hair style, facial hair option and the 10 skin tones, when the characters are counted, then none exceeds 6,000 triangles or 10 draw calls
+- Given NFR-1, NFR-2, NFR-3 and NFR-6 are re-measured by the same method, when the results are compared, then they still pass, including the Low quality tier on the reference phone
+- Given a museum published and a draft saved before CR-4, when each is opened, then it loads and looks improved with no migration, and the four builder steps and their order are unchanged
+- Given the automated accessibility check and a manual keyboard check on every surface, when they run, then text contrast is at least 4.5:1, component and focus contrast at least 3:1, and no AA failures remain
+- Given a scan of all new or changed app-written text, when it runs, then it finds no gendered pronouns or nouns (FR-76) and no non-Australian spellings (NFR-23)
+
+---
+
 ## Story map
 
 | Release | Stories |
 |---|---|
 | MVP (all Must) | US-1, US-2, US-3, US-4, US-5, US-6, US-7, US-8, US-9, US-10, US-11, US-12, US-13, US-14, US-15, US-16, US-17, US-22, US-23, US-24, US-30, US-31 (message only), US-32, US-33, US-42, US-45 (NFR-25 part), US-46, US-47, US-48 (added in v0.3) |
+| CR-4 Improved UI, Must (build now, v0.4) | US-49, US-52, US-53, US-54, US-55, US-57, US-59, US-61 |
+| CR-4 Improved UI, Should and Could (build now if time allows, in this order: US-50, US-51, US-56, US-58, US-60) | US-50, US-51, US-56 (FR-88 is Could), US-58, US-60 |
 | Release 2 (Should) | US-18, US-19, US-20, US-21, US-25, US-26, US-27, US-28, US-29, US-31 (slideshow), US-34, US-35, US-36, US-43, US-44, US-45 (NFR-26 part) |
 | Later (Could) | US-37, US-38, US-39, US-40, US-41 |
 | Future (Won't this release) | Live mode with both characters controlled live (FR-66), Creator accounts (FR-67), multiple Visitors, VR and AR, native apps (FR-68) |
@@ -502,4 +637,11 @@ As a Creator, I want options for flexibility, so that the Visitor can adjust her
 | FR-33, FR-34 | US-15 | NFR-25, NFR-26 | US-45 |
 | FR-35 | US-16 | FR-37 | Withdrawn (merged into FR-31, US-42) |
 | FR-36 | US-44 | FR-66, FR-67, FR-68 | None (Won't this release) |
-| FR-38 | US-40 | | |
+| FR-38 | US-40 | FR-77, FR-78 | US-49 |
+| FR-79 | US-50 | FR-80 | US-51 |
+| FR-81, FR-83 | US-52 | FR-82, FR-84 | US-53 |
+| FR-85 | US-54 | FR-86 | US-55 |
+| FR-87, FR-88 | US-56 | FR-89, FR-90 | US-57 |
+| FR-91 | US-58 | FR-92 | US-59 |
+| FR-93 | US-60 | NFR-27 to NFR-31 | US-61 |
+| FR-94 | None (Won't, CR-4) | | |

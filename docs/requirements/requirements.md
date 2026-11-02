@@ -1,6 +1,6 @@
 # Requirements: Virtual 3D Photo Museum (working title "Surprise Museum")
 
-Version 0.3 | 29/10/2026 | Owner: product-manager | Status: Approved 29/10/2026 (gender change request; Q-22 to Q-24 approved as recommended; Must, current MVP)
+Version 0.4 | 02/11/2026 | Owner: product-manager | Status: v0.3 approved 29/10/2026. v0.4 (CR-4, Improved UI) requested by the user 02/11/2026 with "spec and build straight away", so there is no separate design approval checkpoint. Q-25 (the user's specific feedback) is open and does not block the build; Q-26 to Q-29 carry marked defaults
 
 ## Change log
 
@@ -9,6 +9,7 @@ Version 0.3 | 29/10/2026 | Owner: product-manager | Status: Approved 29/10/2026 
 | 0.1 | First draft. MVP assumed a scripted, picture-to-picture tour |
 | 0.2 | **Q-1 changed by the user:** free roaming is the main experience and the Guide is an autonomous character that presents a picture when the Visitor comes near it. The scripted tour (Next button, forced sequence) is removed. Live real-time guiding with both characters controlled live is a future phase, and the architecture must not preclude it (NFR-25). Rewritten: FR-5, FR-8, FR-9, FR-11, FR-24 to FR-29, FR-39, FR-62, FR-63, FR-66, NFR-1, NFR-3. New: FR-30, FR-31, FR-32, FR-69 to FR-71, NFR-25, NFR-26, A-15 to A-19. Withdrawn: old FR-37 (merged into FR-31). Q-2, Q-4, Q-5, Q-7 approved; all other questions resolved with the recommended defaults (section 10) |
 | 0.3 | **Change request from the user (29/10/2026, local testing): "we need gender changing for the Guide and the Visitor."** Each character gets a per-character gender option (Woman, Man, Neutral) that changes the body shape, proportions and face. **A-3 revised:** gender is now an explicit, optional choice, replacing "no gender label". Changed: FR-13 and FR-14 (facial hair now offered to both characters, so a male Visitor is not boxed in; gender added to both lists), FR-15 (covers gender), A-3, section 5 Must count. New: FR-72 to FR-76, A-20 to A-22, Q-22 to Q-24. Stories: US-6 and US-7 changed; new US-46 to US-48. Recommended priority: Must, into the current MVP (see note under Epic E2). No other requirement changes |
+| 0.4 | **Change request CR-4 from the user (02/11/2026): "Improved UI".** Scope: the builder screens, the visit HUD and overlays, the landing (home) page, and the 3D scene look, plus clearer, more defined characters. Direction: **polish the current look** (keep the identity and layout; improve spacing, typography, hierarchy, mobile ergonomics and visual finish). It is not a new visual direction and not a rethink of the flows. Drivers: the app looks plain or dated; it is hard to use on phones; the builder feels long or confusing; and specific feedback still to come (Q-25). New epic E10 with FR-77 to FR-94, new NFR-27 to NFR-31, new A-23 to A-28, new Q-25 to Q-29. Stories: new US-49 to US-61. No existing requirement is changed or removed. CR-2 (presentation camera) and CR-3 (photos-not-kept notice) were handled through the design spec and `docs/project-status.md` and are not restated here |
 
 ## 1. Overview
 
@@ -61,7 +62,7 @@ The MVP is an **asynchronous, free-roaming visit with an autonomous Guide**: the
 | Shareable unguessable link; delete; preview | Passcode, expiry, edit-after-publish (Release 2, Should) |
 | Mobile-first, keyboard and reduced-motion support, WebGL fallback message | Per-picture voice notes, reveal date, reactions (Could) |
 
-Note on the number of Must requirements: the MVP has 47 functional Musts (42 in v0.2, plus the five gender requirements FR-72 to FR-76 added in v0.3) because each requirement covers one behaviour. They group into ten capabilities: builder, photos, characters, name labels, free roaming, autonomous Guide, museum layout, share and privacy, resilience and accessibility, and live-readiness. Items already demoted to Should to keep the MVP lean: music, themes, passcode, expiry, edit after publish, opening greeting, draft recovery, jump-to-picture, hint, viewed progress, finale prompt, accessories and gestures. If the MVP must shrink further, candidates are listed in section 9 (Assumptions, A-14).
+Note on the number of Must requirements: the MVP has 47 functional Musts (42 in v0.2, plus the five gender requirements FR-72 to FR-76 added in v0.3) because each requirement covers one behaviour. They group into ten capabilities: builder, photos, characters, name labels, free roaming, autonomous Guide, museum layout, share and privacy, resilience and accessibility, and live-readiness. CR-4 (v0.4) adds 11 more functional Musts (FR-77, FR-78, FR-81 to FR-86, FR-89, FR-90, FR-92), all of them polish of what already exists rather than new capability, giving 58 functional Musts in total; the trimming order if CR-4 must shrink is in A-28. Items already demoted to Should to keep the MVP lean: music, themes, passcode, expiry, edit after publish, opening greeting, draft recovery, jump-to-picture, hint, viewed progress, finale prompt, accessories and gestures. If the MVP must shrink further, candidates are listed in section 9 (Assumptions, A-14).
 
 ## 6. Functional requirements
 
@@ -179,6 +180,53 @@ The values in FR-26 to FR-28 are initial settings, to be tuned in playtesting (s
 | FR-64 | M | The Visitor experience and the builder work in portrait and landscape on phones, tablets and desktops, with controls and the caption panel that do not cover the Visitor or the active picture |
 | FR-65 | S | The Visitor can open a settings panel to mute sound, choose Auto or Low graphics quality, and increase caption text size |
 
+### Epic E10: Interface polish (CR-4, v0.4)
+
+Intent: polish what exists. The identity (palette, logo, tone), the layout and the flows stay as they are; the four builder steps, their order and the data they collect are unchanged (NFR-29). "Surfaces" below means the four areas in scope: the **landing page**, the **builder** (all four steps and its dialogs), the **visit HUD and overlays** (welcome, loading, caption card, picture viewer, picture list, settings, finale card, error screens) and the **3D scene** (museum interior and characters). Reference viewports for checks are in A-23. All new or changed copy follows FR-76 and NFR-23 (NFR-31). Budgets in NFR-27 and NFR-28 apply to every requirement here.
+
+**Visual polish**
+
+| ID | Pri | Requirement |
+|---|---|---|
+| FR-77 | M | All surfaces use one documented set of spacing, type-size, line-height, corner-radius and elevation scales, and one set of component styles for buttons, fields, cards, dialogs and sheets; a design review of every screen at the reference viewports finds no off-scale values and no two different styles for the same kind of control |
+| FR-78 | M | Every screen, dialog and overlay has exactly one visually primary action; secondary actions are visibly lower in emphasis and destructive actions (delete, start again, replace) are visibly distinct from both; headings follow a clear order so that a first-time user can say what the screen is for and what to do next |
+| FR-79 | S | Every interactive control shows distinct default, hover (pointer only), keyboard focus, pressed, disabled and loading states; dialogs, sheets and cards open and close with a transition of 250 ms or less; empty and error states (no photos yet, upload failed, museum not found, WebGL unavailable) are designed rather than bare text; all motion is removed or replaced by an instant change when reduced motion is requested (FR-62) |
+| FR-80 | S | On the landing page, the product name, a one-sentence description and the **Create a museum** button are all visible without scrolling at 360 by 640 and at 1280 by 720, and the three-step "how it works" content is scannable (short headings, one idea per step); the page adds no 3D content and stays within NFR-2 |
+
+**Mobile ergonomics**
+
+| ID | Pri | Requirement |
+|---|---|---|
+| FR-81 | M | On every surface at 360 px wide, in portrait and landscape, every interactive control (including stepper segments, photo reorder handles, Move up and Move down, remove and replace, dialog buttons, close and dismiss controls, HUD buttons and the arrow buttons) has a touch target of at least 44 by 44 CSS pixels, with at least 8 CSS pixels between adjacent targets, so that a neighbouring control is not tapped by mistake |
+| FR-82 | M | On a phone in portrait, the controls used repeatedly during a task sit within thumb reach: the builder's Back, Next, Preview and Publish actions and the visit's joystick, arrow buttons and the dismiss control for any panel that opens during roaming are in the lower 60% of the viewport, or the same action is also available there (for example, by tapping outside the panel); controls used once or rarely (for example, Settings) may be elsewhere |
+| FR-83 | M | At 360 px wide, body text, input text and caption text are at least 16 CSS pixels; helper, label and secondary text are at least 14 CSS pixels; no text anywhere is smaller than 12 CSS pixels; text does not overflow or get cut off so that its meaning is lost; and when the browser text size is set to 200% the builder and the overlays remain usable with no horizontal scrolling |
+| FR-84 | M | On phones, bars and HUD controls respect the device safe areas (notch, rounded corners, home indicator); the sticky builder action bar and bottom HUD controls are never hidden behind the browser's address bar or toolbar; and when the on-screen keyboard is open, the focused field stays visible and the builder can still reach its Next action by scrolling or tapping, without the page zooming on focus |
+
+**Builder clarity** (the builder feels shorter through clarity, not by removing steps)
+
+| ID | Pri | Requirement |
+|---|---|---|
+| FR-85 | M | On every builder step the Creator can see, without opening anything, which step they are on, which steps are complete, and what is still required before publishing (for example, "Add a Guide name"), with each outstanding item leading to the field that fixes it. The existing Preview "what is missing" dialog (US-8) remains and shares the same list |
+| FR-86 | M | Each builder step groups its fields into short labelled sections; every field is marked **Required** or **Optional** in text (not colour alone); optional content is visually secondary to required content; and every field that has a sensible default starts filled in. A Creator who supplies only the required inputs (at least 1 photo, a Visitor name, a Guide name and the consent confirmation) can reach Publish by pressing Next three times and then Publish, with no step skipped or removed |
+| FR-87 | S | Each builder step opens with a one-line statement of what it is for; field help is shown beside the field (not in a separate page); and a validation message appears next to the field it concerns, in plain language that says how to fix it, when the Creator leaves the field or presses Next, never before they have had a chance to type |
+| FR-88 | C | The step list shows a rough time for each step (for example, "about 2 minutes"), based on observed usability-test times |
+
+**Character definition**
+
+| ID | Pri | Requirement |
+|---|---|---|
+| FR-89 | M | At the default visit camera distance on a 360 by 640 phone and in the builder preview, each character's silhouette separates clearly from the floor and walls: head, torso, arms, legs, hands and feet are distinguishable, with an edge or shading contrast of at least 3:1 against the backdrop for every offered skin tone, hair colour and outfit colour. The technical-artist records any combination that cannot reach 3:1 and the cause |
+| FR-90 | M | At the default visit camera distance and during a presentation (camera closer), a reviewer can identify, for each character: the eyes, brows, nose and mouth as distinct from the skin; the hair as a shape with volume that is distinct from the head; facial hair when selected; the hands as distinct from the sleeves; and the outfit's top and bottom as separate regions. The gender differences from FR-73 remain at least as distinguishable as they are today. The improvement applies identically to the Guide and the Visitor, in the customiser preview, the builder preview and the visit (FR-74) |
+| FR-91 | S | The idle and walking animations (FR-18) read clearly at the default camera distance: the walk cycle shows a visible stride and arm swing, and the idle shows a subtle movement so that a standing character does not look frozen; reduced motion (FR-62) is still respected |
+
+**Scene look**
+
+| ID | Pri | Requirement |
+|---|---|---|
+| FR-92 | M | The museum interior receives a visual finish pass: floor, walls, frames, the finale podium and the lighting are refined (for example, material quality, surface detail, trim, softer light falloff) within the existing identity, without changing the layout; pictures stay clearly legible with no glare or shadow obscuring them (FR-40), and the standing pools, finale podium and other wayfinding cues are at least as visible as before |
+| FR-93 | S | The scene adds depth and atmosphere cues (for example, soft contact shadows under characters and frames, a subtle background gradient or ambient detail) on the Auto quality setting; on the Low quality setting (FR-65) they are simplified or removed so that NFR-1 still holds on the reference phone |
+| FR-94 | W | Not in CR-4: a new visual direction, a new colour palette or logo, dark mode, new museum themes (still FR-41, Should), new character options or accessories (FR-20), new builder features or steps, changes to the camera, controls or Guide behaviour, or any change to the data model |
+
 ### Epic E8: Future (not in this release)
 
 | ID | Pri | Requirement |
@@ -219,6 +267,11 @@ Reference devices (assumption A-8): **Reference laptop** is a 2022 mid-range lap
 | NFR-24 | M | Content handling | Audio never plays before a user gesture; the Visitor can mute at any time |
 | NFR-25 | M | Live-readiness | The design must not preclude a later live mode (FR-66). Each character's state (position, facing, animation and presentation state) is driven through an abstraction that separates "where the state comes from" from "how it is rendered", so that the local controller (for the Visitor) and the autonomous Guide behaviour can later be replaced or supplemented by a network source without changing the rendering, name labels or caption panel. In the MVP there is no networking; this is verified by architecture review and by a test that drives a character from a scripted, non-local source |
 | NFR-26 | S | Guide robustness | In an automated 30-minute run with a simulated Visitor roaming randomly, the Guide is never stuck for more than 10 seconds, never passes through walls, and never blocks the Visitor |
+| NFR-27 | M | CR-4 size and geometry budgets | After CR-4: the three.js chunk stays under 1,000 kB minified (about 969 to 971 kB today, so only about 30 kB of headroom, which means the scene and character improvements must come mainly from materials, parameters, lighting and textures rather than new libraries or code); no character exceeds 6,000 triangles (worst case today is 5,878, so about 122 spare) or 10 draw calls (3 today); the first view stays under 10 MB (NFR-4); and the landing page's transferred size, including any fonts, grows by no more than 100 KB (A-27) |
+| NFR-28 | M | CR-4 frame rate and load | After CR-4, NFR-1 (60 FPS laptop, 30 FPS reference phone), NFR-2, NFR-3 and NFR-6 are re-measured with the same method and still pass; the Low quality tier still holds 30 FPS on the reference phone; and no layout shift larger than 0.1 (Cumulative Layout Shift) occurs on the landing page or the builder steps during load |
+| NFR-29 | M | CR-4 no data or flow change | The published-museum document, the draft storage format, share and edit links, the four builder steps and their order, and the visit flow are unchanged. Museums published and drafts saved before CR-4 load and show the improved look with no migration (extends FR-75). Existing acceptance criteria for US-1 to US-48 still pass |
+| NFR-30 | M | CR-4 accessibility holds | Polish does not reduce accessibility: text contrast of at least 4.5:1, interface component and focus indicator contrast of at least 3:1, visible keyboard focus on every control, and reduced motion respected (NFR-12, FR-61, FR-62) on all surfaces after restyling |
+| NFR-31 | M | CR-4 copy | All new or changed text follows FR-76 (no gendered pronouns or nouns in app-written text) and NFR-23 (Australian English, DD/MM/YYYY where dates appear) |
 
 ## 8. Out of scope
 
@@ -232,6 +285,7 @@ Reference devices (assumption A-8): **Reference laptop** is a 2022 mid-range lap
 - Native iOS and Android apps, VR and AR
 - Languages other than English (AU)
 - Automated content moderation of photos
+- CR-4: a new visual direction, new palette or logo, dark mode, new themes, new character options, new builder features, removing or reordering builder steps, and any change to the data model (FR-94)
 
 ## 9. Assumptions
 
@@ -259,10 +313,16 @@ Reference devices (assumption A-8): **Reference laptop** is a 2022 mid-range lap
 | A-20 | **(v0.3)** "Gender" here is a visual styling choice for a cartoon character, not a record about a person. It is stored only as part of the character settings, is not shown to the Visitor as a label, and is not used for anything but rendering (NFR-13 unchanged) |
 | A-21 | **(v0.3)** Changing gender never auto-changes hair, outfit or any other option on an existing draft. On a brand-new draft, the starting defaults stay as in the design spec section 9.3 (Neutral). Optional "suggested look" presets per gender are not part of this change |
 | A-22 | **(v0.3)** The Visitor character's gender is chosen by the Creator, as with every other option (Q-11); the Visitor cannot change it before starting unless FR-22 (Could) is built later |
+| A-23 | **(v0.4, default for Q-26)** Reference viewports for CR-4 checks: phone portrait 360 by 640 (floor) and 390 by 844 (typical); phone landscape 640 by 360 and 844 by 390; tablet 768 by 1024; desktop 1280 by 720. Text reflow is also checked at 320 px wide (WCAG 1.4.10) |
+| A-24 | **(v0.4)** "Polish the current look" means the colour identity, logo, tone, screen layouts and flows stay recognisable. Changing spacing, type sizes and weights, corner radii, shadows, icons, illustration, motion timing, material and lighting quality is in scope. A before-and-after comparison of each surface should look like the same product, finished |
+| A-25 | **(v0.4)** "The builder feels long" is addressed through clarity (FR-85 to FR-88): progress, grouping, required and optional marking, and defaults. Steps are not removed, merged or reordered and no new data is collected. If usability testing still finds the builder too long, merging steps is a later, separate change request |
+| A-26 | **(v0.4, default for Q-27)** "Characters should be more defined" is read as three things together: a clearer silhouette against the backdrop (FR-89), clearer face, hair, hand and outfit detail (FR-90), and a clearer walk and idle (FR-91, Should). The cartoon, low-poly style is kept and no new character options are added. If the Creator-facing option catalogue is what feels thin, that is a separate request |
+| A-27 | **(v0.4, default for Q-29)** The current typeface family is kept. Sizes, weights and line heights may change. If a different or additional web font is wanted, the home page stays within the 100 KB growth limit in NFR-27 and shows no layout shift while it loads |
+| A-28 | **(v0.4)** If CR-4 must shrink, demote in this order: FR-84 (keep safe areas and drop the keyboard-handling detail), FR-86 (keep Required and Optional marking, drop the three-presses path), FR-92 (keep materials and trim, drop lighting changes), FR-90 (keep the face and hair, drop the hands and outfit regions). Never demote FR-81, FR-83 (phone ergonomics), FR-85, FR-89, or NFR-27 to NFR-30 |
 
 ## 10. Open questions
 
-All questions are resolved; the status column shows how. "Approved" means the user explicitly approved it; "Default" means the user accepted the recommended default. Q-21 is a new assumption for the user to confirm and can be deferred. Q-22 to Q-24 (v0.3) were approved by the user on 29/10/2026 as recommended.
+Q-1 to Q-24 are resolved; the status column shows how. "Approved" means the user explicitly approved it; "Default" means the user accepted the recommended default. Q-21 is a new assumption for the user to confirm and can be deferred. Q-22 to Q-24 (v0.3) were approved by the user on 29/10/2026 as recommended. **Q-25 to Q-29 (v0.4, CR-4) are open.** Because the user asked to build straight away, Q-26 to Q-29 carry a marked default that the build proceeds on; Q-25 is a placeholder for feedback the user has not yet detailed and does not block the build.
 
 | ID | Question | Status and decision | Impact |
 |---|---|---|---|
@@ -290,3 +350,8 @@ All questions are resolved; the status column shows how. "Approved" means the us
 | Q-22 | **Gender option set and labels** (new in v0.3). Which options, and what are they called? | **Approved 29/10/2026.** Three options labelled **Woman**, **Man** and **Neutral**, with the helper text "Changes the shape and face. Your other choices stay as they are." Stored ids `feminine`, `masculine`, `neutral` (architect to confirm). Neutral is the default and is today's shape. If you want a fourth, free-choice "Non-binary" label, it can map to the Neutral shape | Labels, art scope and schema values |
 | Q-23 | **Facial hair for the Visitor** (new in v0.3). Offer it to both characters? | **Approved 29/10/2026: yes** (FR-13 changed). Without it a male Visitor cannot be matched. The parts already exist for the Guide, so the cost is low | If no, a male Visitor has no beard options |
 | Q-24 | **Pronouns in visit text** (new in v0.3). Does the app need a pronoun setting? | **Approved 29/10/2026: no.** App-written text avoids pronouns entirely (FR-76), so no setting is needed. A pronoun field is a possible later addition if the Creator's captions are ever templated | If yes, adds a field, copy variants and tests |
+| Q-25 | **Your specific feedback** (new in v0.4, placeholder). You said there is specific feedback on the UI that you have not detailed yet. Which screens, which devices and browsers, and what felt wrong (for example, a screen shot or a short list)? | **Open (placeholder).** Does not block the build, which proceeds on the other three drivers (plain or dated look, hard on phones, builder feels long or confusing). When the feedback arrives it is triaged into a follow-up (CR-4a) and mapped to FR-77 to FR-93 or to a new requirement | Unknown until answered; items that need new features or flow changes would fall outside CR-4 (FR-94) |
+| Q-26 | **Phones and browsers you test on** (new in v0.4). Which phone model, orientation and browser do you use when it feels hard to use (for example, Safari on an iPhone, Chrome on Android, or a messaging app's built-in browser)? | **Default (build proceeds).** Check against A-23: 360 by 640 floor, 390 by 844 typical, landscape and tablet, with iOS Safari and Android Chrome as the lead browsers and in-app browsers per NFR-9. Real-device frame rate is still unverified (no devices available) | If a specific device shows a problem the emulation does not, it becomes a bug against FR-81 to FR-84 |
+| Q-27 | **What "more defined" means for the characters** (new in v0.4). Which is the main problem: too small or blurry to read, blending into the background, faces too blank, or the two characters too alike? | **Default (build proceeds).** All three readings are addressed together (A-26): silhouette separation (FR-89), facial, hair, hand and outfit detail (FR-90), and clearer animation (FR-91, Should). Cartoon, low-poly style kept; no new options | If the real issue is a thin option catalogue, that is a separate request |
+| Q-28 | **Can the character and size budgets be raised if needed?** (new in v0.4). Today only about 122 triangles per character and about 30 kB of the three.js chunk are spare | **Default: no.** Budgets stay (NFR-27) and definition comes from materials, colour, outline and shading techniques. Ask again only if the technical-artist shows that FR-89 or FR-90 cannot be met inside them | A higher budget raises load time and frame-rate risk on phones (NFR-1, NFR-2) |
+| Q-29 | **Typeface** (new in v0.4). Keep the current font family, or is a new typeface wanted? | **Default: keep the current family** and adjust size, weight and line height (A-27). A new font is allowed only within the 100 KB limit in NFR-27 | A new font affects the landing page's load time and the feel of the identity |

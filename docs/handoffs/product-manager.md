@@ -1,38 +1,58 @@
 # Handoff: product-manager
 
 ## Summary
-Requirements are now v0.3. The user's feedback from local testing (29/10/2026, "we need gender changing for the Guide and the Visitor") is recorded as a change: each character gets its own optional gender (Woman, Man, Neutral) that changes body shape, proportions and face, and nothing else. Assumption A-3 is revised, facial hair is now offered to both characters, and app-written text must avoid gendered pronouns. Recommended priority is Must, in the current MVP. Earlier v0.2 content (free roaming, autonomous Guide, live-readiness) is unchanged.
+Requirements are now v0.4. CR-4 "Improved UI" (user request 02/11/2026) is added as Epic E10: a small, testable set of requirements to polish the current look across the landing page, builder, visit HUD and overlays, and 3D scene, with clearer and more defined characters. Identity, layout, flows, the four builder steps and the data model are unchanged. The user chose spec-and-build straight away, so there is no design approval checkpoint. Q-25 (the user's specific feedback) is an open placeholder that does not block the build. Earlier v0.3 content (gender, FR-72 to FR-76) is unchanged.
 
 ## Files changed
-- docs/requirements/requirements.md: v0.3 and history entry; FR-13, FR-14, FR-15 changed; new FR-72 to FR-76 with a priority note; A-3 revised; new A-20 to A-22; new Q-22 to Q-24; Must count updated to 47
-- docs/requirements/user-stories.md: v0.3; US-6 and US-7 changed; new US-46 (choose gender), US-47 (published render, older museums, validation), US-48 (pronoun-neutral text); story map and traceability updated
+- docs/requirements/requirements.md: v0.4 and change log entry; Epic E10 with FR-77 to FR-94; NFR-27 to NFR-31; out-of-scope line; A-23 to A-28; Q-25 to Q-29; section 5 Must count note
+- docs/requirements/user-stories.md: v0.4; new Epic E10 with US-49 to US-61; story map and traceability updated
 - docs/handoffs/product-manager.md: this note
 
+## New IDs and priorities
+| Area | IDs | Priority |
+|---|---|---|
+| Visual polish | FR-77 scales and one component style set; FR-78 one primary action per screen, clear hierarchy | Must |
+| | FR-79 control states, transitions of 250 ms or less, designed empty and error states | Should |
+| | FR-80 landing page: name, one sentence and Create button above the fold at 360x640 and 1280x720 | Should |
+| Mobile ergonomics | FR-81 targets 44x44 with 8 px gaps; FR-82 thumb reach (lower 60%); FR-83 text 16 / 14 / 12 px minimums and 200% text; FR-84 safe areas, browser bars, keyboard | Must |
+| Builder clarity | FR-85 visible progress and outstanding list; FR-86 Required and Optional marking, grouping, defaults, three-Next path to Publish | Must |
+| | FR-87 step purpose line and inline validation | Should |
+| | FR-88 time hint per step | Could |
+| Character definition | FR-89 silhouette separation (3:1 edge contrast); FR-90 face, hair, hands and outfit regions readable | Must |
+| | FR-91 clearer walk and idle | Should |
+| Scene look | FR-92 interior finish pass, pictures and wayfinding as legible as before | Must |
+| | FR-93 depth and atmosphere cues on Auto, simplified on Low | Should |
+| Excluded | FR-94 new direction, palette, logo, dark mode, themes, new options, new steps, data model changes | Won't |
+| Guard rails | NFR-27 budgets (three.js chunk under 1,000 kB, 6,000 triangles, 10 draw calls, first view under 10 MB, landing page grows by no more than 100 KB); NFR-28 frame rate and load re-measured, CLS 0.1 or less; NFR-29 no data or flow change, old museums and drafts load; NFR-30 accessibility holds; NFR-31 copy follows FR-76 and Australian English | Must |
+
+Stories: US-49 (FR-77, FR-78), US-50 (FR-79), US-51 (FR-80), US-52 (FR-81, FR-83), US-53 (FR-82, FR-84), US-54 (FR-85), US-55 (FR-86), US-56 (FR-87, FR-88), US-57 (FR-89, FR-90), US-58 (FR-91), US-59 (FR-92), US-60 (FR-93), US-61 (NFR-27 to NFR-31). Musts: US-49, 52, 53, 54, 55, 57, 59, 61. Shoulds: US-50, 51, 56, 58, 60.
+
 ## Decisions
-- Gender is per character (Guide and Visitor set separately), with options **Woman, Man, Neutral**. Neutral is the default and equals today's shape (FR-72). Not a required choice: nobody is forced to pick
-- It changes only base body shape, proportions and face (FR-73). It never changes or resets hair, outfit, skin, body type, height or facial hair, and every option works with every gender, so nobody is boxed in. Body type and height apply on top of the gender shape
-- Facial hair is offered to both characters (FR-13, FR-14 changed). Otherwise a male Visitor cannot be matched. The contract already holds `facialHair` for the Visitor, so this is mostly UI
-- Priority is **Must, current MVP**. Reasons: it comes from the user's own testing; the characters are the emotional core of the gift; the schema is cheapest to extend before museums are published in volume; and the cost is small if it reuses the parametric kit. Fallback if the art budget (6,000 triangles per character) is tight: ship shape and proportions only and defer face differences to Release 2. The selector, persistence, rendering, backward compatibility and pronoun rules ship regardless
-- No pronoun field. App-written text avoids he, she and gendered nouns (FR-76). I found no such strings in `src/ui`, only code comments and design-spec prose, so this should be an audit plus a guard test, not a rewrite
-- Older museums (no field) load as Neutral with an identical look (FR-75). Unknown values are rejected on save (FR-74, US-47)
+- 11 functional Musts is above the usual limit of about 10, which I challenged: each is polish of something that exists and maps to one of the user's drivers or scoped areas. FR-80 (landing) was demoted to Should because only Creators see it; Visitors arrive from the share link. Trimming order if CR-4 must shrink is A-28
+- Builder "feels shorter" is done through clarity only: FR-85 (progress, outstanding list) and FR-86 (grouping, Required and Optional, defaults, and a testable three-Next path to Publish). No step is removed, merged or reordered (A-25, NFR-29)
+- Budgets are tight and drive the approach: the three.js chunk has about 30 kB spare (about 969 to 971 of 1,000 kB) and characters have about 122 triangles spare (5,878 of 6,000). NFR-27 therefore says the scene and character improvements should come mainly from materials, parameters, lighting and textures, not new libraries or geometry. The budgets are not raised by default (Q-28)
+- "Characters more defined" is read as silhouette separation, facial, hair, hand and outfit detail, and clearer animation (A-26). FR-89 sets a measurable 3:1 edge contrast against the backdrop; the technical-artist must record any option combination that cannot reach it (for example a white outfit on a pale wall), so we get a decision rather than a silent miss
+- Thumb reach (FR-82) allows either a control in the lower 60% or an equivalent action there (for example, tap outside to dismiss), so the designer keeps flexibility over the caption card's docking
 
 ## Assumptions
-- "Gender" is a styling choice for a cartoon character, not a record about a person. It is never shown to the Visitor as a label (A-20)
-- Changing gender does not alter other selections, and new-draft defaults stay as in design spec 9.3 (A-21)
-- The Visitor cannot change their own character's gender unless FR-22 (Could) is built later (A-22)
-- Stored ids are suggested as `feminine`, `masculine`, `neutral` as an optional field on the avatar config; whether to bump `v` or default at read time is the architect's and backend-developer's call
+- Reference viewports: 360x640 floor, 390x844 typical, landscape 640x360 and 844x390, tablet 768x1024, desktop 1280x720, plus 320 px reflow (A-23, default for Q-26)
+- "Polish" keeps colours, logo, tone, layouts and flows recognisable (A-24)
+- Current typeface family is kept (A-27, default for Q-29); a new font must fit within 100 KB growth on the landing page
+- The 100 KB landing growth limit and the 250 ms transition limit are my proposed numbers; the architect and designer may propose different ones with a reason
 
 ## Open questions
-- Q-22: Confirm the options and labels Woman, Man, Neutral, or add a fourth "Non-binary" label that maps to the Neutral shape. Recommended: the three options (user)
-- Q-23: Confirm that facial hair is offered to both characters. Recommended: yes (user)
-- Q-24: Does the app need a pronoun setting? Recommended: no, avoid pronouns in app text (user)
-- Standing from v0.2: Q-21 (finale trigger, can defer); legal review of privacy and terms before launch (legal team); pricing and contracts are not defined here, so please refer to the Sales team
+- Q-25 (placeholder, does not block the build): the user's specific UI feedback. Which screens, which devices and browsers, and what felt wrong. It will be triaged into CR-4a (user)
+- Q-26: which phone, orientation and browser the user finds hard to use. Default A-23 is in use (user)
+- Q-27: what "more defined" means most for the characters (too small, blends into background, blank faces, too alike). Default: address all (user)
+- Q-28: may the character and size budgets be raised if needed? Default: no (user, only if the technical-artist shows FR-89 or FR-90 cannot fit)
+- Q-29: keep the current typeface? Default: yes (user)
+- Standing: Q-21 (finale trigger, can defer); legal review of privacy and terms before launch (legal team); pricing and contracts are not defined here, so please refer to the Sales team
 
 ## Requests for other agents
-- architect: record the schema change as a decision (an ADR). Add an optional `gender` to `AvatarConfig` (suggested values `feminine`, `masculine`, `neutral`). Decide between keeping `v: 1` with a read-time default and bumping to `v: 2` with a migrator. The draft in localStorage must also load old drafts without the field. Confirm the character-kit parameterisation fits the 6,000-triangle and 10-draw-call budget
-- ux-ui-designer (design spec section 9): add a **Gender** radiogroup (Woman, Man, Neutral, with the helper text "Changes the shape and face. Your other choices stay as they are.") to the customiser, for both characters, probably first on the Body tab or on the Face tab. Show Facial hair on both characters' Face tab. Update 9.1 with the gender proportion table, 9.2 with the labels, 9.3 with the Neutral default, and the live description in 9.4 (for example "Tom: man, medium height, ..." and no gender word when Neutral). Check that "Curvy" and "Broad" body type labels still read sensibly beside Gender. Keep the preview within 1 s, with arrow-key navigation and visible focus. Review the copy deck for pronouns (FR-76)
-- technical-artist (character kit): add gender parameters to the kit: shoulder, waist and hip ratios, torso, limb and neck shape, and face shape (jaw, brow, cheeks). Neutral must render exactly as today. Rebuild only affected parts on change. Check all hair styles, outfits (including dress and suit), facial hair and the 10 skin tones against all three shapes and the heights, with no clipping. Keep the triangle and draw-call budget. If the budget is tight, apply the fallback in the requirements note. Hair and outfit must remain freely combinable
-- scene-developer: read `gender` from the avatar config wherever characters are built, for the Guide and the Visitor in the visit, the builder preview, the Visitor preview and the customiser. Treat a missing value as Neutral. Keep the preview update at 1 s or less, with no per-frame cost added, and confirm name labels still sit above heads when proportions change
-- frontend-developer: add the Gender control and wire it to the builder draft (persisted in localStorage with the avatars), the preview, `describeAvatar` in `src/domain/characters/avatarOptions.ts` (add labels, a default of Neutral in both default configs, and the description) and the keyboard and screen-reader behaviour in US-46. Show facial hair for the Visitor. Load old drafts with no field as Neutral. Audit all app-written strings for he, she, her and gendered nouns and add a guard test (FR-76). Code comments are not in scope
-- backend-developer (published document schema and validation): accept an optional `gender` on both avatars. A missing value is valid and means Neutral. Any other value outside the allowed set is rejected with a validation error. Return the stored value to the visitor-facing document unchanged, and return Neutral for older museums. Update `docs/api.md`, and confirm that edit-after-publish (R2) keeps the field
-- qa-engineer: derive tests from US-46 to US-48: preview within 1 s, keyboard radiogroup, reload persistence, published render, legacy museum with no field, rejected invalid value, independence from other options (all gender and option combinations, with no clipping), and a pronoun scan of app-written strings. The QA fix round can include this once the architect has settled the schema
+- ux-ui-designer (design spec, `src/styles/`): update the spec for CR-4 using the clarifying decisions above, with no checkpoint. Define the spacing, type, radius and elevation scales and the component style set (FR-77); the primary, secondary and destructive hierarchy for each screen (FR-78); the states and 250 ms transitions (FR-79); the landing first screen (FR-80); a type scale that meets 16 / 14 / 12 px minimums and 8 px target gaps at 360 px (FR-81, FR-83); the safe-area and keyboard behaviour (FR-84); the builder progress area and outstanding list, section grouping, Required and Optional markers and the three-Next path (FR-85 to FR-87). Watch two tensions with the current spec: the caption card docks at the top on phones and the Preview button sits at the top, but FR-82 wants repeated actions in the lower 60% (offer tap-outside dismiss or a reachable control). Also specify the character silhouette and feature treatment (FR-89, FR-90) and the scene finish list (FR-92, FR-93) with a Low-quality fallback
+- architect: confirm the CR-4 approach fits NFR-27 (about 30 kB chunk headroom). Note that no ADR is needed unless a font, an outline or post-processing technique, or a new dependency is proposed. Confirm that the 100 KB landing limit is measurable in CI (the bundle-size job exists)
+- technical-artist: deliver FR-89 to FR-93 through materials, colour, shading and texture within 5,878 of 6,000 triangles and 3 of 10 draw calls; an outline or rim technique is the likely route but must not add a post-processing dependency over budget. Report the edge-contrast result per skin tone, hair colour and outfit colour (FR-89) and any failing combination. Keep gender differences at least as distinguishable (FR-90)
+- scene-developer: apply the scene finish and the Auto and Low quality split (FR-92, FR-93) and keep standing pools, podium and wayfinding cues at least as visible. Do not change camera, controls or Guide behaviour
+- frontend-developer: implement the 2D polish for FR-77 to FR-88 on the landing page, builder, HUD and overlays. Keep the four steps, their order and the draft and document formats unchanged (NFR-29). Mark fields Required or Optional in text, build the progress and outstanding list from the same source as the Preview missing-items dialog, and write all new copy to FR-76 and Australian English. Use `dvh`-style viewport handling and safe-area padding for FR-84
+- qa-engineer: derive tests from US-49 to US-61. Suggested checks: target-size and gap measurement at 360 px in both orientations; font-size audit; 200% text and 320 px reflow; lower-60% position checks; safe-area and on-screen keyboard behaviour under emulation; the three-Next path to Publish; edge-contrast measurement per skin, hair and outfit colour; before and after screenshots for identity; bundle, triangle and draw-call budgets; NFR-1 to NFR-3 and NFR-6 re-run including Low tier; CLS 0.1 or less; legacy museum and draft load; pronoun and spelling scan. All 691 existing tests must still pass, with selectors updated only where visuals changed
+- devops-engineer: no change expected. The bundle-size job should also record the landing page transfer size so the 100 KB limit can be checked (architect to confirm)
