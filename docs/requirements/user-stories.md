@@ -623,7 +623,7 @@ As a Creator, I want to choose the face shape for the Guide and for the Visitor,
 As a Creator, I want to choose what each character wears and its pattern, so that the outfit matches the real person's style.
 
 **Acceptance criteria**
-- Given I open the customiser for either character, when I look at Clothing, then at least 6 styles are offered (today's six are kept), the current style is selected, and Pattern shows at least Plain, Stripes, Checks and Dots with Plain selected
+- Given I open the customiser for either character, when I look at Clothing, then 12 or more styles are offered (today's six, unchanged, plus about six new ones), the current style is selected, and Pattern shows at least Plain, Stripes, Checks and Dots with Plain selected
 - Given I choose a pattern, when I make the change, then the preview shows it within 1 second in tints of the chosen outfit colour, and the outfit colour control still changes the colour of the garment and the pattern together
 - Given I try every pattern with every clothing style and every outfit colour, when I view the preview, then every combination is allowed and renders, with the top and bottom still distinguishable
 - Given I choose Plain, when I compare the character with how it looked before this change, then it looks the same

@@ -42,11 +42,15 @@ Must count: 47 original + 9 CR-4 Musts (11 minus FR-82 and FR-84) + 8 new (FR-95
 - A-32: the ceiling fix is the scene-developer's bug fix and does not change the default camera, controls or Guide behaviour
 - A-33: the Visitor cannot change their own look; no presets
 
+## Answered later on 02/11/2026 (recorded in requirements v0.5 and user stories)
+- Q-30: "Double the styles". FR-97 now needs 12 or more styles: today's 6 unchanged plus about 6 new (US-64 updated). Technical-artist and designer propose the six garments with neutral labels; each must fit the budget on its own
+- Q-31: patterns use tints of the outfit colour, no second colour (FR-98 unchanged)
+- Q-32: FR-82 Could and FR-84 Should confirmed
+- Q-28: a triangle budget raise is accepted if needed. NFR-27 stays as written until the technical-artist proposes a figure and the performance-optimiser verifies it on the reference phone (Low tier included). The limit applies to the worst single style, not a sum
+- A-29 trimming order is now: drop new styles first (down to 3 new, so 9 minimum), then face shapes 5 to 3, then patterns to three
+
 ## Open questions
-- Q-30: do you want more than today's six clothing styles, or is "about 6" satisfied by them? Default: keep the six (user)
-- Q-31: should patterns use tints of the outfit colour (default) or a second colour picker? (user)
-- Q-32: confirm FR-82 to Could and FR-84 to Should, or keep FR-84 Must (user)
-- Q-28 stays "no" (user, only if the technical-artist proves FR-96 to FR-98 cannot fit)
+- Q-29: keep the current typeface? Default: yes (user)
 - Standing: Q-21 (finale trigger, can defer); legal review of privacy and terms before launch (legal team); pricing and contracts are not defined here, so please refer to the Sales team
 
 ## Requests for other agents
