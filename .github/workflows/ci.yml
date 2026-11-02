@@ -1,0 +1,225 @@
+# Continuous integration for Surprise Museum.
+#
+# Runs on every pull request and every push to main. It never deploys anything.
+# Deployment lives in deploy-pages.yml (manual only) and deploy-supabase.yml (manual only).
+#
+# Jobs (all are required unless noted):
+#   checks          typecheck, lint, unit tests, build, bundle-size budget
+#   deno            Deno check, lint and test for supabase/functions (UNVERIFIED locally, see below)
+#   e2e             Playwright against a mock "test mode" build: desktop-chromium, mobile-chromium, mobile-webkit
+#   e2e-firefox     Playwright on desktop-firefox. NON-BLOCKING: never run before, never in the QA sign-off
+#
+# This file is also called by deploy-pages.yml (workflow_call) so a deploy re-runs every check first.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+# github.workflow is the caller's name when this file is called by deploy-pages.yml, so a push run
+# and a deploy run on the same ref never share a group (which would cancel one of them).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Node 24 is the version CI uses. package.json requires >=22.12.0; local development used 26.
+  # There is no .nvmrc yet (root config, architect). Keep this in step with it when one exists.
+  NODE_VERSION: '24'
+
+jobs:
+  checks:
+    name: Typecheck, lint, unit tests, build, bundle size
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck (tsc -b, includes the e2e project from ADR 0019)
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # `npm run format:check` is deliberately NOT run: on 02/11/2026 it reports style issues in 30
+      # files (mostly tests/e2e, plus 8 under src/ and playwright.config.ts). Adding it now would
+      # fail every run. To enable it: run `npm run format` in a commit of its own (owners: qa-engineer
+      # for tests/, the src/ owners for src/), then add `run: npm run format:check` here.
+
+      - name: Unit tests
+        run: npm test
+
+      # No VITE_API_MODE: a production build is always live (ADR 0015) and needs no Supabase
+      # variables unless VITE_API_MODE=live is set. This proves the production build compiles, and it
+      # is the bundle that the size check measures. The Pages build is made in deploy-pages.yml.
+      - name: Build
+        run: npm run build
+
+      - name: Bundle size (fails if any chunk is over budget)
+        run: node .github/scripts/check-bundle-size.mjs dist
+
+  deno:
+    name: 'Deno: supabase/functions (UNVERIFIED locally, first CI run)'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      # Deno was never installed on the development machine, so none of these three commands has
+      # been run by the team. If this job fails on its first run, read the log before assuming the
+      # code is wrong: a missing --allow flag or a lockfile mismatch is more likely. See
+      # docs/deployment.md, "Known gaps".
+      - uses: actions/checkout@v7
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Deno version
+        run: deno --version
+
+      - name: deno check (entry points, against the real supabase-js types)
+        run: deno check --config supabase/functions/deno.json supabase/functions/*/index.ts
+
+      - name: deno lint
+        run: deno lint --config supabase/functions/deno.json supabase/functions
+
+      - name: deno test (the four handlers against an in-memory store)
+        run: deno test --config supabase/functions/deno.json supabase/functions
+
+  e2e:
+    name: 'E2E: ${{ matrix.project }}'
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: desktop-chromium
+            browser: chromium
+          - project: mobile-chromium
+            browser: chromium
+          - project: mobile-webkit
+            browser: webkit
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ matrix.browser }}
+
+      # --with-deps installs the system libraries every time (apt); the browser download is cached.
+      - name: Install ${{ matrix.browser }}
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      # The visual baselines in tests/e2e/__screenshots__ exist only for darwin. Until a
+      # *-linux folder is committed, visual.spec.ts is left out of Linux runs (it would fail with
+      # "snapshot doesn't exist"). The step switches itself on when the folder appears.
+      # To make the Linux set, run the "Record visual baselines (Linux)" workflow.
+      - name: Choose the specs to run
+        id: specs
+        run: |
+          if compgen -G "tests/e2e/__screenshots__/*-linux" > /dev/null; then
+            echo "Linux visual baselines found: running every spec."
+            echo "files=" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning title=Visual spec skipped::No Linux visual baselines are committed, so tests/e2e/visual.spec.ts is not run in CI. Run the 'Record visual baselines (Linux)' workflow and commit the result (docs/deployment.md)."
+            files=$(ls tests/e2e/*.spec.ts | grep -v '/visual\.spec\.ts$' | tr '\n' ' ')
+            echo "files=$files" >> "$GITHUB_OUTPUT"
+          fi
+
+      # playwright.config.ts builds with `VITE_API_MODE=mock npm run build -- --mode test` and serves
+      # it with `vite preview` on port 4173 under /surprise-museum/ by itself (webServer), so there
+      # is no separate build or preview step. CI=true gives 2 retries (traces on first retry).
+      # The suite is timing-sensitive under load, so workers are kept low.
+      - name: Playwright
+        run: npx playwright test --project=${{ matrix.project }} --workers=2 ${{ steps.specs.outputs.files }}
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ matrix.project }}
+          path: playwright-report
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload traces and failure screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-traces-${{ matrix.project }}
+          path: test-results
+          retention-days: 14
+          if-no-files-found: ignore
+
+  e2e-firefox:
+    name: 'E2E: desktop-firefox (non-blocking, never verified)'
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    # Firefox has never run in this project (it cannot launch in the agent sandbox), so a failure
+    # here is information, not a verdict. Nothing depends on this job. To make it blocking, remove
+    # continue-on-error and add it to the needs of the deploy workflow.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install firefox
+        run: npx playwright install --with-deps firefox
+
+      - name: Playwright (desktop-firefox)
+        run: npx playwright test --project=desktop-firefox --workers=2
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-desktop-firefox
+          path: playwright-report
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload traces and failure screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-traces-desktop-firefox
+          path: test-results
+          retention-days: 14
+          if-no-files-found: ignore

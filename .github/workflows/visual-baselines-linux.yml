@@ -1,0 +1,67 @@
+# Record the Linux visual baselines (tests/e2e/visual.spec.ts).
+#
+# MANUAL ONLY (workflow_dispatch). The committed baselines exist only for darwin
+# (tests/e2e/__screenshots__/desktop-chromium-darwin). CI runs on Ubuntu, where text and WebGL
+# render differently, so it needs its own set. Until a *-linux folder is committed, ci.yml leaves
+# visual.spec.ts out of its Linux runs.
+#
+# This workflow records the set on the same runner image CI uses, checks that a second run matches
+# it, and uploads it as an artefact. It commits nothing. A person downloads the artefact, looks at
+# the images, and commits the folder (steps in docs/deployment.md, "Linux visual baselines").
+# Recording a new platform is the one legitimate use of --update-snapshots; never use it to make a
+# failing run pass (tests/README.md, "Visual baselines").
+name: Record visual baselines (Linux)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  record:
+    name: Record and verify desktop-chromium on Ubuntu
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install chromium
+        run: npx playwright install --with-deps chromium
+
+      # One worker and no retries, so a flaky frame cannot become a baseline.
+      - name: Record baselines
+        run: npx playwright test tests/e2e/visual.spec.ts --project=desktop-chromium --workers=1 --retries=0 --update-snapshots
+        env:
+          CI: 'true'
+
+      # A second run without --update-snapshots proves the images are stable on this runner.
+      - name: Verify baselines are stable
+        run: npx playwright test tests/e2e/visual.spec.ts --project=desktop-chromium --workers=1 --retries=0
+        env:
+          CI: 'true'
+
+      - name: Upload baselines
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-baselines-linux
+          path: tests/e2e/__screenshots__/*-linux
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-baselines-report
+          path: playwright-report
+          retention-days: 14
+          if-no-files-found: ignore

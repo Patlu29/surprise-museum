@@ -1,6 +1,6 @@
 # Project status — Surprise Museum
 
-**Current phase:** CR-1 to CR-3 built (gender, presentation camera, photo notice, readable caption card); QA complete (round 5: Go, 691 passed / 0 failed / 41 skipped); Phase 7 Delivery in progress
+**Current phase:** CR-1 to CR-3 built (gender, presentation camera, photo notice, readable caption card); QA complete (round 5: Go, 691 passed / 0 failed / 41 skipped); Phase 7 pipeline written (CI on push/PR; Pages, Supabase and Linux-baseline workflows manual only); nothing deployed
 **Last updated:** 30/10/2026
 
 ## Phases
@@ -13,7 +13,7 @@
 | 4. Build | Complete: build, typecheck, lint clean; 543 tests pass | — |
 | 5. Performance | Complete (docs/performance.md v1.0); 556 tests pass. Real-device figures unverified (no devices available) | — |
 | 6. QA | Complete for v0.2 scope: round 2 440 e2e pass, 0 failing; BUG-1 to 4 fixed, BUG-5 accepted upstream (ADR 0018). Firefox and real devices not verified. Re-run after CR-1 | — |
-| 7. Delivery | Not started | — |
+| 7. Delivery | Pipeline and Pages config done (02/11/2026); not deployed, deploy awaits user approval | — |
 
 ## Approvals given
 

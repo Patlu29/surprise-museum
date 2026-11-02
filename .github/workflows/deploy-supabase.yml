@@ -1,0 +1,104 @@
+# Deploy the Supabase backend: Edge Functions, and optionally the database migrations.
+#
+# MANUAL ONLY (workflow_dispatch). Nothing here runs on push or pull request.
+#
+# It does NOT create the Supabase project, the Vault secrets for the purge job, or the function
+# secrets (ALLOWED_ORIGINS, CRON_SECRET, RATE_LIMIT_SALT). Those are one-time manual steps in
+# supabase/README.md (steps 1, 2, 5 and 6) and docs/deployment.md.
+#
+# Secrets needed (Settings > Secrets and variables > Actions > Secrets; names only, no values here):
+#   SUPABASE_ACCESS_TOKEN   Supabase dashboard > Account > Access Tokens
+#   SUPABASE_PROJECT_REF    the <ref> in https://<ref>.supabase.co
+#   SUPABASE_DB_PASSWORD    the database password chosen when the project was created (migrations only)
+#
+# Run this BEFORE deploy-pages.yml: the website must not go live ahead of its backend.
+name: Deploy Supabase (functions and migrations)
+
+on:
+  workflow_dispatch:
+    inputs:
+      migrations:
+        description: 'Push database migrations (supabase db push). Review the dry run first.'
+        type: boolean
+        default: false
+      functions:
+        description: 'Deploy the four Edge Functions'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-supabase
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: 'Deno check, lint and test (UNVERIFIED locally)'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check --config supabase/functions/deno.json supabase/functions/*/index.ts
+      - run: deno lint --config supabase/functions/deno.json supabase/functions
+      - run: deno test --config supabase/functions/deno.json supabase/functions
+
+  deploy:
+    name: Deploy to the Supabase project
+    needs: verify
+    # Only main may be deployed. Add required reviewers to the "supabase-production" environment
+    # (Settings > Environments) if you want an approval click before this job starts.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: supabase-production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the secrets exist
+        run: |
+          set -eu
+          missing=""
+          [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] || missing="$missing SUPABASE_ACCESS_TOKEN"
+          [ -n "${SUPABASE_PROJECT_REF:-}" ] || missing="$missing SUPABASE_PROJECT_REF"
+          if [ "${{ inputs.migrations }}" = "true" ]; then
+            [ -n "${SUPABASE_DB_PASSWORD:-}" ] || missing="$missing SUPABASE_DB_PASSWORD"
+          fi
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing. See docs/deployment.md."
+            exit 1
+          fi
+
+      # Pinned to a CLI release that was current on 02/11/2026. Update deliberately.
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.122.0
+
+      - name: Link the project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Migrations (dry run)
+        if: ${{ inputs.migrations }}
+        run: supabase db push --dry-run
+
+      - name: Migrations (apply)
+        if: ${{ inputs.migrations }}
+        run: supabase db push
+
+      - name: Deploy Edge Functions
+        if: ${{ inputs.functions }}
+        # --no-verify-jwt matches supabase/config.toml: each function authenticates the caller
+        # itself (share token, edit token or cron secret).
+        run: supabase functions deploy --no-verify-jwt --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Reminder
+        run: |
+          echo "Deployed. Now run: node supabase/scripts/smoke-test.mjs https://<ref>.supabase.co <anon key>" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,122 @@
+# Deploy the website to GitHub Pages (https://patlu29.github.io/surprise-museum/).
+#
+# MANUAL ONLY. This workflow has no push, pull_request or schedule trigger, so committing or
+# pushing this file deploys nothing. Run it from the Actions tab ("Deploy to GitHub Pages",
+# "Run workflow", branch main) once the manual steps in docs/deployment.md are done.
+#
+# Order of work:
+#   1. ci            re-runs every check in ci.yml (typecheck, lint, tests, build, bundle size,
+#                    Deno, Playwright). Nothing below starts unless all required jobs pass.
+#   2. build         checks the live backend is configured (fails fast if not), builds with
+#                    VITE_API_MODE=live, verifies the base path, uploads the Pages artefact.
+#   3. deploy        publishes the artefact with the official deploy-pages action.
+#
+# The Pages site is ALWAYS a live build (ADR 0015, supabase/README.md step 9). There is no mock
+# option: a public site whose share links only work in the browser that made them would mislead
+# the people it is given to. Deploy the Edge Functions first (deploy-supabase.yml or
+# supabase/README.md steps 1 to 8), then this.
+name: Deploy to GitHub Pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time; a newer manual run waits instead of cancelling a deploy half way.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  ci:
+    name: Checks (ci.yml)
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  build:
+    name: Build the live site
+    needs: ci
+    # Pages must only ever publish main. A dispatch from another branch stops here.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      # Reads repository VARIABLES (not secrets): VITE_ values are compiled into the public bundle.
+      # Fails with a plain-language list of what to fix, and never prints a key.
+      - name: Check the live backend is configured
+        run: npm run check:live
+        env:
+          VITE_API_MODE: live
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+
+      # vite.config.ts sets base to /surprise-museum/ (BASE_PATH). requireLiveBackend() in the build
+      # repeats the check above as a second line of defence.
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_MODE: live
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_FUNCTIONS_REGION: ${{ vars.VITE_SUPABASE_FUNCTIONS_REGION }}
+
+      - name: Bundle size
+        run: node .github/scripts/check-bundle-size.mjs dist
+
+      - name: Verify the base path and the live configuration in the build
+        run: |
+          set -eu
+          grep -q 'src="/surprise-museum/assets/' dist/index.html \
+            || { echo "::error::dist/index.html does not use the /surprise-museum/ base path."; exit 1; }
+          grep -q 'Content-Security-Policy' dist/index.html \
+            || { echo "::error::dist/index.html has no Content-Security-Policy meta tag."; exit 1; }
+          # The CSP must name the Supabase origin, or the browser would block every API call.
+          origin=$(node -e "console.log(new URL(process.env.VITE_SUPABASE_URL).origin)")
+          grep -q "$origin" dist/index.html \
+            || { echo "::error::The Supabase origin is not in the Content-Security-Policy of dist/index.html."; exit 1; }
+          echo "Base path, CSP and Supabase origin are in place."
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+
+      # GitHub Pages serves 404.html for any unknown path. Hash routes never reach the server, so
+      # this page only appears for a mistyped path. See docs/deployment.md, "Hosting notes".
+      - name: Add 404.html
+        run: cp .github/pages/404.html dist/404.html
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # Requires Settings > Pages > Source = "GitHub Actions". Add required reviewers to the
+    # "github-pages" environment (Settings > Environments) if you want an approval click.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5
