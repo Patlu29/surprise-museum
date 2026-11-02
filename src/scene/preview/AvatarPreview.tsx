@@ -11,17 +11,24 @@ import {
 import { MeshBasicMaterial, Vector3, type Group, type PerspectiveCamera } from 'three';
 import type { AvatarConfig } from '@contract';
 import type { AvatarPreviewProps } from '@/state/avatarPreview';
-import { getEffectiveReducedMotion } from '@/state/settingsStore';
+import { getEffectiveReducedMotion, useSettingsStore } from '@/state/settingsStore';
 import { NameLabelPill } from '../characters/NameLabel';
-import { PREVIEW_BACKGROUND } from '../materials/lighting';
+import { createPlinthContactShadowGeometry } from '../materials/geometry/decals';
+import { PODIUM, createPodiumGeometry } from '../materials/geometry/finale';
+import { applyVertexGlow } from '../materials/glowMaterial';
+import { PREVIEW_STAGE_CSS } from '../materials/lighting';
 import { PreviewLighting } from '../materials/MuseumLighting';
-import { SCENE_PALETTE } from '../materials/palette';
+import type { GraphicsQuality } from '../materials/quality';
+import { createLookMaterials, type LookMaterials } from '../seams';
 import { buildPreviewAvatar } from '../characters/previewAvatar';
 
 /**
  * The builder's live 3D preview (design spec 6.11 and Appendix A): both characters side by
- * side on small plinths, with their name labels underneath, in neutral light on a soft cream
- * backdrop so skin and hair colours read true while they are chosen. A second, small Canvas that
+ * side on small plinths (the finale podium's piece at a smaller radius: cream top, plinth-side
+ * colour, a brass ring that glows on the active character, and a contact shadow on Auto), with
+ * their name labels underneath, in neutral light on the stage gradient (design spec 12.8.4: a CSS
+ * radial gradient behind a transparent canvas) so skin and hair colours read true while they are
+ * chosen. A second, small Canvas that
  * is only mounted in the builder, never together with the museum canvas (iOS limits WebGL
  * contexts). Props are the contract in src/state/avatarPreview.ts.
  *
@@ -34,6 +41,10 @@ import { buildPreviewAvatar } from '../characters/previewAvatar';
 const SPACING = 0.85;
 const INWARD = 0.32; // each character turns slightly towards the other: a three-quarter view
 const PLINTH_RADIUS = 0.5;
+/** The plinth is the podium piece, so its top is `PODIUM.height` above the stage. */
+const PLINTH_TOP = PODIUM.height;
+/** Ring glow multiplier: the active character's ring is brighter (12.8.4). */
+const RING_GLOW = { idle: 1, active: 2.2 };
 
 class PreviewBoundary extends Component<
   { onError?: (error: unknown) => void; children: ReactNode },
@@ -61,12 +72,20 @@ export default function AvatarPreview(props: AvatarPreviewProps) {
   const labels = useMemo<LabelRefs>(() => ({ guide: createRef(), visitor: createRef() }), []);
   return (
     <PreviewBoundary onError={onError}>
-      <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden',
+          background: PREVIEW_STAGE_CSS,
+        }}
+      >
         <Canvas
           data-testid="avatar-preview-canvas"
           dpr={[1, 2]}
           camera={{ fov: 28, near: 0.1, far: 30, position: [0, 1.1, 6] }}
-          gl={{ antialias: true, powerPreference: 'default' }}
+          gl={{ antialias: true, powerPreference: 'default', alpha: true }}
           style={{ width: '100%', height: '100%', touchAction: 'pan-y' }}
           onCreated={({ gl }) => {
             gl.domElement.addEventListener('webglcontextlost', (e) => {
@@ -75,7 +94,6 @@ export default function AvatarPreview(props: AvatarPreviewProps) {
             });
           }}
         >
-          <color attach="background" args={[PREVIEW_BACKGROUND]} />
           <PreviewLighting />
           <Framing />
           <Pair {...props} labels={labels} />
@@ -122,7 +140,7 @@ function Framing() {
   useLayoutEffect(() => {
     const aspect = size.width / Math.max(1, size.height);
     const tan = Math.tan((camera.fov * Math.PI) / 360);
-    const needHeight = 2.5;
+    const needHeight = 2.6; // the podium plinth adds 0.12 m
     const needWidth = 2 * (SPACING + PLINTH_RADIUS + 0.35);
     const distance = Math.max(needHeight / (2 * tan), needWidth / (2 * tan * aspect));
     camera.position.set(0, 1.0, distance);
@@ -146,6 +164,17 @@ function Pair({
   const target = (yawDegrees * Math.PI) / 180;
   const readyCalled = useRef(false);
   const clock = useRef(0);
+
+  // The look materials give the plinth its podium material and the contact shadow. One set for
+  // the pair; the second plinth gets its own glow instance so only the active ring brightens.
+  const quality: GraphicsQuality = useSettingsStore.getState().quality === 'low' ? 'low' : 'high';
+  const look = useMemo(() => createLookMaterials(quality), [quality]);
+  useEffect(() => () => look.dispose(), [look]);
+  const podiums = useMemo(
+    () => ({ guide: look.podium, visitor: applyVertexGlow(look.podium.clone(), 1) }),
+    [look],
+  );
+  useEffect(() => () => podiums.visitor.dispose(), [podiums]);
 
   useFrame((_, dt) => {
     const g = group.current;
@@ -172,6 +201,8 @@ function Pair({
         x={-SPACING}
         turn={INWARD}
         active={active === 'guide'}
+        look={look}
+        podium={podiums.guide}
         clock={clock}
         label={labels.guide}
         onSelect={onSelectActive}
@@ -182,6 +213,8 @@ function Pair({
         x={SPACING}
         turn={-INWARD}
         active={active === 'visitor'}
+        look={look}
+        podium={podiums.visitor}
         clock={clock}
         label={labels.visitor}
         onSelect={onSelectActive}
@@ -196,6 +229,8 @@ interface FigureProps {
   x: number;
   turn: number;
   active: boolean;
+  look: LookMaterials;
+  podium: LookMaterials['podium'];
   clock: { current: number };
   label: { current: HTMLDivElement | null };
   onSelect?: (role: 'guide' | 'visitor') => void;
@@ -203,7 +238,18 @@ interface FigureProps {
 
 const projected = new Vector3();
 
-function Figure({ role, config, x, turn, active, clock, label, onSelect }: FigureProps) {
+function Figure({
+  role,
+  config,
+  x,
+  turn,
+  active,
+  look,
+  podium,
+  clock,
+  label,
+  onSelect,
+}: FigureProps) {
   const anchor = useRef<Group>(null);
   // One rig per character. A config change goes through `update` (setAppearance, with the gender
   // morph) instead of rebuilding the rig, so nothing is rebuilt per frame while idle (FR-15).
@@ -221,6 +267,11 @@ function Figure({ role, config, x, turn, active, clock, label, onSelect }: Figur
     rig.update(config, getEffectiveReducedMotion());
   }, [rig, config]);
 
+  const plinth = useMemo(() => createPodiumGeometry({ radius: PLINTH_RADIUS }), []);
+  const shadow = useMemo(() => createPlinthContactShadowGeometry(PLINTH_RADIUS), []);
+  useEffect(() => () => plinth.dispose(), [plinth]);
+  useEffect(() => () => shadow.dispose(), [shadow]);
+
   const hitMaterial = useMemo(
     () => new MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
     [],
@@ -230,6 +281,13 @@ function Figure({ role, config, x, turn, active, clock, label, onSelect }: Figur
   useFrame((state, dt) => {
     const reduced = getEffectiveReducedMotion();
     rig.stepMorph(Math.min(dt, 0.1));
+    // The active character's ring glows (eased over about 100 ms, at once under reduced motion).
+    const glowTarget = active ? RING_GLOW.active : RING_GLOW.idle;
+    const glow = podium.uGlow.value;
+    podium.uGlow.value =
+      reduced || Math.abs(glowTarget - glow) < 0.01
+        ? glowTarget
+        : glow + (glowTarget - glow) * Math.min(1, Math.min(dt, 0.1) / 0.1);
     // Put the label under the plinth, in screen space.
     const el = label.current;
     if (el && anchor.current) {
@@ -248,28 +306,17 @@ function Figure({ role, config, x, turn, active, clock, label, onSelect }: Figur
 
   return (
     <group position={[x, 0, 0]}>
-      {/* A low cream plinth; the one being edited gets a brass ring. */}
-      <mesh position-y={0.03} raycast={() => null}>
-        <cylinderGeometry args={[PLINTH_RADIUS, PLINTH_RADIUS + 0.04, 0.06, 40]} />
-        <meshLambertMaterial color={SCENE_PALETTE.podium} />
-      </mesh>
-      {active && (
-        <mesh
-          position-y={0.064}
-          rotation-x={-Math.PI / 2}
-          raycast={() => null}
-          data-testid="active-ring"
-        >
-          <ringGeometry args={[PLINTH_RADIUS * 0.8, PLINTH_RADIUS * 0.9, 48]} />
-          <meshBasicMaterial color={SCENE_PALETTE.brass} toneMapped={false} />
-        </mesh>
+      {/* The plinth: the finale podium's piece at a smaller radius. */}
+      {look.contactShadow && (
+        <mesh geometry={shadow} material={look.contactShadow} raycast={() => null} />
       )}
-      <group position-y={0.06} rotation-y={turn}>
+      <mesh geometry={plinth} material={podium} raycast={() => null} />
+      <group position-y={PLINTH_TOP} rotation-y={turn}>
         <primitive object={rig.root} />
       </group>
       {/* Invisible click target: characters themselves are never pickable. */}
       <mesh
-        position-y={0.06 + rig.height / 2}
+        position-y={PLINTH_TOP + rig.height / 2}
         material={hitMaterial}
         onClick={(e) => {
           e.stopPropagation();

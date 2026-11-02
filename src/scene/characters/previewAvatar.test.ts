@@ -1,7 +1,7 @@
 import { Group, Vector3, type SkinnedMesh } from 'three';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_GUIDE_APPEARANCE } from '@/domain/characters/avatarOptions';
-import { buildPreviewAvatar } from './previewAvatar';
+import { buildPreviewAvatar, GENDER_MORPH_SECONDS, PATTERN_FADE_SECONDS } from './previewAvatar';
 
 /**
  * BUG-6: in the builder preview the rig sits under a plinth group (offset and turned). A change
@@ -56,5 +56,56 @@ describe('preview rig under a plinth', () => {
     for (let i = 0; i < 20; i++) rig.stepMorph(0.016);
     const fresh = buildPreviewAvatar(next, 'guide');
     expect(bodyVertex(rig.root).distanceTo(bodyVertex(fresh.root))).toBeLessThan(1e-4);
+  });
+
+  it('runs one morph for a face shape change, ends equal to a fresh rig, and is instant under reduced motion', () => {
+    const { rig } = inPlinth();
+    const next = { ...DEFAULT_GUIDE_APPEARANCE, faceShape: 'heart' as const };
+    rig.update(next, false);
+    expect(rig.morphing).toBe(true);
+    rig.stepMorph(GENDER_MORPH_SECONDS / 2);
+    expect(rig.morphing).toBe(true);
+    rig.stepMorph(GENDER_MORPH_SECONDS);
+    expect(rig.morphing).toBe(false);
+    const fresh = buildPreviewAvatar(next, 'guide');
+    expect(bodyVertex(rig.root).distanceTo(bodyVertex(fresh.root))).toBeLessThan(1e-4);
+
+    const reduced = inPlinth().rig;
+    reduced.update({ ...DEFAULT_GUIDE_APPEARANCE, faceShape: 'long' as const }, true);
+    expect(reduced.morphing).toBe(false);
+  });
+
+  it('shares one morph between a gender change and a face shape change', () => {
+    const { rig } = inPlinth();
+    const next = {
+      ...DEFAULT_GUIDE_APPEARANCE,
+      gender: 'masculine' as const,
+      faceShape: 'square' as const,
+    };
+    rig.update(next, false);
+    expect(rig.morphing).toBe(true);
+    rig.stepMorph(GENDER_MORPH_SECONDS + 0.01);
+    expect(rig.morphing).toBe(false);
+  });
+
+  it('fades a new pattern in over 150 ms, and shows it at once under reduced motion', () => {
+    const { rig } = inPlinth();
+    expect(rig.patternMix).toBe(1);
+    rig.update({ ...DEFAULT_GUIDE_APPEARANCE, outfitPattern: 'stripes' as const }, false);
+    expect(rig.patternMix).toBe(0);
+    rig.stepMorph(PATTERN_FADE_SECONDS / 2);
+    expect(rig.patternMix).toBeCloseTo(0.5, 5);
+    rig.stepMorph(PATTERN_FADE_SECONDS);
+    expect(rig.patternMix).toBe(1);
+
+    const reduced = inPlinth().rig;
+    reduced.update({ ...DEFAULT_GUIDE_APPEARANCE, outfitPattern: 'dots' as const }, true);
+    expect(reduced.patternMix).toBe(1);
+  });
+
+  it('leaves the pattern alone when something else changes', () => {
+    const { rig } = inPlinth();
+    rig.update({ ...DEFAULT_GUIDE_APPEARANCE, hairColor: 'brown' as const }, false);
+    expect(rig.patternMix).toBe(1);
   });
 });

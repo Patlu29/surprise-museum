@@ -46,7 +46,10 @@ export function Museum({ quality }: { quality: GraphicsQuality }) {
   const materials = useMemo(() => createMuseumMaterials(quality), [quality]);
   const look = useMemo(() => createLookMaterials(quality), [quality]);
   const shell = useMemo(() => buildMuseumShell(layout), [layout]);
-  const dressing = useMemo(() => buildMuseumDressing(layout), [layout]);
+  const dressing = useMemo(
+    () => buildMuseumDressing(layout, { contactShadows: look.contactShadow !== null }),
+    [layout, look],
+  );
   const partitionMaterials = useMemo(
     () =>
       createPartitionMaterials(
@@ -89,10 +92,23 @@ export function Museum({ quality }: { quality: GraphicsQuality }) {
         material={materials.ceiling}
         raycast={() => null}
       />
-      <CeilingFade mesh={ceilingMesh} material={materials.ceiling} />
+      <CeilingFade mesh={ceilingMesh} material={materials.ceiling} look={look} />
       <mesh geometry={shell.runner} material={materials.runner} raycast={() => null} />
 
       <mesh geometry={dressing.decor} material={look.decor} raycast={() => null} />
+      <mesh
+        geometry={dressing.ceilingDressing}
+        material={look.ceilingDressing}
+        raycast={() => null}
+      />
+      {dressing.contactShadow && look.contactShadow && (
+        <mesh
+          geometry={dressing.contactShadow}
+          material={look.contactShadow}
+          raycast={() => null}
+          renderOrder={-1}
+        />
+      )}
       {dressing.wash && (
         <mesh geometry={dressing.wash} material={look.wallWash} raycast={() => null} />
       )}

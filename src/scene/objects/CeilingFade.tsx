@@ -1,6 +1,7 @@
 import { useFrame } from '@react-three/fiber';
 import type { RefObject } from 'react';
 import type { Material, Mesh } from 'three';
+import type { LookMaterials } from '../seams';
 import { CEILING_FADE, ceilingOpacityFor, ceilingReducedStep } from '../cameras/ceilingFade';
 import { isReducedMotion } from '../runtime/motion';
 import { useRuntime } from '../runtime/RuntimeContext';
@@ -16,9 +17,12 @@ import { useRuntime } from '../runtime/RuntimeContext';
 export function CeilingFade({
   mesh,
   material,
+  look,
 }: {
   mesh: RefObject<Mesh | null>;
   material: Material;
+  /** The look materials: the roses, oculus and strips fade with the ceiling. */
+  look: LookMaterials;
 }) {
   const runtime = useRuntime();
 
@@ -29,6 +33,12 @@ export function CeilingFade({
       : ceilingOpacityFor(y);
     if (opacity === runtime.ceilingOpacity) return;
     runtime.ceilingOpacity = opacity;
+    // The dressing's own setter changes `transparent`, which switches the shader's OPAQUE define,
+    // so the program must be refreshed on that change or the fade would not show.
+    const dressing = look.ceilingDressing;
+    const wasTransparent = dressing.transparent;
+    look.setCeilingDressingOpacity(opacity);
+    if (dressing.transparent !== wasTransparent) dressing.needsUpdate = true;
     const visible = opacity >= CEILING_FADE.hideBelow;
     if (mesh.current) mesh.current.visible = visible;
     material.opacity = opacity;

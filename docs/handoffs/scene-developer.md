@@ -1,5 +1,51 @@
 # Handoff: scene-developer
 
+## Update 02/11/2026 (CR-4 integration): the technical-artist's requests 1 to 8
+
+### What was done (against `docs/handoffs/technical-artist.md`, CR-4 requests)
+| # | Request | Done |
+|---|---|---|
+| 1 | Whole config to `rig.setAppearance`, face shape and pattern | Visit: `CharacterView` builds with `buildAvatar(config, role)` from `content.guideAvatar` / `visitorAvatar`, whole objects (the `SceneRoot` content key is the JSON of the whole config, so a face shape or pattern change rebuilds). Preview: `previewAvatar.update(config)` passes the whole config to `setAppearance`. Nothing strips `faceShape` or `outfitPattern` |
+| 1 | Preview morph, 250 ms; pattern cross-fade; reduced motion instant | `previewAvatar.ts`: a gender change, a face shape change or both call `beginGenderMorph` and/or `beginFaceShapeMorph` before `setAppearance` and share one run, driven by `setMorphProgress(elapsed / 0.25)` in `stepMorph` before `applyPose`. A pattern change sets `rig.patternMix = 0` and fades it to 1 over 150 ms (`PATTERN_FADE_SECONDS`, mirror of `--duration-fast`). Reduced motion: no morph, `patternMix` 1 at once. `PreviewAvatarRig` now exposes `patternMix` and `morphing` |
+| 2 | Rose and oculus | `museumDressing.ts`: `createCeilingRoseGeometry({ radius: 0.4 })` at every route room's centre and `{ radius: 0.9 }` over the podium at y 3.2, drawn with `look.ceilingDressing` (one mesh). `CeilingFade` calls `look.setCeilingDressingOpacity(ceilingOpacity)` whenever the opacity changes. Because that setter flips `transparent` (the shader's `OPAQUE` define), `CeilingFade` sets `ceilingDressing.needsUpdate = true` on that flip, or the fade would not show until the mesh is hidden. The mesh is not rendered below 0.02 (the material's `visible`) |
+| 3 | Ceiling strips | One `createCeilingStripGeometry()` per route room (entrance and galleries) on the centre line, 0.3 of the room depth (at most 2.4 m) toward the entrance from the room centre, merged into the same `ceilingDressing` mesh |
+| 4 | Wall caps | `createWallCapGeometry` at y 3.2 along both side walls of every room and the back and end walls, merged into `decor`. **Not on the internal walls**: they fade (`PartitionFade`), and a cap would stay opaque and float; the wall shader already colours their tops |
+| 5 | Dado rail | A 0.05 x 0.04 m box at y 0.95 in `LOOK.dadoRail` (finale room at 62%, as the shader) along the inner faces of the outer walls, merged into `decor`. Not on the internal walls (same reason). Frames hide it where they overlap |
+| 6 | Frame contact shadows | `createFrameContactShadowGeometry` per frame, placed like the frame, merged with the podium's into one mesh with `look.contactShadow` (not built on Low, where the material is null). Wash geometry unchanged in use |
+| 7 | Finale | `createPlinthContactShadowGeometry(PODIUM.radius)` under the podium, in the same shadow mesh. The builder plinth is `createPodiumGeometry({ radius: 0.5 })` with the look `podium` material: the active character's ring glows (`uGlow` 2.2, others 1, eased 100 ms, instant under reduced motion), each plinth with its own glow instance (`applyVertexGlow` on a clone), plus the contact shadow on Auto. The characters stand on the plinth top (`PODIUM.height`, 0.18 m, was 0.06 m) and the framing allows 0.1 m more height. The stage is `PREVIEW_STAGE_CSS` on the canvas wrapper with a transparent canvas (`alpha: true`, no `<color attach>`) |
+| 8 | Lighting | Nothing to do |
+
+The old brass `active-ring` mesh is gone (the podium's own ring replaces it). No test referenced its `data-testid`.
+
+### Draw calls and triangles at the default pose (1280x720, Low and High)
+| Tier | Draw calls before | after | Triangles before | after |
+|---|---|---|---|---|
+| Low (headless software GL classifies as Low) | 25 | **26** (+1: ceiling dressing) | 10,116 | 10,836 (+720: roses, strips, caps, rails) |
+| High (renderer string spoofed in the test, to get the High tier in software GL) | 27 | **29** (+2: ceiling dressing, contact shadows) | 10,172 | 10,902 |
+| Top view (camera above the ceiling) | Low 20, High see below | Low 20, High 22 | | |
+
+The increase is 1 on Low and 2 on High, against the budget of at most 4 more (TA). Caps and rails add no call (merged into `decor`); the ceiling dressing is hidden above the ceiling, so the top view pays nothing for it. The High before and after top-view figures are not comparable (the camera height was different in the two runs).
+
+### Other behaviour kept
+Ceiling fade, the N-10 label rules, the BUG-10 `minTop` rule and the framing are untouched (no change to cameras, controllers or the solver). Presentation-camera, caption-card, label-strip and ceiling e2e pass (below).
+
+### Checks
+- `typecheck`, `lint` and `build` pass. `npm test`: 1043 pass; 4 kit budget tests (`cr4.test.ts`, `gender.test.ts`) time out when the whole suite runs in parallel but pass alone (`cr4.test.ts` 34 of 34 run by itself); they are the technical-artist's.
+- New unit tests: `previewAvatar.test.ts` (face shape morph ends equal to a fresh rig and is instant under reduced motion, a gender and face shape change share one morph, the pattern fade and its reduced-motion cut, other changes leave the pattern alone).
+- E2E on desktop-chromium after a test-mode build, `presentation-camera caption-card label-strip ceiling`: **43 passed, 3 failed**. The 3 are QA's `tests/e2e/ceiling.spec.ts` (uncommitted draft): each is marked `test.fail` and now reports "Expected to fail, but passed", which means the ceiling no longer blocks the view. QA should remove the `test.fail` markers.
+- `gender visual` on desktop-chromium (not requested, run to check the preview): 30 passed, 9 failed, all from other roles' work or baselines awaiting re-recording: home, welcome and finale cards (UI), the five builder-preview character baselines (size and character changes, now also the podium, stage gradient and contact shadow), and `US-48 AC-1 and AC-3` (card text "Gallery 1 of 1" against "Sam, photo 1 of 1": the UI's text changed, a frontend or QA matter). I looked at the preview: cream stage gradient, two podiums with brass rings, soft shadow, labels below.
+
+### Baselines for QA to review
+- Builder preview (all five `preview-*` and `brows-*` shots): new podium plinths (taller, cream top, plinth-side colour, brass ring with glow, shadow), the stage gradient instead of flat cream, characters 0.12 m higher on screen.
+- Museum shots (entrance, presenting, viewer) passed unchanged within tolerance, but they now include wall caps, the dado rail, roses, the oculus and frame contact shadows (the last only on Auto).
+
+### Requests
+- frontend-developer: none needed. The preview's wrapper in `AvatarPreview.tsx` now paints the stage gradient; the slot that hosts it must not paint an opaque background behind it (today it does not).
+- technical-artist: nothing outstanding. Note the `ceilingDressing` setter flips `transparent` without `needsUpdate`; I do it in `CeilingFade`, but it is cleaner inside `setCeilingDressingOpacity`.
+- qa-engineer: remove the `test.fail` markers in `ceiling.spec.ts`; re-record the preview baselines.
+- ux-ui-designer: the strip sits 0.3 of the room depth (at most 2.4 m) toward the entrance from the room centre; say if the spec wants it elsewhere.
+
+
 ## Update 02/11/2026 (later): N-10 name labels on narrow screens, ceiling colour
 
 ### N-10 (spec 12.6.8)
