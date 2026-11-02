@@ -1,5 +1,84 @@
 # QA report: Surprise Museum
 
+## Round 5 (final check after fix round 2: BUG-10, BUG-11; spec v1.5 label rule), 2/11/2026
+
+Tested at HEAD fbf516c (a73b42f for the BUG-10 fix, cbda396 for BUG-11; fbf516c is the spec v1.5 commit). Test-mode mock build (`VITE_API_MODE=mock npm run build -- --mode test`) rebuilt at HEAD and served by the existing `vite preview` on port 4173 (`PW_REUSE_SERVER=1`), one project at a time, 3 workers. No application code touched. Owner: qa-engineer.
+
+### Summary (round 5)
+
+| Project | Passed | Failed | Skipped | Notes |
+|---|---|---|---|---|
+| desktop-chromium | **237** | 0 | 7 | 230 in the full run (13 load flakes, passed alone, see below) plus the 7 new `label-strip.spec.ts` tests, run on their own |
+| mobile-chromium (Pixel 7) | **230** | 0 | 14 | Clean, includes the 7 new tests |
+| mobile-webkit (iPhone 13) | **224** | 0 | 20 | Clean, includes the 7 new tests |
+| **Total** | **691** | **0** | **41** | Round 4 was 670 passed, 41 skipped, with 4 expected failures; 21 tests are new (7 per project) |
+| `test.fail` markers left in the suite | **0** | | | BUG-10 and BUG-11 markers are gone and their tests pass for real |
+| Baselines | None re-recorded | | | No screenshot diff in any project (the label shift does not appear in any baseline: they are at 1280x720) |
+| `desktop-firefox` | Not run | | | Cannot start in the sandbox (as before) |
+
+### Bug status
+
+| Bug | Status | Evidence |
+|---|---|---|
+| BUG-10 label under the caption strip at 360x640, scale 1.5 | **Fixed, verified** | `caption-card` S1 S2 S4 (scale 1.5, 24-character name) passes at 360x640 on all three projects with no marker. New explicit test: at 360x640, scale 1.5, 24-character name, label top is at least 192 px and clear of the picture, on pictures 1 to 3 (measured: Guide label top 192 on picture 1, pushed down 8 px; 192 on picture 3, pushed 1 px) |
+| BUG-11 WebKit Try again after a failed preview import | **Fixed, verified** | `US-46 AC-6: Try again after a failed preview load` passes on mobile-webkit with no `test.fail`, and on both Chromium projects |
+
+Both are closed. No bug is open from the numbered list (BUG-1 to BUG-11).
+
+### Spec v1.5 row "Framed view, portrait: below the caption strip": coverage
+
+The existing e2e checked the card against the Guide's published rectangle only, not the label's top or the label against the picture. Added `tests/e2e/label-strip.spec.ts` (7 tests, all three projects, all pass):
+
+| Test | Checks |
+|---|---|
+| BUG-10 / 5.5 QA check | 360x640, caption size 1.5, 24-character Guide name, pictures 1 to 3: every visible label top is at least 192 px (192, edge, minus 0.5) and does not intersect the picture rectangle |
+| 5.5 rules (a) and (d), once per caption scale (normal, large, xlarge) | At 360x640 and 390x844 with the name "Sam": label top at least 172, 180, 192 respectively; no label touches the picture; a label with a downward offset sits exactly on the edge (never pushed further than needed) |
+| 5.5 rule (f) | At 844x390 and 1280x720 (scale 1.5, long name) no label has a downward offset |
+| 5.5 rule (e), eased | Computed transition on the label is `translate` over 0.15 s; sampled per frame (below) |
+| 5.5 rule (e), reduced motion | Under reduced motion the computed transition duration is 0 s |
+
+### Label shift: eased or instant? (coordinator question 2)
+
+It does match the spec. The easing is not in `labelLayout.ts` (which only writes the `translate` property) but in the label's own inline style in `src/scene/characters/NameLabel.tsx`: `transition: opacity var(--duration-fast, 150ms) ease, translate var(--duration-fast, 150ms) ease`. Observed on desktop-chromium at 360x640, scale 1.5, 24-character name, Guide label `translate` per frame while the presentation starts: `none` then `0 1.1px`, `0 3.5px`, `0 9.9px`, `0 10px` over about 120 ms (an eased ramp), then it follows small later adjustments (9, 8 px) as the camera settles, each eased over about 150 ms. Under `prefers-reduced-motion` the computed duration is `0s`, so the shift is instant. No finding. (If anything: the clamp is recomputed every frame, so the label's resting offset drifts by a pixel or two as the camera settles. Not visible, noted only.)
+
+### BUG-10 visual check at 360x640 and 390x844 (long Guide name)
+
+Screenshots were taken at pictures 1 and 3, caption scale normal and 1.5, long name ("Alexandra Montgomery-Ray", label wraps to two lines, 158 x 68 px at 360x640) and "Sam" as the control (`/private/tmp/claude-502/-Users-prakashrajan-Documents-boringTask-surprise/90c4d5b9-7ef8-4f4c-9632-0843dbd1e5e8/scratchpad/shots/`).
+
+| Check | Result |
+|---|---|
+| Does the lowered label look broken? | **No.** At 360x640, scale 1.5, picture 1 it is the same two-line pill as at scale 1, 8 px lower, directly under the caption strip's edge (top 192, strip bottom 192). Picture 3: 1 px lower. Nothing is clipped by the strip, no gap or jump |
+| Does it cover the picture? | **No.** The label is to the left of the picture on every shot (the picture rectangle starts at x 150 or more and the label ends at x 78 to 81); the intersection test passes on all 3 pictures |
+| How much of her head does it cover? | **About 0 to 3 px.** The label's bottom is at y 260; the top of her hair is at about y 259 to 261 in the picture 1 shot (zoomed 4x). It touches or just overlaps the top of her hair; her face is clear. Within the spec's "a few pixels" |
+| Labels at normal sizes shift needlessly? | **No.** With "Sam" at 360x640 and 390x844, at scales 1, 1.25 and 1.5, every label has no offset (top 204 to 212 at 360x640, 300 to 304 at 390x844, well below 172 to 192). With the long name at scale 1 (strip edge 172) the Guide label tops are 179 and 187 (no offset); at 390x844 there is no offset at any scale. The only shifts are at 360x640 with scale 1.5 and the long name (8 px and 1 px). 844x390 and 1280x720: no downward offset (the Guide's label is raised 54 px at 844x390 by the existing collision rule, as before) |
+
+### New observations (not caused by round 5; minor, not release blockers)
+
+#### N-10: With a 24-character Guide name on a phone in portrait, the Guide and her label are partly or wholly off the left edge, and the two labels can overlap
+- Severity: minor (long names only; names that long are an edge case; the caption card shows the full name)
+- Owner: **scene-developer** (framing fallback `guideDropped` and label placement); ux-ui-designer to say whether a label should be clamped inside the viewport
+- Seen at 360x640 (scale 1 and 1.5, pictures 1 and 3): the Guide label is 158 px wide and starts at x -77 to -84, so only "dra / omery-" shows; her body is cut at the left edge; the Visitor's label overlaps the Guide's by 7 to 25 px (a bounding box overlap, readable, the Visitor name is complete). At 390x844 (scale 1 and 1.5, picture 1): her label starts at x -138 and only "Ray" shows; she is off screen. Cause per the scene-developer note: with a long name the solver has no valid candidate and drops the Guide from the fit set (`guideDropped`).
+- Not made worse by BUG-10: identical at scale 1, where no clamp applies. The `caption-card` S4 tests do not look at the screen position of the Guide.
+- Expected (spec 5.5, 6.12): labels are never hidden; a label should be readable. Suggest clamping a label's x into the viewport (with the 5.5 rule order unchanged) or keeping the Guide in the fit set.
+- Evidence: `shots/long-360x640-xlarge-p1.png`, `long-360x640-normal-p1.png`, `long-390x844-xlarge-p1.png` in the scratchpad (not committed).
+
+### Load flakes (not bugs)
+
+- desktop-chromium full run (43 minutes, 3 workers): 13 failures in one cluster at the end of the run, all of them "Start" button or first-snapshot timeouts (`US-15 AC-2` x5, `AC-3`, `AC-4`, `AC-5` x2, `US-10 AC-1`, `US-10 AC-5`, `US-17 AC-1` in `visit-welcome-roam.spec.ts`, and `visual: welcome screen`). All 13 (20 tests in those two files) passed when re-run on their own in 55 seconds. Classed as a load flake: the cluster is contiguous, every failure is in the first step of a fresh page, and none reproduces alone. The desktop run is the slowest (software WebGL with 3 workers); the previous round also had desktop flakes.
+- mobile-chromium (11.8 min) and mobile-webkit (9.2 min): no flakes, no re-runs.
+
+### Release recommendation
+
+**Go.** BUG-6 to BUG-11 are fixed and verified, no test is marked as an expected failure, and the three projects pass in full (691 passed, 0 failed). The label shift for BUG-10 looks right: it only moves when it must, never covers the picture, and costs the Guide's head about 0 to 3 px. Remaining items, none blocking: N-10 (long names, scene-developer), the brow thickness decision (tech lead, round 4), and the standing gaps below.
+
+Conditions and caveats: (1) Firefox was not run; (2) the real-device items (performance.md section 7), BUG-11 on a real iPhone and the Android keyboard remain unverified; (3) the baselines were recorded on macOS; Linux baselines need recording in CI before a CI gate (devops-engineer, standing).
+
+### Not verified (round 5)
+
+Firefox; real devices (BUG-11 on an iPhone, real GPUs); BUG-10 with a Visitor name of 24 characters (the long name was tested for the Guide only); caption size 1.25 with the long name.
+
+---
+
 ## Round 4 (fix round 1 re-test of BUG-6 to BUG-10, brows, N-6, shown yaw), 30/10/2026
 
 Tested at HEAD cf48e01 plus the uncommitted test changes (tests, config and docs only; no application code touched). Built by me with `VITE_API_MODE=mock npm run build -- --mode test` and served with `vite preview` (`PW_REUSE_SERVER=1`). Owner: qa-engineer.

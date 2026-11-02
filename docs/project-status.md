@@ -1,6 +1,6 @@
 # Project status — Surprise Museum
 
-**Current phase:** CR-1 to CR-3 built (gender, presentation camera, photo notice, readable caption card); QA round 4 done (fix round 1 verified); fix round 2 (final) in progress
+**Current phase:** CR-1 to CR-3 built (gender, presentation camera, photo notice, readable caption card); QA complete (round 5: Go, 691 passed / 0 failed / 41 skipped); Phase 7 Delivery in progress
 **Last updated:** 30/10/2026
 
 ## Phases
@@ -34,6 +34,8 @@
 - CR-2 tolerances (tech lead, 30/10/2026): accept worst pictureVisibleFraction 0.986 at 390x844 (target 0.99) and peak move-out yaw 100.5 deg/s at 38 degrees (limit 100) as rounding edges; QA tests at >= 0.98 and <= 101 deg/s.
 - QA round 3 decisions (tech lead, 30/10/2026): N-6 caption cap is measured from the later of dwell completion and Guide arrival (card appears within 1.5 s of that); subtle gender face difference accepted for the stylised kit (brows fixed separately); card minimum width stays 16 rem, header layout must fit it.
 - QA round 4 decisions (tech lead, 30/10/2026): Woman brow scale stays 0.90 (QA found 0.95 indistinguishable); deep-skin brow thickness left as a polish item, not a bug. Phone pixel-ratio tolerance of 3% for the BUG-6 plinth check accepted.
+- BUG-10 extra fix attempt beyond the two-round limit approved by the user (02/11/2026); fixed by sliding portrait labels below the caption strip (spec v1.5).
+- N-10 (minor, known issue for this release): a long Guide name on portrait can be clipped by the left screen edge and the two labels can overlap; open for scene-developer and ux-ui-designer. Not a release blocker.
 - CR-3 (user, 30/10/2026): builder shows a "photos were not kept" notice when a reloaded draft has no photos. Design then frontend-developer.
 
 ## Open questions (awaiting user)
@@ -53,6 +55,6 @@ Needing legal review before public launch: photo-consent and Privacy Act wording
 
 ## Bug count
 
-Round 4: 2 open, both minor (BUG-10 strip overlaps Guide label by ~8 px at 360x640 caption 1.5; BUG-11 WebKit preview Try again needs reload). BUG-6, 7, 9 and brows fixed; BUG-8 fixed on Chromium (WebKit part is BUG-11). Suite 670 passed / 0 failed / 41 skipped across 3 projects; finale visual can flake under load. BUG-1 to 4 fixed, BUG-5 accepted upstream. See docs/qa-report.md. BUG-1 scope (tech lead, 29/10/2026): persist character choices and text fields per US-6 AC-3 (Must); photo restore stays with US-29 (Should, Release 2).
+Round 5: 0 open bugs. BUG-1 to 4 and BUG-6 to 11 fixed; one minor known issue (N-10). Suite 691 passed / 0 failed / 41 skipped across 3 projects, no test.fail markers; desktop suite can flake under machine load. BUG-1 to 4 fixed, BUG-5 accepted upstream. See docs/qa-report.md. BUG-1 scope (tech lead, 29/10/2026): persist character choices and text fields per US-6 AC-3 (Must); photo restore stays with US-29 (Should, Release 2).
 
 Open design question: in the presenting view the Visitor and her name label partly cover the picture (camera sits behind her). Intended?

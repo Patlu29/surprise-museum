@@ -1,5 +1,38 @@
 # Handoff: qa-engineer
 
+## Round 5 (final check after fix round 2)
+
+### Summary
+Re-ran the full suite at HEAD fbf516c on desktop-chromium, mobile-chromium and mobile-webkit, one project at a time. 691 passed, 0 failed, 41 skipped (desktop 237, mobile-chromium 230, mobile-webkit 224). BUG-10 and BUG-11 are fixed and verified with no `test.fail` left. Added `tests/e2e/label-strip.spec.ts` (7 tests per project) for the spec v1.5 label rule. Visual check of BUG-10: the lowered label does not look broken, never covers the picture and touches about 0 to 3 px of the Guide's hair. The label shift is eased (150 ms on `translate`, set in `NameLabel.tsx`) and instant under reduced motion, matching the spec. Details, flakes and the recommendation (Go) are in `docs/qa-report.md` (round 5).
+
+### Files changed (tests and docs only)
+- `tests/e2e/label-strip.spec.ts` (new, uncommitted): 360x640 scale 1.5 24-character name (label top at least 192, clear of picture); per-scale edge (172, 180, 192) with no needless shift; landscape and wide not pushed down; transition 0.15 s sampled per frame; reduced motion 0 s
+- `tests/README.md`: row for the new file
+- `docs/qa-report.md`: round 5 section
+- This note
+
+### Decisions
+- New file rather than editing `caption-card.spec.ts`: the full desktop run was in progress, and the label rule is a separate spec row.
+- Eased or instant is asserted through the computed transition (deterministic); the per-frame samples are an annotation.
+- 13 desktop failures at the end of the full run were one contiguous cluster of first-step timeouts; all passed alone, so load flakes.
+- No baseline re-recorded: no diff in any project.
+
+### Assumptions
+- A downward label offset can only come from the strip clamp (the picture rule is sideways, the collision rule is upward), so "pushed down no further than the edge" is asserted from the offset the layout writes.
+
+### Open questions
+- Should a label be clamped inside the viewport, and should the Guide stay in the framing fit set with a 24-character name? (ux-ui-designer, scene-developer; see N-10)
+- Brow thickness for deep skin (tech lead, from round 4).
+
+### Requests for other agents
+- scene-developer: N-10 (minor, not blocking): with a 24-character Guide name at 360x640 and 390x844 the Guide's label is cut off by the left screen edge (only "dra omery-" or "Ray" shows) and the labels can overlap by up to 25 px; identical at scale 1, so not caused by BUG-10.
+- devops-engineer: standing items (Linux baselines, a Firefox run, 2 workers for desktop-chromium; the suite is sensitive to a loaded machine).
+- Coordinator: commit `tests/e2e/label-strip.spec.ts`, `tests/README.md`, `docs/qa-report.md` and this note (I did not commit).
+
+---
+
+# Round 4 handoff (kept for history)
+
 ## Round 4 (fix round 1 re-test)
 
 ### Summary

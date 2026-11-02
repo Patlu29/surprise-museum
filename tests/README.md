@@ -29,6 +29,7 @@ Projects: `desktop-chromium`, `desktop-firefox`, `mobile-webkit` (iPhone 13), `m
 | `gender.spec.ts` | US-46, US-47, US-48 and ADR 0020 (CR-1): the Gender group, preview change, legacy drafts and museums, rejection of unknown values, the pronoun scan |
 | `restored-notice.spec.ts` | CR-3: the "Photos aren't kept" notice (design spec 5.17) |
 | `presentation-camera.spec.ts` | CR-2: the framed pose at 360x640, 390x844, 844x390 and 1280x720, release, return, reduced motion, the veil |
+| `label-strip.spec.ts` | Spec 5.5 v1.5 (BUG-10): labels at or below the portrait caption strip edge (172, 180, 192), clear of the picture, no needless shift, eased or instant |
 | `caption-card.spec.ts` | Spec 3.5 v1.4: strip, fitted card, widths (S1 to S7), upgrade rule (U1, U5, U7, U8), copy (G1) |
 | `visit-welcome-roam.spec.ts` | US-9, US-10, US-11, US-15, US-17 |
 | `visit-guide-presentations.spec.ts` | US-12, US-13, US-14, US-42, US-32 (reduced motion) |
