@@ -1,6 +1,8 @@
 # User stories: Virtual 3D Photo Museum
 
-Version 0.4 | 02/11/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.4)
+Version 0.5 | 02/11/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.5)
+
+Change in v0.5 (user feedback on CR-4, 02/11/2026): new US-62 (ceiling never blocks the view, FR-95), US-63 (face shape, FR-96), US-64 (clothing style and pattern, FR-97, FR-98), US-65 (every option for every gender, FR-99), US-66 (saved, shown identically, older museums unchanged, FR-100, FR-101) and US-67 (the "More options" group keeps the Characters step short, FR-102), all Must. US-53 is demoted (FR-82 Could, FR-84 Should; the user says phones are not hard to use); US-52 stays Must. US-57 and US-61 changed (patterns and face shapes in the contrast and budget checks; the data criterion allows the optional fields). US-6 and US-7 (customiser) now also cover the new options through US-63 to US-65.
 
 Change in v0.4 (CR-4, Improved UI, user request 02/11/2026): new Epic E10 with US-49 to US-61, covering visual polish, the landing page, mobile ergonomics, builder clarity, character definition, scene look and the no-regression guard rails. The direction is to polish the current look, keeping the identity, layout and flows; no existing story is changed. Reference viewports are in A-23: 360 by 640, 390 by 844, landscape 640 by 360, tablet 768 by 1024 and desktop 1280 by 720. Q-25 (the user's specific feedback) is open; when it arrives, add stories here or extend these ones.
 
@@ -505,8 +507,10 @@ As a Creator or a Visitor on a phone, I want controls I can tap without mistakes
 - Given the browser text size is 200%, when I use the builder and open the overlays, then every action is still reachable and there is no horizontal scrolling at 320 px wide
 - Given a long name, caption or error message, when it is shown, then it wraps or scrolls and is not cut off so that its meaning is lost
 
-### US-53: Key actions are within thumb reach and the phone's screen is respected (FR-82, FR-84, Must)
+### US-53: Key actions are within thumb reach and the phone's screen is respected (FR-82 Could, FR-84 Should)
 As a Creator or a Visitor on a phone, I want the buttons I use most to be where my thumb is, and nothing hidden behind the browser bars or the keyboard, so that I never get stuck.
+
+Demoted in v0.5: the user says phones are not hard to use. Do not restructure a layout that already works in order to meet the thumb-reach criteria; the safe-area and keyboard criteria must not regress from today's behaviour.
 
 **Acceptance criteria**
 - Given a phone in portrait (390 by 844), when I view each builder step, then Back, Next, Preview and Publish are in the lower 60% of the screen
@@ -551,7 +555,7 @@ As a Creator, I want short guidance at each step and errors beside the field, so
 As a Creator and a Visitor, I want to see each character clearly, so that I recognise the people they represent.
 
 **Acceptance criteria**
-- Given the default visit camera at 360 by 640, when I look at the Guide and the Visitor against the floor and walls, then head, torso, arms, legs, hands and feet are distinguishable, with an edge or shading contrast of at least 3:1 against the backdrop for every skin tone, hair colour and outfit colour offered
+- Given the default visit camera at 360 by 640, when I look at the Guide and the Visitor against the floor and walls, then head, torso, arms, legs, hands and feet are distinguishable, with an edge or shading contrast of at least 3:1 against the backdrop for every skin tone, hair colour, outfit colour and outfit pattern offered
 - Given the default camera and the closer presentation camera, when a reviewer looks at each character, then they can identify the eyes, brows, nose and mouth, the hair as a distinct shape with volume, the facial hair when selected, the hands apart from the sleeves, and the outfit's top and bottom as separate regions
 - Given I switch between Woman, Man and Neutral, when I compare the shapes and faces, then the differences are at least as distinguishable as before the change
 - Given I view the same character in the customiser preview, the builder preview and the visit, when I compare them, then the improvements appear identically in all three, and a museum published before CR-4 shows the improved look with no change to its settings
@@ -588,11 +592,75 @@ As the product owner, I want the improvements to stay inside the existing budget
 
 **Acceptance criteria**
 - Given the production build, when the bundle is measured, then the three.js chunk is under 1,000 kB minified, the first view is under 10 MB, and the landing page's transferred size has grown by no more than 100 KB
-- Given every offered gender, body type, outfit, hair style, facial hair option and the 10 skin tones, when the characters are counted, then none exceeds 6,000 triangles or 10 draw calls
+- Given every offered gender, face shape, clothing style, clothing pattern, body type, hair style and facial hair option (and the 10 skin tones), when the characters are counted, then no combination exceeds 6,000 triangles or 10 draw calls
 - Given NFR-1, NFR-2, NFR-3 and NFR-6 are re-measured by the same method, when the results are compared, then they still pass, including the Low quality tier on the reference phone
-- Given a museum published and a draft saved before CR-4, when each is opened, then it loads and looks improved with no migration, and the four builder steps and their order are unchanged
+- Given a museum published and a draft saved before CR-4, when each is opened, then it loads and looks improved with no migration, the four builder steps and their order are unchanged, and the stored document differs from before only by the optional character fields in FR-96 to FR-98 (no field renamed, removed or made required)
 - Given the automated accessibility check and a manual keyboard check on every surface, when they run, then text contrast is at least 4.5:1, component and focus contrast at least 3:1, and no AA failures remain
 - Given a scan of all new or changed app-written text, when it runs, then it finds no gendered pronouns or nouns (FR-76) and no non-Australian spellings (NFR-23)
+
+### US-62: The ceiling never blocks my view (FR-95, Must)
+As a Visitor, I want to look at the museum from a high angle without the ceiling getting in the way, so that I can see the whole room and my character.
+
+**Acceptance criteria**
+- Given I am in the visit, when I drag, pinch, scroll or use the keyboard camera controls to the highest angle and height the camera can reach, then I can still see the floor, both characters, and the pictures and finale podium near me, and no ceiling surface hides any of them
+- Given I move the camera slowly up through the angle where the ceiling would start to block the view, when I cross it, then the ceiling fades or cuts away without flicker and the camera does not jump, snap back or move by itself
+- Given the camera is at the default angle, when I look at the room, then the ceiling is visible and the interior looks as it does today
+- Given I use the Preview before publishing, or the builder's museum preview, when I move to a high angle, then the ceiling behaves the same way as in the visit
+- Given reduced motion is requested, when the camera crosses the boundary, then the ceiling change is instant and the camera still never moves on its own
+- Given I roam for 60 seconds with the camera at the high angle in a 20-picture museum, when the frame rate is measured, then NFR-1 still passes
+
+### US-63: Choose a face shape (FR-96, Must)
+As a Creator, I want to choose the face shape for the Guide and for the Visitor, so that each character looks more like the real person.
+
+**Acceptance criteria**
+- Given I open the customiser for either character on a new draft, when I look at Face shape, then at least 5 options are offered (for example oval, round, square, heart, long) and oval is selected, which looks the same as the face does today
+- Given I select a different face shape, when I make the change, then that character's 3D preview shows the new outline within 1 second, the other character is unchanged, and no other choice (gender, skin tone, hair, outfit) changes
+- Given I compare the five shapes within the same gender, when I look at the preview, then each is visibly distinct from the others, and Woman, Man and Neutral stay distinguishable from one another
+- Given I use only the keyboard, when I tab to Face shape, then it is a radiogroup, arrow keys move between options, the selection is announced and the preview updates
+- Given the 3D preview is loading or fails, when that happens, then Face shape stays usable, my choice is saved, and I see the loading or error state defined for US-6
+
+### US-64: Choose a clothing style and a pattern (FR-97, FR-98, Must)
+As a Creator, I want to choose what each character wears and its pattern, so that the outfit matches the real person's style.
+
+**Acceptance criteria**
+- Given I open the customiser for either character, when I look at Clothing, then at least 6 styles are offered (today's six are kept), the current style is selected, and Pattern shows at least Plain, Stripes, Checks and Dots with Plain selected
+- Given I choose a pattern, when I make the change, then the preview shows it within 1 second in tints of the chosen outfit colour, and the outfit colour control still changes the colour of the garment and the pattern together
+- Given I try every pattern with every clothing style and every outfit colour, when I view the preview, then every combination is allowed and renders, with the top and bottom still distinguishable
+- Given I choose Plain, when I compare the character with how it looked before this change, then it looks the same
+- Given I use only the keyboard, when I tab to Style and Pattern, then each is a radiogroup, arrow keys move between options, the selection is announced and the preview updates
+- Given a pattern is chosen, when the character is shown at the default visit camera and during a presentation, then the pattern reads clearly and does not reduce the character's edge contrast below 3:1 (FR-89)
+
+### US-65: Every option is for everyone (FR-99, Must)
+As a Creator, I want the face shapes and clothes to be available whoever the characters are, so that I am never boxed in by a gender label.
+
+**Acceptance criteria**
+- Given the Guide and the Visitor, when I open the customiser for each, then the lists of face shapes, clothing styles and patterns are identical for both
+- Given I select Woman, Man or Neutral for a character, when I look at the face shape, style and pattern lists, then every option is still offered and enabled, and nothing is greyed out or hidden
+- Given I have chosen a face shape, style and pattern, when I change the gender, then those three choices do not change
+- Given I read the labels and descriptions for these options, including the screen-reader preview description, when I check them, then they name the shape or the garment, contain no gendered word such as "women's" or "men's", and follow FR-76 and Australian English
+- Given I choose any combination of gender, face shape, style and pattern for either character, when the preview renders, then it renders without error
+
+### US-66: My choices are saved, shown the same everywhere, and older museums still work (FR-100, FR-101, Must)
+As a Creator and as a Visitor, I want the character to look the same in the builder, the preview and the visit, and an older museum to keep working, so that nothing surprises me.
+
+**Acceptance criteria**
+- Given I choose a face shape, style and pattern for each character, when I reload the page or close and reopen the builder on the same device, then the choices are restored in the controls and the preview
+- Given I publish, when a Visitor opens the link on any device, then both characters show the chosen face shape, style and pattern, matching the builder preview and the Visitor preview
+- Given a museum published, and a draft saved, before this change (so with no face shape or pattern value), when each is opened, then it loads with no error, looks exactly as before (oval, its existing style, plain), and the customiser shows those defaults
+- Given a document is submitted for saving with an unrecognised face shape or pattern, or one of the wrong type, when it is validated, then the save is rejected with a clear validation error, and a stored document is never rendered with an unknown value
+- Given a document is submitted with the new fields absent, when it is validated, then it is accepted
+- Given an older museum is opened for editing and saved without touching the new options, when I compare the saved document, then no existing field has changed
+
+### US-67: More options does not make the Characters step longer (FR-102, FR-86, Must)
+As a Creator, I want the extra options out of the way until I want them, so that the builder still feels short.
+
+**Acceptance criteria**
+- Given I open the Characters step at 360 by 640 and at 390 by 844, when the More options group is closed, then the step shows no more controls and is no taller than it was before this change
+- Given the group is closed, when I read its label, then it says More options, it is marked Optional in text, and the preview shows the current choices
+- Given I open the group by touch or by keyboard (Enter or Space on the disclosure control), when it opens, then face shape, clothing style and clothing pattern appear, focus and the screen-reader announcement make the change clear, and Escape or the control closes it again
+- Given I change an option inside the group, when I make the change, then the live preview updates within 1 second
+- Given I supply only the required inputs (at least 1 photo, a Visitor name, a Guide name and the consent confirmation), when I press Next three times and then Publish, then I reach publishing without opening More options and with no step skipped
+- Given I have changed something inside More options and then closed the group, when I look at the step, then the group's summary or the preview still shows that my choice is applied
 
 ---
 
@@ -601,8 +669,9 @@ As the product owner, I want the improvements to stay inside the existing budget
 | Release | Stories |
 |---|---|
 | MVP (all Must) | US-1, US-2, US-3, US-4, US-5, US-6, US-7, US-8, US-9, US-10, US-11, US-12, US-13, US-14, US-15, US-16, US-17, US-22, US-23, US-24, US-30, US-31 (message only), US-32, US-33, US-42, US-45 (NFR-25 part), US-46, US-47, US-48 (added in v0.3) |
-| CR-4 Improved UI, Must (build now, v0.4) | US-49, US-52, US-53, US-54, US-55, US-57, US-59, US-61 |
-| CR-4 Improved UI, Should and Could (build now if time allows, in this order: US-50, US-51, US-56, US-58, US-60) | US-50, US-51, US-56 (FR-88 is Could), US-58, US-60 |
+| CR-4 Improved UI, Must (build now, v0.4; US-53 removed in v0.5) | US-49, US-52, US-54, US-55, US-57, US-59, US-61 |
+| CR-4 user feedback, Must (build now, v0.5) | US-62 (ceiling bug, first), US-63, US-64, US-65, US-66, US-67 |
+| CR-4 Improved UI, Should and Could (build now if time allows, in this order: US-50, US-51, US-56, US-58, US-60, then US-53) | US-50, US-51, US-56 (FR-88 is Could), US-58, US-60, US-53 (FR-84 Should, FR-82 Could) |
 | Release 2 (Should) | US-18, US-19, US-20, US-21, US-25, US-26, US-27, US-28, US-29, US-31 (slideshow), US-34, US-35, US-36, US-43, US-44, US-45 (NFR-26 part) |
 | Later (Could) | US-37, US-38, US-39, US-40, US-41 |
 | Future (Won't this release) | Live mode with both characters controlled live (FR-66), Creator accounts (FR-67), multiple Visitors, VR and AR, native apps (FR-68) |
@@ -639,9 +708,12 @@ As the product owner, I want the improvements to stay inside the existing budget
 | FR-36 | US-44 | FR-66, FR-67, FR-68 | None (Won't this release) |
 | FR-38 | US-40 | FR-77, FR-78 | US-49 |
 | FR-79 | US-50 | FR-80 | US-51 |
-| FR-81, FR-83 | US-52 | FR-82, FR-84 | US-53 |
+| FR-81, FR-83 | US-52 | FR-82 (Could), FR-84 (Should) | US-53 |
 | FR-85 | US-54 | FR-86 | US-55 |
 | FR-87, FR-88 | US-56 | FR-89, FR-90 | US-57 |
 | FR-91 | US-58 | FR-92 | US-59 |
 | FR-93 | US-60 | NFR-27 to NFR-31 | US-61 |
-| FR-94 | None (Won't, CR-4) | | |
+| FR-94 | None (Won't, CR-4) | FR-95 | US-62 |
+| FR-96 | US-63 (also US-65, US-66, US-67) | FR-97, FR-98 | US-64 (also US-65, US-66, US-67) |
+| FR-99 | US-65 | FR-100, FR-101 | US-66 |
+| FR-102 | US-67 | NFR-27, NFR-29 (changed in v0.5) | US-61, US-66 |

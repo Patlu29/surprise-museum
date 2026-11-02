@@ -1,58 +1,60 @@
 # Handoff: product-manager
 
 ## Summary
-Requirements are now v0.4. CR-4 "Improved UI" (user request 02/11/2026) is added as Epic E10: a small, testable set of requirements to polish the current look across the landing page, builder, visit HUD and overlays, and 3D scene, with clearer and more defined characters. Identity, layout, flows, the four builder steps and the data model are unchanged. The user chose spec-and-build straight away, so there is no design approval checkpoint. Q-25 (the user's specific feedback) is an open placeholder that does not block the build. Earlier v0.3 content (gender, FR-72 to FR-76) is unchanged.
+Requirements are now v0.5 (02/11/2026). The user's specific CR-4 feedback is recorded: a ceiling bug (new Must FR-95), more freedom for face shape and clothing design (new Musts FR-96 to FR-102, which overturn part of FR-94 for those two areas only), and "phones are not hard to use" (FR-82 demoted to Could, FR-84 to Should; FR-81 and FR-83 stay Must as guard rails). Q-25 to Q-27 are marked answered with the user's words. New questions Q-30 to Q-32 carry working defaults and do not block design or build. Earlier content (gender, E1 to E9, FR-77 to FR-93) is unchanged except where listed below.
 
 ## Files changed
-- docs/requirements/requirements.md: v0.4 and change log entry; Epic E10 with FR-77 to FR-94; NFR-27 to NFR-31; out-of-scope line; A-23 to A-28; Q-25 to Q-29; section 5 Must count note
-- docs/requirements/user-stories.md: v0.4; new Epic E10 with US-49 to US-61; story map and traceability updated
+- docs/requirements/requirements.md: v0.5 and change log; FR-13 (lists new options); FR-82 to Could and FR-84 to Should; FR-89 and FR-90 (cover patterns and face shapes); FR-94 (Won't list rewritten); new FR-95 to FR-102; NFR-27 (budget per combination) and NFR-29 (optional fields only); section 5 Must count (64); section 8; A-23, A-26, A-28 revised; new A-29 to A-33; Q-25 to Q-27 answered, Q-28 updated; new Q-30 to Q-32; "hard to use on phones" removed from the drivers
+- docs/requirements/user-stories.md: v0.5; new US-62 to US-67; US-53 re-prioritised; US-57 and US-61 changed; story map and traceability updated
 - docs/handoffs/product-manager.md: this note
 
-## New IDs and priorities
-| Area | IDs | Priority |
+## New and changed IDs
+| ID | Pri | What |
 |---|---|---|
-| Visual polish | FR-77 scales and one component style set; FR-78 one primary action per screen, clear hierarchy | Must |
-| | FR-79 control states, transitions of 250 ms or less, designed empty and error states | Should |
-| | FR-80 landing page: name, one sentence and Create button above the fold at 360x640 and 1280x720 | Should |
-| Mobile ergonomics | FR-81 targets 44x44 with 8 px gaps; FR-82 thumb reach (lower 60%); FR-83 text 16 / 14 / 12 px minimums and 200% text; FR-84 safe areas, browser bars, keyboard | Must |
-| Builder clarity | FR-85 visible progress and outstanding list; FR-86 Required and Optional marking, grouping, defaults, three-Next path to Publish | Must |
-| | FR-87 step purpose line and inline validation | Should |
-| | FR-88 time hint per step | Could |
-| Character definition | FR-89 silhouette separation (3:1 edge contrast); FR-90 face, hair, hands and outfit regions readable | Must |
-| | FR-91 clearer walk and idle | Should |
-| Scene look | FR-92 interior finish pass, pictures and wayfinding as legible as before | Must |
-| | FR-93 depth and atmosphere cues on Auto, simplified on Low | Should |
-| Excluded | FR-94 new direction, palette, logo, dark mode, themes, new options, new steps, data model changes | Won't |
-| Guard rails | NFR-27 budgets (three.js chunk under 1,000 kB, 6,000 triangles, 10 draw calls, first view under 10 MB, landing page grows by no more than 100 KB); NFR-28 frame rate and load re-measured, CLS 0.1 or less; NFR-29 no data or flow change, old museums and drafts load; NFR-30 accessibility holds; NFR-31 copy follows FR-76 and Australian English | Must |
+| FR-95 | Must (new) | Ceiling never blocks the view at any reachable camera angle or height; fade or cutaway preferred to a clamp; default view unchanged; no flicker; instant under reduced motion |
+| FR-96 | Must (new) | Face shape, at least 5 (oval, round, square, heart, long), default oval = today's face, stacks on gender face |
+| FR-97 | Must (new) | Clothing style, at least 6; today's six kept; default unchanged |
+| FR-98 | Must (new) | Pattern: plain, stripes, checks, dots; default plain; tints of the outfit colour; works with every style and colour |
+| FR-99 | Must (new) | Both characters, every gender, identical lists, neutral labels, no gender-locked garment, gender change never alters these choices |
+| FR-100 | Must (new) | Optional data fields; old museums and drafts load and look unchanged, no migration |
+| FR-101 | Must (new) | Saved in draft and published museum, identical rendering everywhere, validated (absent accepted, unknown or wrong type rejected) |
+| FR-102 | Must (new) | Face shape, style and pattern under "More options"; closed step has no more controls and is no taller than today; FR-86 still applies |
+| FR-82 | Could (was Must) | Thumb reach |
+| FR-84 | Should (was Must) | Safe areas, browser bars, on-screen keyboard; no regression |
+| FR-81, FR-83 | Must (unchanged) | Accessibility guard rails |
+| FR-89, FR-90 | Must (changed text) | Quality guard rails; now cover patterns and face-shape distinctness |
+| FR-94 | Won't (changed) | Still excludes everything except face shape and clothing style and pattern, and the ceiling fix |
+| NFR-27, NFR-29 | Must (changed) | Budget applies to every option combination; document gains optional fields only |
+| US-62 to US-67 | Must (new) | FR-95; FR-96; FR-97 and FR-98; FR-99; FR-100 and FR-101; FR-102 |
 
-Stories: US-49 (FR-77, FR-78), US-50 (FR-79), US-51 (FR-80), US-52 (FR-81, FR-83), US-53 (FR-82, FR-84), US-54 (FR-85), US-55 (FR-86), US-56 (FR-87, FR-88), US-57 (FR-89, FR-90), US-58 (FR-91), US-59 (FR-92), US-60 (FR-93), US-61 (NFR-27 to NFR-31). Musts: US-49, 52, 53, 54, 55, 57, 59, 61. Shoulds: US-50, 51, 56, 58, 60.
+Must count: 47 original + 9 CR-4 Musts (11 minus FR-82 and FR-84) + 8 new (FR-95 to FR-102) = 64.
 
 ## Decisions
-- 11 functional Musts is above the usual limit of about 10, which I challenged: each is polish of something that exists and maps to one of the user's drivers or scoped areas. FR-80 (landing) was demoted to Should because only Creators see it; Visitors arrive from the share link. Trimming order if CR-4 must shrink is A-28
-- Builder "feels shorter" is done through clarity only: FR-85 (progress, outstanding list) and FR-86 (grouping, Required and Optional, defaults, and a testable three-Next path to Publish). No step is removed, merged or reordered (A-25, NFR-29)
-- Budgets are tight and drive the approach: the three.js chunk has about 30 kB spare (about 969 to 971 of 1,000 kB) and characters have about 122 triangles spare (5,878 of 6,000). NFR-27 therefore says the scene and character improvements should come mainly from materials, parameters, lighting and textures, not new libraries or geometry. The budgets are not raised by default (Q-28)
-- "Characters more defined" is read as silhouette separation, facial, hair, hand and outfit detail, and clearer animation (A-26). FR-89 sets a measurable 3:1 edge contrast against the backdrop; the technical-artist must record any option combination that cannot reach it (for example a white outfit on a pale wall), so we get a decision rather than a silent miss
-- Thumb reach (FR-82) allows either a control in the lower 60% or an equivalent action there (for example, tap outside to dismiss), so the designer keeps flexibility over the caption card's docking
+- FR-82 to Could, FR-84 to Should: the user says phones are not hard to use. FR-82 is the riskiest to build (it conflicts with the caption card docking at the top) and has no user need behind it now. FR-84 is only a Should because it also protects against regressions; QA keeps the existing tests. FR-81 and FR-83 stay Must
+- Eight new Musts is a lot, challenged and kept: FR-95 is a bug; FR-96 to FR-102 are one user-requested capability split to one behaviour each. FR-99 to FR-101 are cheap guard rails for inclusion and data safety. There is no separate budget FR; NFR-27 now covers every combination instead
+- "More options" is a Must (FR-102) because the user asked that the options not lengthen the step; it is testable as "closed state has no more controls and is no taller than today"
+- Trimming order rewritten (A-28 for polish, A-29 for character options). Never demote FR-81, FR-83, FR-85, FR-89, FR-95, FR-99 to FR-101, NFR-27 to NFR-30
 
 ## Assumptions
-- Reference viewports: 360x640 floor, 390x844 typical, landscape 640x360 and 844x390, tablet 768x1024, desktop 1280x720, plus 320 px reflow (A-23, default for Q-26)
-- "Polish" keeps colours, logo, tone, layouts and flows recognisable (A-24)
-- Current typeface family is kept (A-27, default for Q-29); a new font must fit within 100 KB growth on the landing page
-- The 100 KB landing growth limit and the 250 ms transition limit are my proposed numbers; the architect and designer may propose different ones with a reason
+- A-29: option counts are working defaults (5, 6, 4); more is fine, fewer is not. Patterns should be materials or textures, not geometry
+- A-30: face shape stacks on the gender face; oval is today's face
+- A-31: today's six outfit styles already satisfy "about 6 styles" (Dress and Suit already show for every gender); the pattern is the main new freedom
+- A-32: the ceiling fix is the scene-developer's bug fix and does not change the default camera, controls or Guide behaviour
+- A-33: the Visitor cannot change their own look; no presets
 
 ## Open questions
-- Q-25 (placeholder, does not block the build): the user's specific UI feedback. Which screens, which devices and browsers, and what felt wrong. It will be triaged into CR-4a (user)
-- Q-26: which phone, orientation and browser the user finds hard to use. Default A-23 is in use (user)
-- Q-27: what "more defined" means most for the characters (too small, blends into background, blank faces, too alike). Default: address all (user)
-- Q-28: may the character and size budgets be raised if needed? Default: no (user, only if the technical-artist shows FR-89 or FR-90 cannot fit)
-- Q-29: keep the current typeface? Default: yes (user)
+- Q-30: do you want more than today's six clothing styles, or is "about 6" satisfied by them? Default: keep the six (user)
+- Q-31: should patterns use tints of the outfit colour (default) or a second colour picker? (user)
+- Q-32: confirm FR-82 to Could and FR-84 to Should, or keep FR-84 Must (user)
+- Q-28 stays "no" (user, only if the technical-artist proves FR-96 to FR-98 cannot fit)
 - Standing: Q-21 (finale trigger, can defer); legal review of privacy and terms before launch (legal team); pricing and contracts are not defined here, so please refer to the Sales team
 
 ## Requests for other agents
-- ux-ui-designer (design spec, `src/styles/`): update the spec for CR-4 using the clarifying decisions above, with no checkpoint. Define the spacing, type, radius and elevation scales and the component style set (FR-77); the primary, secondary and destructive hierarchy for each screen (FR-78); the states and 250 ms transitions (FR-79); the landing first screen (FR-80); a type scale that meets 16 / 14 / 12 px minimums and 8 px target gaps at 360 px (FR-81, FR-83); the safe-area and keyboard behaviour (FR-84); the builder progress area and outstanding list, section grouping, Required and Optional markers and the three-Next path (FR-85 to FR-87). Watch two tensions with the current spec: the caption card docks at the top on phones and the Preview button sits at the top, but FR-82 wants repeated actions in the lower 60% (offer tap-outside dismiss or a reachable control). Also specify the character silhouette and feature treatment (FR-89, FR-90) and the scene finish list (FR-92, FR-93) with a Low-quality fallback
-- architect: confirm the CR-4 approach fits NFR-27 (about 30 kB chunk headroom). Note that no ADR is needed unless a font, an outline or post-processing technique, or a new dependency is proposed. Confirm that the 100 KB landing limit is measurable in CI (the bundle-size job exists)
-- technical-artist: deliver FR-89 to FR-93 through materials, colour, shading and texture within 5,878 of 6,000 triangles and 3 of 10 draw calls; an outline or rim technique is the likely route but must not add a post-processing dependency over budget. Report the edge-contrast result per skin tone, hair colour and outfit colour (FR-89) and any failing combination. Keep gender differences at least as distinguishable (FR-90)
-- scene-developer: apply the scene finish and the Auto and Low quality split (FR-92, FR-93) and keep standing pools, podium and wayfinding cues at least as visible. Do not change camera, controls or Guide behaviour
-- frontend-developer: implement the 2D polish for FR-77 to FR-88 on the landing page, builder, HUD and overlays. Keep the four steps, their order and the draft and document formats unchanged (NFR-29). Mark fields Required or Optional in text, build the progress and outstanding list from the same source as the Preview missing-items dialog, and write all new copy to FR-76 and Australian English. Use `dvh`-style viewport handling and safe-area padding for FR-84
-- qa-engineer: derive tests from US-49 to US-61. Suggested checks: target-size and gap measurement at 360 px in both orientations; font-size audit; 200% text and 320 px reflow; lower-60% position checks; safe-area and on-screen keyboard behaviour under emulation; the three-Next path to Publish; edge-contrast measurement per skin, hair and outfit colour; before and after screenshots for identity; bundle, triangle and draw-call budgets; NFR-1 to NFR-3 and NFR-6 re-run including Low tier; CLS 0.1 or less; legacy museum and draft load; pronoun and spelling scan. All 691 existing tests must still pass, with selectors updated only where visuals changed
-- devops-engineer: no change expected. The bundle-size job should also record the landing page transfer size so the 100 KB limit can be checked (architect to confirm)
+- architect: write the ADR for the new optional fields following ADR 0020 (gender). Working names `faceShape` and `outfitPattern` (clothing style already exists as `outfitStyle`). Defaults: oval, plain, existing style. Fields optional in the contract, the draft format and the document (FR-100, FR-101, NFR-29). Confirm the ceiling approach fits ADR 0014 (fading partitions) and that the three.js chunk stays under 1,000 kB (NFR-27; about 30 kB spare). No other ADR needed unless a new dependency is proposed
+- technical-artist: deliver five face shapes (mainly scaling), a pattern per outfit (stripes, checks, dots, from materials or textures at no triangle cost) and any new clothing styles that fit, all within 6,000 triangles and 10 draw calls for every combination of gender, face shape, style, pattern, hair, facial hair, body type and height (5,878 is the worst case today, so about 122 spare). Default options must reproduce today's look. Keep face shapes distinct within each gender and keep gender differences distinguishable (FR-90). Report edge contrast per pattern, colour and skin tone (FR-89). If the budget is a problem, follow A-29 and tell me before cutting
+- scene-developer: finish the ceiling fix to FR-95 (fade or cutaway preferred; no flicker; default view unchanged; instant under reduced motion; works in visit, Preview and builder preview; NFR-1 holds). Add the characters' new options to the kit as the technical-artist delivers them
+- ux-ui-designer: design the "More options" group on the Characters step (FR-102: closed height no taller than today at 360x640 and 390x844, keyboard and touch, Optional marking, summary when closed). Define the face shape, style and pattern controls, with neutral labels (FR-99, FR-76). Update the spec for FR-82 (Could) and FR-84 (Should): do not restructure the caption card or builder bars for thumb reach
+- frontend-developer: add the three controls inside More options in `src/ui/builder/CharactersStep.tsx`; add the optional keys to the draft persistence with defaults filled when absent; keep draft restore and old drafts unchanged (FR-100); update the screen-reader preview description with neutral wording (FR-76); preview updates within 1 second. Do not restructure layouts for FR-82
+- backend-developer: validate the new optional fields in the document contract (accept absent; reject unknown values and wrong types with a clear validation error; never store or serve an unknown value) and update `docs/api.md`. Confirm that old stored documents are served unchanged and that an edit that does not touch the new fields leaves every existing field as it was (FR-100, FR-101, US-66)
+- qa-engineer: derive tests from US-62 to US-67 and the changed US-53, US-57, US-61. Suggested checks: camera at highest reachable angle and zoom by mouse, touch and keyboard with the ceiling never hiding floor, characters or pictures, no flicker, reduced motion; every face shape x style x pattern x gender renders without error and stays within 6,000 triangles and 10 draw calls; default options pixel-match today's baseline; old museum and draft fixtures load unchanged; contract accepts absent fields and rejects unknown or wrong-typed values; Characters step height with More options closed is no taller than before at 360x640 and 390x844; the three-Next path to Publish without opening More options; keyboard disclosure and radiogroups; neutral-label and pronoun scan; edge contrast per pattern. Keep the existing tests; FR-82 and FR-84 tests are no longer release blockers
+- devops-engineer: no change expected
