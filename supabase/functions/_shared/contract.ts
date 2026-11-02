@@ -124,7 +124,24 @@ export const AVATAR_OPTIONS = {
     'pink',
     'blue',
   ],
-  outfitStyle: ['tee-jeans', 'hoodie', 'shirt-trousers', 'dress', 'suit', 'jumpsuit'],
+  // The first six are the v1.0 styles. The last six were added additively in requirements v0.5
+  // (FR-97, Q-30, ADR 0021, design spec v2.0 section 12.8.2 G): append only, never rename or
+  // remove an id. Every style is offered to
+  // both characters and every gender (FR-99).
+  outfitStyle: [
+    'tee-jeans',
+    'hoodie',
+    'shirt-trousers',
+    'dress',
+    'suit',
+    'jumpsuit',
+    'sweater',
+    'overalls',
+    'coat',
+    'tracksuit',
+    'cardigan',
+    'tunic',
+  ],
   outfitColor: [
     'red',
     'coral',
@@ -180,6 +197,94 @@ export function avatarGender(config: { readonly gender?: unknown }): AvatarGende
   return isAvatarGender(config.gender) ? config.gender : DEFAULT_AVATAR_GENDER;
 }
 
+// ---------------------------------------------------------------------------
+// Face shape and outfit pattern (requirements v0.5, ADR 0021)
+//
+// Both follow the gender pattern exactly (ADR 0020): optional on AvatarConfig, NOT in
+// AVATAR_OPTIONS (whose keys are all required in a v1 avatar), read only through the accessor,
+// and a missing value means today's look ('oval' head, 'plain' outfit). Every option is offered
+// to both characters and every gender. The array order is the display order.
+//
+// Outfit style already exists as the required AVATAR_OPTIONS.outfitStyle (six styles) and is not
+// duplicated here; the pattern sits beside it and beside outfitColor as a flat key.
+// ---------------------------------------------------------------------------
+
+export const AVATAR_FACE_SHAPES = ['oval', 'round', 'square', 'heart', 'long'] as const;
+export type AvatarFaceShape = (typeof AVATAR_FACE_SHAPES)[number];
+/** What a missing `faceShape` means: the head ellipsoid used before v0.5, bit for bit. */
+export const DEFAULT_AVATAR_FACE_SHAPE: AvatarFaceShape = 'oval';
+
+export function isAvatarFaceShape(value: unknown): value is AvatarFaceShape {
+  return typeof value === 'string' && (AVATAR_FACE_SHAPES as readonly string[]).includes(value);
+}
+
+/** The face shape to render. Missing or unrecognised gives 'oval'. Validators use the guard. */
+export function avatarFaceShape(config: { readonly faceShape?: unknown }): AvatarFaceShape {
+  return isAvatarFaceShape(config.faceShape) ? config.faceShape : DEFAULT_AVATAR_FACE_SHAPE;
+}
+
+export const AVATAR_OUTFIT_PATTERNS = ['plain', 'stripes', 'checks', 'dots'] as const;
+export type AvatarOutfitPattern = (typeof AVATAR_OUTFIT_PATTERNS)[number];
+/** What a missing `outfitPattern` means: the flat outfit colour used before v0.5. */
+export const DEFAULT_AVATAR_OUTFIT_PATTERN: AvatarOutfitPattern = 'plain';
+
+export function isAvatarOutfitPattern(value: unknown): value is AvatarOutfitPattern {
+  return typeof value === 'string' && (AVATAR_OUTFIT_PATTERNS as readonly string[]).includes(value);
+}
+
+/** The outfit pattern to render. Missing or unrecognised gives 'plain'. Validators use the guard. */
+export function avatarOutfitPattern(config: {
+  readonly outfitPattern?: unknown;
+}): AvatarOutfitPattern {
+  return isAvatarOutfitPattern(config.outfitPattern)
+    ? config.outfitPattern
+    : DEFAULT_AVATAR_OUTFIT_PATTERN;
+}
+
+// ---------------------------------------------------------------------------
+// Optional avatar keys, as one table (ADR 0021). The validator, the draft restore and the
+// response fill-in loop over this, so a future optional key is added in one place.
+// ---------------------------------------------------------------------------
+
+export const AVATAR_OPTIONAL_OPTIONS = {
+  gender: AVATAR_GENDERS,
+  faceShape: AVATAR_FACE_SHAPES,
+  outfitPattern: AVATAR_OUTFIT_PATTERNS,
+} as const;
+export type AvatarOptionalKey = keyof typeof AVATAR_OPTIONAL_OPTIONS;
+
+/** The value a missing optional key means. Equal to today's look in every case. */
+export const AVATAR_OPTIONAL_DEFAULTS: {
+  readonly [K in AvatarOptionalKey]: (typeof AVATAR_OPTIONAL_OPTIONS)[K][number];
+} = {
+  gender: DEFAULT_AVATAR_GENDER,
+  faceShape: DEFAULT_AVATAR_FACE_SHAPE,
+  outfitPattern: DEFAULT_AVATAR_OUTFIT_PATTERN,
+};
+
+/** True when `value` is one of the listed ids for the optional key `key`. */
+export function isAvatarOptionalValue(key: AvatarOptionalKey, value: unknown): boolean {
+  return (
+    typeof value === 'string' && (AVATAR_OPTIONAL_OPTIONS[key] as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * A copy with every optional key explicit: missing or unrecognised values become the default.
+ * Used where a stored avatar is returned (get-museum, manage-museum get, the mock) and restored.
+ * The stored record is never rewritten.
+ */
+export function withAvatarDefaults<T extends AvatarConfig>(
+  config: T,
+): T & Required<Pick<AvatarConfig, AvatarOptionalKey>> {
+  return {
+    ...config,
+    gender: avatarGender(config),
+    faceShape: avatarFaceShape(config),
+    outfitPattern: avatarOutfitPattern(config),
+  };
+}
+
 /** Stored as JSON in museums.visitor_avatar and museums.guide_avatar. */
 export interface AvatarConfig {
   v: 1;
@@ -188,6 +293,17 @@ export interface AvatarConfig {
    * it; readers must go through `avatarGender(config)` and never compare `config.gender` directly.
    */
   gender?: AvatarGender;
+  /**
+   * Optional (ADR 0021). Absent means 'oval', today's head. Writers always set it; readers go
+   * through `avatarFaceShape(config)`.
+   */
+  faceShape?: AvatarFaceShape;
+  /**
+   * Optional (ADR 0021). Absent means 'plain', today's flat outfit colour. Applies to the outfit
+   * colour regions of `outfitStyle`. Writers always set it; readers go through
+   * `avatarOutfitPattern(config)`.
+   */
+  outfitPattern?: AvatarOutfitPattern;
   skinTone: OptionOf<'skinTone'>;
   hairStyle: OptionOf<'hairStyle'>;
   hairColor: OptionOf<'hairColor'>;

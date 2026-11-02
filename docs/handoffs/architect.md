@@ -1,94 +1,90 @@
 # Handoff: architect
 
 ## Summary
-Change request CR-1 (requirements v0.3, approved 29/10/2026): I settled the schema for the per-character gender option and for Visitor facial hair in ADR 0020. I also landed the shared types in the contract, so every build agent works from one definition, and updated `docs/architecture.md` (v1.3) and `docs/api.md` (v1.1). The change is additive. `gender` is optional on each `AvatarConfig` and a missing value means `neutral`, so there is no version bump and no database migration. I re-measured the character triangle budget: the real worst case is 5,878 of 6,000. Distinct Woman and Man bodies and faces fit only if they reshape the existing meshes and add no triangles.
+User feedback on CR-4 (02/11/2026, requirements v0.5, FR-96 to FR-102, Q-30 and Q-31 answered). I settled the data model for face shape, outfit pattern and the extra outfit styles in ADR 0021, and landed the type and contract scaffolding with unit tests. The changes are:
+- optional flat `faceShape` (5 options) and `outfitPattern` (4 options), read through accessors
+- six outfit style ids appended to the existing `outfitStyle` (12 in total)
+- no pattern colour field
 
-Earlier rounds (scaffold, integration round 1, QA phase 6) are unchanged; see ADRs 0001 to 0019 and architecture section 17.
+There is no version bump, no draft key change and no database migration, and legacy data reads as today's look. There is no UI and no kit visual work. The builder hides the six new styles until the kit builds them.
+
+Earlier rounds (ADRs 0001 to 0020) are unchanged; see architecture section 17.
 
 ## Files changed
-- `supabase/functions/_shared/contract.ts`: added `AVATAR_GENDERS` (`feminine`, `masculine`, `neutral`, in display order), `AvatarGender`, `DEFAULT_AVATAR_GENDER`, `isAvatarGender()` and `avatarGender()`. Added optional `gender?: AvatarGender` to `AvatarConfig`. Updated the `facialHair` comment (both characters) and the version-bump rule in the header. No behaviour change: the helpers are not called yet.
-- `src/lib/avatars.ts`: one-line compile fix. `AvatarOptionKey` now also excludes `'gender'` (with a comment), so the generic builder helpers still type-check. The frontend-developer removes this when adding the control.
-- `docs/decisions/0020-avatar-gender-field.md`: new ADR covering ids, placement, versioning, read and write rules, validation, compatibility matrix, deploy order and kit budget rules.
-- `docs/architecture.md`: v1.3. Updated sections 1 (summary row), 6.7 (options, new Gender row, budget 5,878), 7.1 (avatar columns), 7.3 (publish rules), 12 (triangles per character), 15 (two new risks), 16 (ADR 0020) and 17 (change log).
-- `docs/api.md`: v1.1, written at the caller's request although the file belongs to the backend-developer. Header note that implementation is pending, examples with `gender`, a note that responses always include `gender`, a new "Avatar settings" table under `publish`, the Visitor facial hair rule removed, and a change log row.
+- `supabase/functions/_shared/contract.ts`:
+  - New `AVATAR_FACE_SHAPES`, `AvatarFaceShape`, `DEFAULT_AVATAR_FACE_SHAPE`, `isAvatarFaceShape`, `avatarFaceShape`.
+  - New `AVATAR_OUTFIT_PATTERNS`, `AvatarOutfitPattern`, `DEFAULT_AVATAR_OUTFIT_PATTERN`, `isAvatarOutfitPattern`, `avatarOutfitPattern`.
+  - New table helpers: `AVATAR_OPTIONAL_OPTIONS`, `AvatarOptionalKey`, `AVATAR_OPTIONAL_DEFAULTS`, `isAvatarOptionalValue`, `withAvatarDefaults`.
+  - Optional `faceShape?` and `outfitPattern?` on `AvatarConfig`.
+  - Six ids appended to `AVATAR_OPTIONS.outfitStyle`: `sweater`, `overalls`, `coat`, `tracksuit`, `cardigan`, `tunic` (design spec v2.0, 12.8.2 G; `tunic` chosen over `skirt` by the tech lead).
+- `supabase/functions/_shared/validate.ts`: `validateAvatar` loops over `AVATAR_OPTIONAL_OPTIONS`. An absent key gets its default. An unknown id or `null` is rejected with `field` `<path>.<key>` and the message "Choose one of the available options." Other unknown keys are still rejected.
+- `supabase/functions/_shared/present.ts`: responses fill all three optional keys through `withAvatarDefaults`, replacing the local `withGender`. Stored rows are not rewritten.
+- `src/api/mockClient.ts`: same fill-in for the mock's `getMuseum` and `manageGet`. Publish already runs the shared validator, so the new fields pass through.
+- `src/state/draftPersistence.ts`: `restoreAvatar` keeps each optional key only when valid, otherwise the default. Key `surprise-museum:draft:v1` and version 1 are unchanged.
+- `src/domain/characters/avatarOptions.ts`: both default appearances carry `faceShape: 'oval'` and `outfitPattern: 'plain'`. Labels (Sweater, Overalls, Coat, Tracksuit, Cardigan, Tunic) and description phrases for the six new styles, taken from design spec v2.0 12.8.2 G.
+- `src/lib/avatars.ts`:
+  - `AvatarOptionKey` excludes `faceShape` and `outfitPattern` until the controls exist.
+  - `optionIds('outfitStyle')` hides the six new styles (`OUTFIT_STYLES_PENDING_KIT`).
+  - `avatarsEqual` treats a missing optional key as its default.
+- `src/scene/characters/kit/neutralSnapshot.testutil.ts`: the v1.0 golden is now pinned to the six v1.0 styles instead of reading `AVATAR_OPTIONS`. Otherwise appending ids would break the v1.0 fingerprint.
+- Tests:
+  - New file: `src/api/__tests__/avatarOptionalFields.test.ts`.
+  - New blocks in `src/api/__tests__/mockClient.test.ts` and `src/state/draftPersistence.test.ts`.
+  - Fixture additions in `src/api/__tests__/validate.test.ts` and `mockClient.test.ts`: writers now send explicit `faceShape` and `outfitPattern`.
+- `docs/decisions/0021-avatar-face-shape-and-outfit-fields.md`: new ADR.
+- `docs/architecture.md`: v1.4. Updated sections 1, 6.7, 7.1, 7.3, 12, 15, 16 and 17.
 
 ## Decisions
-- **Ids `feminine`, `masculine`, `neutral` (PM proposal confirmed).** They describe the shape, not the person (A-20), and are decoupled from the labels Woman, Man and Neutral. `woman`/`man`, `female`/`male` and single letters were rejected (ADR 0020, section 1).
-- **Optional `gender` on each `AvatarConfig`, kept out of `AVATAR_OPTIONS`.** `AVATAR_OPTIONS` keys are all required in a v1 avatar and the validator loops over them. An optional type matches stored data, which has no `gender` before v0.3.
-- **One read rule: `avatarGender(config)`.** A missing or unknown value gives `neutral`, so nothing ever renders an unknown value and rendering never throws.
-- **No version bump.** Avatar `v` stays `1`. `CONTRACT_VERSION` and `museums.content_version` stay `1`. The draft key stays `surprise-museum:draft:v1` with version `1`. Bumping the draft version would make `parsePersistedDraft` discard every draft. A `v: 2` with a migrator was rejected because old rows are never rewritten, so `v: 1` must be accepted forever anyway.
-- **Write rules.** The builder always writes an explicit `gender`. `publish` stores `neutral` when it is absent. `get-museum` and `manage-museum get` always return `gender`, filling `neutral` for old rows without rewriting them.
-- **Validation.** Absent `gender` is valid. Any value present but not in the list (including `null`) gives 400 `bad_request` with `field` `document.<visitorAvatar|guideAvatar>.gender` and the message "Choose one of the available options." The Visitor `facialHair` must-be-`none` rule and its error message are removed.
-- **No database migration.** The avatar columns are `jsonb` with an object-type check only.
-- **Deploy order.** In live mode, the Edge Functions go first. A new app bundle against the old functions cannot publish, because `gender` is rejected as an unknown key and a Visitor beard is rejected as Guide only.
-- **Budget recommendation: ship full FR-73 (body and face), no fallback needed, under strict rules.** Gender variants must keep the same topology for all three genders. They change ring radii, joint positions, a jaw and cheek displacement of the existing head ellipsoid, and the brow, eye and mouth parameters. They add 0 triangles and 0 draw calls, at most 8 kB to the three.js chunk, and no new three.js classes. Neutral stays bit-identical. The requirements fallback applies only if same-topology faces cannot read clearly.
-
-### Budget check (measured 29/10/2026)
-I built 960 rigs: every body type, hair style, outfit and facial hair option, with skin tones `skin-01` and `skin-10`.
-
-| Measure | Result |
-|---|---|
-| Worst character | **5,878 triangles** (`slim`, `curly-short`, `suit`, `full-beard`, `skin-10`, Guide) |
-| Why it differs from the documented 5,750 | The existing budget test checks only `skin-04` with `broad`. Deep skin tones add eye whites (sclera), which the test never covers |
-| Lightest character | 4,274 triangles |
-| Headroom | **122 triangles**. One extra 8 x 5 ellipsoid pair (about 160 triangles) would break the budget |
-| Draw calls | 3 of 10, unchanged by gender |
-| three.js chunk (`NameLabel-*.js`, which contains the kit) | 968.83 of 1000 kB minified, unchanged after this change. The chunk budget plugin warns above 1000 kB; it does not fail the build |
-
-## Verification (29/10/2026)
-| Check | Result |
-|---|---|
-| `npm run typecheck` | Pass |
-| `npm run lint` | Pass |
-| `npm test` | 44 files, 563 of 563 passed |
-| `npm run build` | Pass. three.js chunk 968.83 kB, the same hash as before |
-| Prettier on the changed files | Pass |
-| `deno check` / `deno test` | Not run: Deno is not installed on this machine. `contract.ts` uses only erasable syntax and has no imports, as its rules require |
+- **Flat keys `faceShape` and `outfitPattern`, and reuse `outfitStyle`.** Nested `outfit: { style, pattern }` would rename the required `outfitStyle`. That would force `v: 2` with migrators in three places, and break the flat-record helpers (validator loop, draft restore, `avatarsEqual`, `setAvatarOption`).
+- **Ids:**
+  - `oval`, `round`, `square`, `heart`, `long` (default `oval`).
+  - `plain`, `stripes`, `checks`, `dots` (default `plain`).
+  - New style ids are the design spec's garment nouns, appended in the spec's display order so no v1.0 id moves or changes.
+- **One optional-key table.** It drives the validator, draft restore, response fill-in and equality, so a future optional key is a one-place change.
+- **No bump.** Avatar `v`, `CONTRACT_VERSION`, `content_version`, the draft key and the draft version all stay.
+- **Reject on write, map on read.** The validator rejects unknown ids (FR-101). The accessors map unknown or missing values to the default, so rendering never fails.
+- **Kit approach:**
+  - Face shape: extend `PartBuilder.warp` below the eye line and compose with the gender jaw. Adds 0 triangles.
+  - Pattern: an `onBeforeCompile` patch of the body Lambert material, with an `outfitMask` vertex attribute, a uniform per rig and a constant cache key. Adds 0 draw calls and 0 textures. The ink is a tint of the outfit colour.
+  - Styles: each style replaces the garment, so the budget is set by the worst style.
+- **Budget (measured 02/11/2026):**
+  - Worst body per style: suit 4,396. Worst hair: 1,480. Worst character: 5,878.
+  - Ceiling for any new style: **4,518 body triangles**.
+  - With the design spec's catchlights (up to 60 triangles), the ceiling for any style is 4,458.
+  - Estimates: sweater, tracksuit and cardigan fit easily; overalls and tunic are tight; `coat` is at risk (about 4,450 to 4,600).
+  - **6,500 per character accepted by the tech lead as a provisional ceiling** (ADR 0021, 7.3a). The technical artist measures the real garments, the performance optimiser signs off, and only then does the product manager change NFR-27. Draw calls stay at 3. Scene triangles rise by at most about 1,000 (+7%, against a 150,000 budget). There is no expected frame-rate effect.
+- **Chunk:** the three.js chunk is 961.85 kB today. The target is at most +10 kB in total: face shape 2 kB, pattern 4 kB, garments 4 kB.
 
 ## Assumptions
-- The caller's instruction let me change `contract.ts` (backend-developer) and `docs/api.md` (backend-developer) so the build agents share one definition. I limited code edits to additive types and helpers plus a one-line compile fix in `src/lib/avatars.ts` (frontend-developer). I made no validator, UI, scene or kit changes.
-- The design spec's gender shape table and the 250 ms preview morph (ux-ui-designer, in progress) are the target look. I read them but did not edit them.
-- No live Supabase museums depend on a stricter `gender` behaviour. A museum published before the functions deploy simply has no `gender` and reads as Neutral.
+- The new style ids and labels follow design spec v2.0 12.8.2 G as directed. The spec lists the display order as Sweater, Overalls, Coat, Tracksuit, Cardigan, Tunic in 12.5.3 but puts Cardigan before Tracksuit in 9.2; I used the 12.5.3 order (designer to align 9.2).
+- `oval` is today's head (A-30).
+- The pattern applies only to the outfit-colour regions. The fixed contrasting garment stays plain (FR-90 top and bottom regions).
+- The new style ids render as the jumpsuit until the technical artist builds their garments. The builder gate keeps them out of the UI meanwhile.
 
 ## Open questions
-- None that need the user. Deploy timing for live mode (functions before Pages) is a release step for the devops-engineer.
-- Still open from earlier rounds: entrance hall length (user), the `heic-to` LGPL review (legal), the Supabase plan (user).
+- Final triangle budget: 6,500 is provisional. Keep 6,000 if the real garments fit (target 5,950 with catchlights), otherwise the measured worst plus margin, at most 6,500. (Technical artist measures, performance optimiser signs off, product manager updates NFR-27.)
 
 ## Requests for other agents
-Order: backend-developer first. Then the scene-developer's defaults change, then technical-artist, frontend-developer and qa-engineer in parallel. **Do not add `gender: 'neutral'` to the default configs until the validator accepts `gender`.** If you do, every publish in mock mode fails with "Unknown avatar setting."
-
-- **backend-developer** (`supabase/functions/_shared/validate.ts`, `present.ts`, mock, tests):
-  1. In `validateAvatar`, allow the key `gender`. If it is `undefined`, output `'neutral'`. Otherwise require `isAvatarGender(value)`, else fail with `field` `${field}.gender` and the message "Choose one of the available options." (`null` fails too.) Keep rejecting other unknown keys.
-  2. Delete the Visitor facial hair rule (`role === 'visitor' && out.facialHair !== 'none'`). Keep or drop the now-unused `role` parameter, as you prefer.
-  3. In `toMuseumContent` (which `toMuseumDocument` also uses), return each avatar with `gender: avatarGender(avatar)`. Do the same wherever the mock (`src/api/mockClient.ts`) builds `MuseumContent` or `ManageGetResponse` from stored demo state, so old demo data reads as Neutral. Do not rewrite stored rows.
-  4. Tests: invert the "Guide only" cases in `src/api/__tests__/validate.test.ts` and `mockClient.test.ts`. Add these cases: absent, `null`, `''`, `'Woman'`, `1` and each valid id; an old record without `gender` comes back as `neutral` from `get-museum` and `manage-museum get`; a round trip keeps every other field. Update `supabase/functions/tests/*` and `supabase/scripts/smoke-test.mjs` to send a `gender` and a Visitor beard. Run `deno check`, `deno lint` and `deno test`.
-  5. Review my v1.1 edits in `docs/api.md`. When the implementation lands, remove the "not implemented yet" note in its header.
-- **scene-developer** (`src/domain/characters/avatarOptions.ts`, `CharacterView.tsx`, `AvatarPreview.tsx`):
-  1. Once the backend change is in, add `GENDER_LABELS: Record<AvatarGender, string>` = Woman, Man, Neutral. Add `gender: 'neutral'` to `DEFAULT_GUIDE_APPEARANCE` and `DEFAULT_VISITOR_APPEARANCE`.
-  2. Update `describeAvatar` to the design spec 9.4 template: prefix "woman, " or "man, " only when not Neutral (read through `avatarGender`), and use the new body type phrases "wider hips" and "wider shoulders" (ids unchanged).
-  3. Both views rebuild the whole rig when `JSON.stringify(config)` changes. The 250 ms gender morph (design spec 9.5) must not rebuild the rig through that key on every frame. Drive it through a rig-level API agreed with the technical-artist, for example `setAppearance` plus a morph progress value. Keep it preview-only; the visit builds the final shape once.
-  4. Confirm that name labels still sit above heads for every gender, body type and height combination (head size and height do not change with gender), and that the preview updates within 1 s (FR-15) with no added per-frame cost.
-- **technical-artist** (`src/scene/characters/kit/`):
-  1. Add the gender shape from design spec 9.1 to `proportions.ts`, applied first, with body type multiplied on top. Use `avatarGender(config)` from `@contract`, never `config.gender`. Neutral must be exactly 1.00, so today's output is unchanged.
-  2. Face: change jaw and cheeks by displacing the existing head ellipsoid vertices, and change brows, eye size and mouth by parameters on the existing parts. **No new mesh, part or segment** (ADR 0020, section 7: 122 triangles of headroom).
-  3. In `rig.ts` `setAppearance`, a gender change must rebuild the bind pose (`refreshBones`), the body mesh and the hair mesh (the brows are in the hair mesh).
-  4. Extend `kit.test.ts`: run the budget loop over every gender x body type x hair style x outfit x facial hair, with `skin-01` and `skin-10`, for both roles. Assert at most 6,000 triangles and at most 10 draw calls, and identical triangle counts across the three genders for the same other options. Add a Neutral equality test (vertex positions equal to the current output) and the 12 gender x body type width limits from design spec 9.1. Check for clipping across all hair styles, outfits (dress, suit), facial hair and heights.
-  5. Keep the kit's growth in the three.js chunk under 8 kB minified, and import no new three.js classes. Report the chunk size after `npm run build`.
-- **frontend-developer** (`src/ui/builder/CharactersStep.tsx`, `src/state/`, `src/lib/avatars.ts`):
-  1. Remove `'gender'` from the `AvatarOptionKey` exclusion in `src/lib/avatars.ts`. Teach `optionIds` and `AVATAR_LABELS` about gender: `AVATAR_GENDERS` and `GENDER_LABELS`, since gender is not in `AVATAR_OPTIONS`.
-  2. Add the Gender radiogroup (design spec 9.4 and 9.5: first group on the Body tab; Woman, Man, Neutral; helper text; Neutral shown selected), keyboard operable, for both characters.
-  3. Show Facial hair for the Visitor: drop `guideOnly` in `CharactersStep.tsx`, the Visitor guard in `builderStore.ts` (line 128), and the forced `facialHair: 'none'` in `draft.ts` (`buildDocument` and `buildPreviewContent`).
-  4. `draftPersistence.ts`: restore `gender` only if `isAvatarGender` passes, otherwise keep the default. Do **not** change `DRAFT_STORAGE_KEY` or `DRAFT_STORAGE_VERSION`. Old drafts without `gender` must restore as Neutral with every other choice kept.
-  5. `avatarsEqual` compares `Object.keys(a)` only, so an avatar with no `gender` equals one with `'feminine'`. Compare `avatarGender(a) === avatarGender(b)` plus the other keys.
-  6. FR-76: audit app-written strings for gendered pronouns and nouns, and add a guard unit test.
-  7. Update `stores.test.ts` and `draft.test.ts`, which currently assert Guide-only facial hair.
-- **qa-engineer** (`tests/`, `docs/qa-report.md`): derive tests from US-46 to US-48 and ADR 0020:
-  - Preview within 1 s; keyboard radiogroup; reload persistence.
-  - A legacy `surprise-museum:draft:v1` draft with no `gender` restores as Neutral.
-  - A legacy published museum or demo record with no `gender` loads and looks identical. Use visual regression against the current baselines, which must not change for Neutral.
-  - Unknown gender values are rejected with `field` `document.*Avatar.gender`.
-  - A Visitor beard publishes and renders.
-  - Gender is independent of every other option.
-  - Pronoun scan, and identical app text for every gender.
-  - Preview equals published for every gender combination.
-- **devops-engineer** (not in the original list): for live mode, run the manual functions deploy (`supabase functions deploy`, then the smoke test) with the new validator **before** the frontend change reaches `main`. No `supabase db push` is needed. CI also needs `deno check`, `deno lint` and `deno test` on the contract change, which I could not run locally.
+- **technical-artist** (kit and `src/scene/shaders/`):
+  - Build the six new garments (design spec 12.8.2 G) in `parts/outfits.ts`. Aim for the suit's count or less (4,396; at most 4,458 with catchlights within 6,000). The hard ceiling is the provisional 6,500 per character (ADR 0021, 7.3a). Report each style's worst count; `coat` is the most at risk.
+  - Implement face shape in `PartBuilder.warp` (7.1). `oval` must stay bit-identical, and the neutral snapshot must still pass. `rig.setAppearance` must rebuild the body and hair when `avatarFaceShape` changes.
+  - Implement the pattern shader in `src/scene/shaders/avatarPattern/` with an `outfitMask` attribute and `patterned` band flags (7.2). Report FR-89 3:1 results per outfit colour and pattern.
+  - Read the new values only through `avatarFaceShape`, `avatarOutfitPattern` or `withAvatarDefaults`.
+  - Extend the budget tests: every face shape and pattern gives the same index count as `oval`/`plain`.
+  - The heavy budget tests now loop over 12 styles and took more than 5 s when the machine was busy (load average about 22). Give them an explicit timeout (for example 20 s).
+  - When each garment lands, ask the frontend developer to remove it from `OUTFIT_STYLES_PENDING_KIT`.
+- **frontend-developer** (`src/ui`, `src/state`, `src/lib`):
+  - Add the face shape and pattern controls under a "More options" group (FR-102). Remove `faceShape` and `outfitPattern` from the `AvatarOptionKey` exclusion, add their labels to `AVATAR_LABELS` and handle them in `optionIds`.
+  - Empty `OUTFIT_STYLES_PENDING_KIT` as the garments land.
+  - Extend `describeAvatar` per design spec 9.4.
+  - Persistence, equality and defaults already work. Keep writing explicit values.
+- **backend-developer** (`supabase/`, `docs/api.md`):
+  - Run the Deno tests. Deno is not installed here, so `validate.ts`, `present.ts` and `contract.ts` compiled and ran only through tsc and Vitest.
+  - In `supabase/functions/tests/flow_test.ts`, add cases for absent, valid and unknown `faceShape` and `outfitPattern`, the new style ids, and old rows without the keys.
+  - Update `docs/api.md`: the avatar settings table, examples, the rule that responses always include all optional keys, and the 12 styles.
+  - Smoke test (`supabase/scripts/smoke-test.mjs`) needs no change.
+- **devops-engineer:** release order. Run the manual functions deploy before the frontend change reaches `main`. The old validator rejects the new keys and style ids.
+- **ux-ui-designer:** the contract now matches spec v2.0 (ids, labels and description words). Please align the order in 9.2 (Cardigan before Tracksuit) with 12.5.3, and mark the ids as final rather than provisional.
+- **performance-optimiser:** sign off (or lower) the provisional 6,500 ceiling with a Low and High tier walk using the worst character pair, and record the per-style counts in `docs/performance.md`.
+- **qa-engineer:** legacy museum and draft load (no new keys), reject paths, the builder gate, and the budget across 12 styles, 5 face shapes and 4 patterns. Note that `src/scene/materials/palette.test.ts` currently fails because of the designer's uncommitted `tokens.css` edit; it is not related to this change.
+- **product-manager:** change NFR-27 only after the measurement and sign-off (ADR 0021, 7.3a). Update A-29's trimming order to name `coat` as the first style to simplify or drop.

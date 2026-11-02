@@ -2,9 +2,8 @@
  * Turns stored records into the contract's response shapes, signing photo URLs on the way.
  */
 import {
-  avatarGender,
   LIMITS,
-  type AvatarConfig,
+  withAvatarDefaults,
   type MuseumContent,
   type MuseumDocument,
   type MuseumPhoto,
@@ -45,11 +44,6 @@ export async function toMuseumPhotos(
   });
 }
 
-/** Always returns `gender`; rows stored before v1.1 have none and read as 'neutral'. Not rewritten. */
-function withGender(avatar: AvatarConfig): AvatarConfig {
-  return { ...avatar, gender: avatarGender(avatar) };
-}
-
 /** The published content, or null for a record that is not complete (never expected after publish). */
 export function toMuseumContent(museum: MuseumRecord, photos: MuseumPhoto[]): MuseumContent | null {
   if (!museum.visitorName || !museum.guideName || !museum.visitorAvatar || !museum.guideAvatar) {
@@ -62,8 +56,11 @@ export function toMuseumContent(museum: MuseumRecord, photos: MuseumPhoto[]): Mu
     openingGreeting: museum.openingGreeting,
     closingMessage: museum.closingMessage,
     theme: museum.theme,
-    visitorAvatar: withGender(museum.visitorAvatar),
-    guideAvatar: withGender(museum.guideAvatar),
+    // Always return every optional avatar key: rows stored before v0.3 have no `gender` and rows
+    // stored before v0.5 have no `faceShape` or `outfitPattern` (ADR 0020, ADR 0021). The defaults
+    // are filled here; the stored row is not rewritten.
+    visitorAvatar: withAvatarDefaults(museum.visitorAvatar),
+    guideAvatar: withAvatarDefaults(museum.guideAvatar),
     photos,
   };
 }

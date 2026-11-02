@@ -182,6 +182,111 @@ describe('draft persistence', () => {
     });
   });
 
+  describe('face shape and outfit pattern (ADR 0021)', () => {
+    const preV05Avatar = (() => {
+      const { faceShape: _f, outfitPattern: _p, ...rest } = DEFAULT_GUIDE_AVATAR;
+      return { ...rest, gender: 'feminine', hairStyle: 'afro', outfitStyle: 'dress' };
+    })();
+
+    it('restores a pre-v0.5 draft as oval and plain and keeps every other choice', () => {
+      const raw = JSON.stringify({
+        version: 1,
+        step: 2,
+        maxStep: 3,
+        fields: { guideAvatar: preV05Avatar, visitorAvatar: preV05Avatar },
+      });
+      const draft = parsePersistedDraft(raw);
+      for (const a of [draft?.fields.guideAvatar, draft?.fields.visitorAvatar]) {
+        expect(a?.faceShape).toBe('oval');
+        expect(a?.outfitPattern).toBe('plain');
+        expect(a?.gender).toBe('feminine');
+        expect(a?.hairStyle).toBe('afro');
+        expect(a?.outfitStyle).toBe('dress');
+      }
+    });
+
+    it('keeps valid values and ignores unknown ones', () => {
+      const raw = JSON.stringify({
+        version: 1,
+        fields: {
+          guideAvatar: { ...preV05Avatar, faceShape: 'heart', outfitPattern: 'checks' },
+          visitorAvatar: { ...preV05Avatar, faceShape: 'Heart', outfitPattern: 'tartan' },
+        },
+      });
+      const draft = parsePersistedDraft(raw);
+      expect(draft?.fields.guideAvatar.faceShape).toBe('heart');
+      expect(draft?.fields.guideAvatar.outfitPattern).toBe('checks');
+      expect(draft?.fields.visitorAvatar.faceShape).toBe('oval');
+      expect(draft?.fields.visitorAvatar.outfitPattern).toBe('plain');
+      for (const bad of [null, 1, '', 'stripes']) {
+        const next = parsePersistedDraft(
+          JSON.stringify({ version: 1, fields: { guideAvatar: { faceShape: bad } } }),
+        );
+        expect(next?.fields.guideAvatar.faceShape).toBe('oval');
+      }
+    });
+
+    it('round-trips both fields with the key and version unchanged', () => {
+      expect(DRAFT_STORAGE_KEY).toBe('surprise-museum:draft:v1');
+      const fields = {
+        ...createInitialFields(),
+        guideAvatar: {
+          ...DEFAULT_GUIDE_AVATAR,
+          faceShape: 'square' as const,
+          outfitPattern: 'stripes' as const,
+        },
+        visitorAvatar: {
+          ...DEFAULT_VISITOR_AVATAR,
+          faceShape: 'long' as const,
+          outfitPattern: 'dots' as const,
+        },
+      };
+      saveDraft({ fields, step: 3, maxStep: 3 });
+      const raw = JSON.parse(storage.data.get(DRAFT_STORAGE_KEY) ?? '{}');
+      expect(raw.version).toBe(1);
+      expect(raw.fields.guideAvatar.faceShape).toBe('square');
+      expect(raw.fields.visitorAvatar.outfitPattern).toBe('dots');
+      const loaded = loadDraft();
+      expect(loaded?.fields.guideAvatar).toEqual(fields.guideAvatar);
+      expect(loaded?.fields.visitorAvatar).toEqual(fields.visitorAvatar);
+    });
+
+    it('restores a v0.5 outfit style even while the builder hides it', () => {
+      const draft = parsePersistedDraft(
+        JSON.stringify({
+          version: 1,
+          fields: { guideAvatar: { ...DEFAULT_GUIDE_AVATAR, outfitStyle: 'coat' } },
+        }),
+      );
+      expect(draft?.fields.guideAvatar.outfitStyle).toBe('coat');
+    });
+
+    it('a new draft saves the defaults explicitly', () => {
+      useBuilderStore.getState().setAvatarOption('guide', 'hairStyle', 'afro');
+      const raw = JSON.parse(storage.data.get(DRAFT_STORAGE_KEY) ?? '{}');
+      expect(raw.fields.guideAvatar.faceShape).toBe('oval');
+      expect(raw.fields.guideAvatar.outfitPattern).toBe('plain');
+      expect(raw.fields.visitorAvatar.faceShape).toBe('oval');
+    });
+
+    it('a pre-v0.5 draft that matches the defaults holds nothing more than the defaults', () => {
+      const strip = (a: typeof DEFAULT_GUIDE_AVATAR) => {
+        const { faceShape: _f, outfitPattern: _p, ...rest } = a;
+        return rest;
+      };
+      const draft = parsePersistedDraft(
+        JSON.stringify({
+          version: 1,
+          fields: {
+            guideAvatar: strip(DEFAULT_GUIDE_AVATAR),
+            visitorAvatar: strip(DEFAULT_VISITOR_AVATAR),
+          },
+        }),
+      );
+      expect(draft && holdsMoreThanDefaults(draft)).toBe(false);
+    });
+  });
+
   describe('restored-draft notice (design spec 5.17)', () => {
     const stored = (fields: Record<string, unknown>, step = 1) =>
       storage.data.set(

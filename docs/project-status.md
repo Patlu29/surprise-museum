@@ -1,6 +1,6 @@
 # Project status — Surprise Museum
 
-**Current phase:** CR-4 (improved UI, polish) in design; Release with CR-1 to CR-3: CR-1 to CR-3 built (gender, presentation camera, photo notice, readable caption card); QA complete (round 5: Go, 691 passed / 0 failed / 41 skipped); Phase 7 pipeline written (CI on push/PR; Pages, Supabase and Linux-baseline workflows manual only); nothing deployed
+**Current phase:** CR-4 (improved UI, polish) in build (spec v2.0, requirements v0.5); Release with CR-1 to CR-3: CR-1 to CR-3 built (gender, presentation camera, photo notice, readable caption card); QA complete (round 5: Go, 691 passed / 0 failed / 41 skipped); Phase 7 pipeline written (CI on push/PR; Pages, Supabase and Linux-baseline workflows manual only); nothing deployed
 **Last updated:** 30/10/2026
 
 ## Phases
@@ -36,6 +36,8 @@
 - QA round 4 decisions (tech lead, 30/10/2026): Woman brow scale stays 0.90 (QA found 0.95 indistinguishable); deep-skin brow thickness left as a polish item, not a bug. Phone pixel-ratio tolerance of 3% for the BUG-6 plinth check accepted.
 - BUG-10 extra fix attempt beyond the two-round limit approved by the user (02/11/2026); fixed by sliding portrait labels below the caption strip (spec v1.5).
 - CR-4 Improved UI (user, 02/11/2026): polish the current look (not a new direction, not a flow rethink) across builder, visit HUD and overlays, landing page and 3D scene look, plus clearer character definition. Drivers: plain or dated look, hard to use on phones, builder feels long or confusing, user feedback to follow. Delivery: spec and build straight away, no design checkpoint. Budgets unchanged.
+- CR-4 user feedback (02/11/2026): ceiling blocks the view from high angles (FR-95); more choice of face shape (5) and clothing (12 styles: today's 6 plus about 6 new; patterns plain/stripes/checks/dots in tints of the outfit colour); phones are not hard to use (thumb-reach items demoted). Triangle budget raise accepted if needed, figure to be proposed by technical-artist and verified by performance-optimiser.
+- CR-4 tech-lead decisions (02/11/2026): keep the two-sentence landing description; keep today's 6 style tiles visible with the 6 new ones under More options (FR-102); provisional option ids accepted, `tunic` rather than `skirt`; FR-88 time hints deferred until there is usability data.
 - N-10 (minor, known issue for this release): a long Guide name on portrait can be clipped by the left screen edge and the two labels can overlap; open for scene-developer and ux-ui-designer. Not a release blocker.
 - CR-3 (user, 30/10/2026): builder shows a "photos were not kept" notice when a reloaded draft has no photos. Design then frontend-developer.
 

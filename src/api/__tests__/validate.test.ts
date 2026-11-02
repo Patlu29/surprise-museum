@@ -28,6 +28,8 @@ function avatar(overrides: Partial<AvatarConfig> = {}): AvatarConfig {
   return {
     v: 1,
     gender: 'neutral',
+    faceShape: 'oval',
+    outfitPattern: 'plain',
     skinTone: 'skin-03',
     hairStyle: 'bob',
     hairColor: 'brown',

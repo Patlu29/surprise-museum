@@ -37,7 +37,7 @@ import type {
 } from '@contract';
 import type { ConfirmPhotoInput, MuseumApi } from '@/lib/apiPort';
 import { ApiRequestError } from '@/lib/apiPort';
-import { avatarGender, LIMITS } from '@contract';
+import { LIMITS, withAvatarDefaults } from '@contract';
 import {
   createMemoryStorage,
   DemoStorageFullError,
@@ -60,11 +60,12 @@ import {
   WALL_RENDITION,
 } from './shared';
 
-/** Always return `gender`; demo data stored before v1.1 has none and reads as 'neutral' (not rewritten). */
-const withGender = (avatar: AvatarConfig): AvatarConfig => ({
-  ...avatar,
-  gender: avatarGender(avatar),
-});
+/**
+ * Always return every optional avatar key, like present.ts: demo data stored before v0.3 has no
+ * `gender` and before v0.5 no `faceShape` or `outfitPattern`; each reads as its default (ADR 0020,
+ * ADR 0021). Stored demo data is not rewritten.
+ */
+const withDefaults = (avatar: AvatarConfig): AvatarConfig => withAvatarDefaults(avatar);
 
 export interface MockApiOptions {
   /** Where data is kept. Default: a private in-memory store (nothing persists). */
@@ -378,8 +379,8 @@ export function createMockApi(options: MockApiOptions = {}): MockMuseumApi {
             document: published
               ? {
                   ...(museum.document as Omit<MuseumDocument, 'photos'>),
-                  visitorAvatar: withGender((museum.document as MuseumDocument).visitorAvatar),
-                  guideAvatar: withGender((museum.document as MuseumDocument).guideAvatar),
+                  visitorAvatar: withDefaults((museum.document as MuseumDocument).visitorAvatar),
+                  guideAvatar: withDefaults((museum.document as MuseumDocument).guideAvatar),
                   photos: ready
                     .filter((p) => p.position !== null)
                     .map((p) => ({ photoId: p.id, caption: p.caption })),
@@ -594,8 +595,8 @@ export function createMockApi(options: MockApiOptions = {}): MockMuseumApi {
         }
         const content: MuseumContent = {
           ...museum.document,
-          visitorAvatar: withGender(museum.document.visitorAvatar),
-          guideAvatar: withGender(museum.document.guideAvatar),
+          visitorAvatar: withDefaults(museum.document.visitorAvatar),
+          guideAvatar: withDefaults(museum.document.guideAvatar),
           photos: await toMuseumPhotos(
             photosOf(state, museum.key).filter((p) => p.status === 'ready' && p.position !== null),
           ),

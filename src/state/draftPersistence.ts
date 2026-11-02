@@ -1,5 +1,10 @@
-import { AVATAR_OPTIONS, avatarGender, isAvatarGender } from '@contract';
-import type { AvatarConfig } from '@contract';
+import {
+  AVATAR_OPTIONAL_OPTIONS,
+  AVATAR_OPTIONS,
+  isAvatarOptionalValue,
+  withAvatarDefaults,
+} from '@contract';
+import type { AvatarConfig, AvatarOptionalKey } from '@contract';
 import { avatarsEqual, DEFAULT_GUIDE_AVATAR, DEFAULT_VISITOR_AVATAR } from '@/lib/avatars';
 import type { BuilderStep, DraftFields } from './draft';
 import { safeLocalStorage } from './safeStorage';
@@ -23,6 +28,8 @@ export interface PersistedDraft {
 }
 
 const STRING_FIELDS = ['title', 'visitorName', 'guideName', 'closingMessage'] as const;
+/** Optional avatar keys (ADR 0020, ADR 0021). Older drafts may lack any of them. */
+const OPTIONAL_AVATAR_KEYS = Object.keys(AVATAR_OPTIONAL_OPTIONS) as AvatarOptionalKey[];
 const AVATAR_KEYS = [
   'skinTone',
   'hairStyle',
@@ -44,13 +51,20 @@ function isStep(value: unknown): value is BuilderStep {
 
 /**
  * Keeps only option ids the app still offers; anything else falls back to the default.
- * `gender` is optional in older drafts: a missing or unknown value restores as Neutral
- * (ADR 0020), so the restored avatar always carries an explicit `gender`.
+ * The optional keys (`gender`, `faceShape`, `outfitPattern`) may be missing in older drafts: a
+ * missing or unknown value restores as the default, which is today's look (ADR 0020, ADR 0021),
+ * so the restored avatar always carries every optional key explicitly. No draft key or version
+ * change is needed.
  */
 function restoreAvatar(value: unknown, fallback: AvatarConfig): AvatarConfig {
-  const result: AvatarConfig = { ...fallback, gender: avatarGender(fallback) };
+  const result: AvatarConfig = withAvatarDefaults(fallback);
   if (!isRecord(value)) return result;
-  if (isAvatarGender(value.gender)) result.gender = value.gender;
+  for (const key of OPTIONAL_AVATAR_KEYS) {
+    const candidate = value[key];
+    if (isAvatarOptionalValue(key, candidate)) {
+      (result as unknown as Record<string, unknown>)[key] = candidate;
+    }
+  }
   for (const key of AVATAR_KEYS) {
     const offered = AVATAR_OPTIONS[key] as ReadonlyArray<unknown> | undefined;
     const candidate = value[key];

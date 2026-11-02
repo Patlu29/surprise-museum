@@ -29,6 +29,18 @@ export function hashGeometry(g: BufferGeometry | null, seed = 0x811c9dc5): numbe
 }
 
 const SKINS = ['skin-04', 'skin-10'] as const;
+/**
+ * The golden hashes cover the six v1.0 outfit styles. Styles added later (ADR 0021) are not part
+ * of the v1.0 fingerprint, so the list is pinned rather than read from AVATAR_OPTIONS.
+ */
+const V1_OUTFIT_STYLES = [
+  'tee-jeans',
+  'hoodie',
+  'shirt-trousers',
+  'dress',
+  'suit',
+  'jumpsuit',
+] as const satisfies ReadonlyArray<AvatarConfig['outfitStyle']>;
 const FACIAL = ['none', 'goatee', 'full-beard'] as const;
 
 function base(patch: Partial<AvatarConfig>): AvatarConfig {
@@ -41,7 +53,7 @@ export function neutralSnapshot(gender?: AvatarConfig['gender']): Record<string,
   const extra = gender === undefined ? {} : { gender };
   for (const bodyType of AVATAR_OPTIONS.bodyType) {
     let h = 0x811c9dc5;
-    for (const outfitStyle of AVATAR_OPTIONS.outfitStyle) {
+    for (const outfitStyle of V1_OUTFIT_STYLES) {
       for (const role of ['guide', 'visitor'] as const) {
         for (const skinTone of SKINS) {
           for (const facialHair of FACIAL) {

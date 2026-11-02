@@ -13,10 +13,11 @@
  * its import map, in Vite, and in tsc without file extensions).
  */
 import {
+  AVATAR_OPTIONAL_DEFAULTS,
+  AVATAR_OPTIONAL_OPTIONS,
   AVATAR_OPTIONS,
-  DEFAULT_AVATAR_GENDER,
   EDIT_TOKEN_PATTERN,
-  isAvatarGender,
+  isAvatarOptionalValue,
   LIMITS,
   SHARE_TOKEN_PATTERN,
   type AvatarConfig,
@@ -130,7 +131,10 @@ export function validateText(value: unknown, rules: TextRules): Validation<strin
 // Avatars
 // ---------------------------------------------------------------------------
 
-const AVATAR_KEYS = ['v', 'gender', ...Object.keys(AVATAR_OPTIONS)] as const;
+const OPTIONAL_AVATAR_KEYS = Object.keys(AVATAR_OPTIONAL_OPTIONS) as Array<
+  keyof typeof AVATAR_OPTIONAL_OPTIONS
+>;
+const AVATAR_KEYS = ['v', ...OPTIONAL_AVATAR_KEYS, ...Object.keys(AVATAR_OPTIONS)] as const;
 
 export function validateAvatar(value: unknown, field: string): Validation<AvatarConfig> {
   if (!isRecord(value)) return fail(field, 'Avatar settings are required.');
@@ -138,14 +142,20 @@ export function validateAvatar(value: unknown, field: string): Validation<Avatar
   if (extra !== null) return fail(`${field}.${extra}`, 'Unknown avatar setting.');
   if (value.v !== 1) return fail(`${field}.v`, 'Unsupported avatar version.');
 
-  // Optional (ADR 0020): absent means 'neutral'. Anything else present must be a listed id.
-  if (value.gender !== undefined && !isAvatarGender(value.gender)) {
-    return fail(`${field}.gender`, 'Choose one of the available options.');
+  // Optional keys (ADR 0020 gender, ADR 0021 faceShape and outfitPattern): absent means the
+  // default, which is today's look, and the output always carries it explicitly. Anything else
+  // present, including null, must be a listed id; unknown ids are rejected, never mapped.
+  const out: Record<string, unknown> = { v: 1 };
+  for (const key of OPTIONAL_AVATAR_KEYS) {
+    const option = value[key];
+    if (option === undefined) {
+      out[key] = AVATAR_OPTIONAL_DEFAULTS[key];
+    } else if (isAvatarOptionalValue(key, option)) {
+      out[key] = option;
+    } else {
+      return fail(`${field}.${key}`, 'Choose one of the available options.');
+    }
   }
-  const out: Record<string, unknown> = {
-    v: 1,
-    gender: value.gender === undefined ? DEFAULT_AVATAR_GENDER : value.gender,
-  };
   for (const key of Object.keys(AVATAR_OPTIONS) as Array<keyof typeof AVATAR_OPTIONS>) {
     const option = value[key];
     const allowed: readonly string[] = AVATAR_OPTIONS[key];

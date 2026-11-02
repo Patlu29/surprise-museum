@@ -13,6 +13,9 @@ import {
 
 const avatar = (overrides: Partial<AvatarConfig> = {}): AvatarConfig => ({
   v: 1,
+  // Writers always send the optional keys explicitly (ADR 0021); their defaults are today's look.
+  faceShape: 'oval',
+  outfitPattern: 'plain',
   skinTone: 'skin-02',
   hairStyle: 'bun',
   hairColor: 'black',
@@ -133,6 +136,92 @@ describe('mock API: gender and facial hair (CR-1)', () => {
     expect(edit.document?.visitorAvatar.gender).toBe('neutral');
     expect(edit.document?.guideAvatar).toEqual(museum.guideAvatar);
     expect(await storage.loadState()).toBe(stripped);
+  });
+});
+
+describe('mock API: face shape and outfit pattern (ADR 0021)', () => {
+  it('publishes the chosen values and returns them from both reads', async () => {
+    const api = createMockApi();
+    const { editToken } = await api.createMuseum();
+    const photo = await addPhoto(api, editToken);
+    const doc = documentFor([photo.photoId], {
+      visitorAvatar: avatar({ faceShape: 'heart', outfitPattern: 'dots' }),
+      guideAvatar: avatar({ faceShape: 'square', outfitPattern: 'checks', outfitStyle: 'suit' }),
+    });
+    const { shareToken } = await api.publish(editToken, doc);
+    // The fixture has no `gender`, which the server fills as 'neutral' (ADR 0020).
+    const visitor = { ...doc.visitorAvatar, gender: 'neutral' };
+    const guide = { ...doc.guideAvatar, gender: 'neutral' };
+    const { museum } = await api.getMuseum(shareToken);
+    expect(museum.visitorAvatar).toEqual(visitor);
+    expect(museum.guideAvatar).toEqual(guide);
+    const edit = await api.manageGet(editToken);
+    expect(edit.document?.visitorAvatar).toEqual(visitor);
+    expect(edit.document?.guideAvatar).toEqual(guide);
+  });
+
+  it('stores the defaults when the fields are absent on publish', async () => {
+    const api = createMockApi();
+    const { editToken } = await api.createMuseum();
+    const photo = await addPhoto(api, editToken);
+    const { faceShape: _f, outfitPattern: _p, ...old } = avatar();
+    const { shareToken } = await api.publish(
+      editToken,
+      documentFor([photo.photoId], { visitorAvatar: old }),
+    );
+    const { museum } = await api.getMuseum(shareToken);
+    expect(museum.visitorAvatar.faceShape).toBe('oval');
+    expect(museum.visitorAvatar.outfitPattern).toBe('plain');
+  });
+
+  it('reads an old record without the fields as oval and plain, without rewriting it', async () => {
+    const storage = createMemoryStorage();
+    const api = createMockApi({ storage });
+    const { editToken } = await api.createMuseum();
+    const photo = await addPhoto(api, editToken);
+    const { shareToken } = await api.publish(
+      editToken,
+      documentFor([photo.photoId], {
+        visitorAvatar: avatar({ faceShape: 'round', outfitPattern: 'stripes' }),
+      }),
+    );
+    // Strip the fields from the stored rows to mimic demo data saved before v0.5.
+    const state = JSON.parse((await storage.loadState()) as string) as {
+      museums: Record<string, { document: Record<string, Record<string, unknown>> }>;
+    };
+    for (const m of Object.values(state.museums)) {
+      for (const a of [m.document.visitorAvatar, m.document.guideAvatar]) {
+        delete a?.faceShape;
+        delete a?.outfitPattern;
+      }
+    }
+    await storage.saveState(JSON.stringify(state));
+    const stripped = await storage.loadState();
+
+    const reader = createMockApi({ storage });
+    const { museum } = await reader.getMuseum(shareToken);
+    expect(museum.visitorAvatar.faceShape).toBe('oval');
+    expect(museum.visitorAvatar.outfitPattern).toBe('plain');
+    const edit = await reader.manageGet(editToken);
+    expect(edit.document?.guideAvatar.faceShape).toBe('oval');
+    expect(edit.document?.guideAvatar.outfitPattern).toBe('plain');
+    expect(await storage.loadState()).toBe(stripped);
+  });
+
+  it.each([
+    ['visitorAvatar', 'faceShape', 'triangle'],
+    ['guideAvatar', 'outfitPattern', 'tartan'],
+    ['guideAvatar', 'faceShape', null],
+  ] as const)('rejects %s.%s = %j like the server', async (who, key, bad) => {
+    const api = createMockApi();
+    const { editToken } = await api.createMuseum();
+    const photo = await addPhoto(api, editToken);
+    await expect(
+      api.publish(
+        editToken,
+        documentFor([photo.photoId], { [who]: avatar({ [key]: bad as never }) }),
+      ),
+    ).rejects.toMatchObject({ code: 'bad_request', field: `document.${who}.${key}` });
   });
 });
 

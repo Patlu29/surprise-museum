@@ -56,6 +56,14 @@ export const OUTFIT_STYLE_LABELS: Readonly<Record<AvatarConfig['outfitStyle'], s
   dress: 'Dress',
   suit: 'Suit',
   jumpsuit: 'Jumpsuit',
+  // v0.5 (FR-97, ADR 0021). Labels from design spec v2.0 (9.2, 12.8.2 G): they name the garment,
+  // never the wearer (FR-99).
+  sweater: 'Sweater',
+  overalls: 'Overalls',
+  coat: 'Coat',
+  tracksuit: 'Tracksuit',
+  cardigan: 'Cardigan',
+  tunic: 'Tunic',
 };
 
 export const OUTFIT_COLOR_LABELS: Readonly<Record<AvatarConfig['outfitColor'], string>> = {
@@ -107,6 +115,9 @@ export const FACIAL_HAIR_LABELS: Readonly<Record<AvatarConfig['facialHair'], str
 export const DEFAULT_GUIDE_APPEARANCE: AvatarConfig = {
   v: 1,
   gender: 'neutral',
+  // ADR 0021: today's head and flat outfit colour. Builder writes them explicitly.
+  faceShape: 'oval',
+  outfitPattern: 'plain',
   skinTone: 'skin-04',
   hairStyle: 'short-crop',
   hairColor: 'dark-brown',
@@ -122,6 +133,9 @@ export const DEFAULT_GUIDE_APPEARANCE: AvatarConfig = {
 export const DEFAULT_VISITOR_APPEARANCE: AvatarConfig = {
   v: 1,
   gender: 'neutral',
+  // ADR 0021: today's head and flat outfit colour. Builder writes them explicitly.
+  faceShape: 'oval',
+  outfitPattern: 'plain',
   skinTone: 'skin-04',
   hairStyle: 'bob',
   hairColor: 'brown',
@@ -158,6 +172,13 @@ const OUTFIT_PHRASE: Record<AvatarConfig['outfitStyle'], (colour: string) => str
   dress: (c) => `${c} dress`,
   suit: (c) => `${c} suit`,
   jumpsuit: (c) => `${c} jumpsuit`,
+  // Design spec v2.0, 12.8.2 G "Description words".
+  sweater: (c) => `${c} sweater and trousers`,
+  overalls: (c) => `${c} overalls and cream tee`,
+  coat: (c) => `${c} coat`,
+  tracksuit: (c) => `${c} tracksuit`,
+  cardigan: (c) => `${c} cardigan`,
+  tunic: (c) => `${c} tunic and trousers`,
 };
 
 /** Design spec 9.4: "slim build", "regular build", "wider hips", "wider shoulders". */
