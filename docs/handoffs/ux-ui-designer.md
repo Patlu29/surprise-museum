@@ -1,5 +1,17 @@
 # Handoff: ux-ui-designer
 
+## Update v1.5: portrait labels below the caption strip (02/11/2026)
+
+Design spec is now v1.5 (change note at the top of `docs/design-spec.md`). Documentation only, to match the scene-developer's BUG-10 fix. Nothing was run, built or committed.
+
+- Files changed: `docs/design-spec.md` (version, v1.5 change note, new 5.5 row "Framed view, portrait: below the caption strip", one-line cross-references in 3.5 and 6.12.8); this note. No token changes.
+- Decision: the rule is written as the scene built it. On portrait during a photo presentation a label never sits above 68 px plus the strip height (172, 180 or 192 px at caption scale 1, 1.25 or 1.5). It is applied last (after the sideways shift and collision rule), may overlap the Guide's head by a few pixels and never the picture. Label size and text are unchanged (FR-17).
+- Assumption: "portrait" means the same portrait class as in 6.12.2, and the 68 px is the top bar plus its margin (3.5 says about 64 px for the top bar; the scene uses 68).
+- Request, qa-engineer: add a check at 360x640, caption size 1.5, 24-character Guide name: label top at least 192 px and no overlap with the picture.
+- Request, scene-developer: none; the spec matches the build.
+
+---
+
 ## Update v1.4: readable fallback strip, fitted card, upgrade rule, card widths (30/10/2026)
 
 Design spec is now v1.4 (change note at the top of `docs/design-spec.md`; edits in 3.5, 5.6, 6.12.2, 4.1, copy deck). Only the spec, `src/styles/tokens.css` and this note changed. Nothing was run, committed or pushed.

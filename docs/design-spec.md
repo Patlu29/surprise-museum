@@ -1,6 +1,8 @@
 # Design spec: Surprise Museum
 
-Version 1.4 | 30/10/2026 | Owner: ux-ui-designer | Based on requirements v0.3, user stories v0.3 and architecture v1.0
+Version 1.5 | 02/11/2026 | Owner: ux-ui-designer | Based on requirements v0.3, user stories v0.3 and architecture v1.0
+
+**Change note, v1.5 (02/11/2026).** 5.5 "Framed view" gains the portrait caption-strip rule (BUG-10, as built by the scene-developer): on portrait screens during a photo presentation, a name label never sits above the strip's bottom edge; it slides down to that edge (68 px plus the strip height of 104, 112 or 124 px). It may overlap the Guide's head by a few pixels and never the picture. 6.12.8 and 3.5 gain a one-line cross-reference. No tokens changed.
 
 **Change note, v1.4 (readable fallback strip, fitted card, upgrade rule, card widths; 30/10/2026).** Framed screenshots showed the 64 px fallback strip filled by its 44 px header, so the caption was hidden. Changes are in 3.5, 5.6, 6.12.2, 4.1 and the copy deck.
 - **The strip is now a caption strip, 104 px tall at normal text size** (token `--panel-peek-height` changes from 4 rem to 6.5 rem). Row 1 is the 44 px header (badge, name, one action, Close). Row 2 is the caption, two lines. **Caption text is always visible in a strip.** "Photo n of N" is dropped visually in a strip (it stays in the accessible name). Look closer moves out of the strip header and is replaced by **Read more** when the caption is cut off.
@@ -326,7 +328,7 @@ The caption card must cover neither the Visitor nor the active picture. Because 
 **Candidate placements, evaluated in order.** Each is a dock plus a size. There are three sizes (v1.4):
 - **Full:** up to the dock's maximum height, scrolling inside if the caption is longer.
 - **Fitted (new):** the same card as Full, in the same dock, anchored at the dock's top edge, with its height cut to the clear height: the distance from the dock's top edge down to the first rectangle that would touch it (picture, actors, keepOut, each grown by 8 px), reduced in 8 px steps. Valid only if the result is at least `--panel-fit-min-height` (8 rem, 128 px) and below the Full height. It keeps the normal header (badge, name, "Photo n of N", Look closer, Close) and shows as many caption lines as fit, scrolling inside for the rest.
-- **Strip:** the caption strip in 5.6: 104 px tall at normal text size (`--panel-peek-height`, 6.5 rem), header row plus **two caption lines**, with Read more when the caption is cut off. Strip heights at larger caption scales: 112 px at 1.25 and 124 px at 1.5 (header 44 + padding 12 + two lines at 1 rem x scale x 1.4, rounded up to 4 px). `bigText` never reduces the line count below two.
+- **Strip:** the caption strip in 5.6: 104 px tall at normal text size (`--panel-peek-height`, 6.5 rem), header row plus **two caption lines**, with Read more when the caption is cut off. Strip heights at larger caption scales: 112 px at 1.25 and 124 px at 1.5 (header 44 + padding 12 + two lines at 1 rem x scale x 1.4, rounded up to 4 px). `bigText` never reduces the line count below two. On portrait, a strip at the top also reserves its band against name labels: they slide down to the strip's bottom edge, 68 px plus the strip height (5.5, "Framed view, portrait: below the caption strip").
 
 | Layout | Order |
 |---|---|
@@ -552,6 +554,7 @@ States: **uploading** (progress bar plus "Uploading 62%"), **processing** ("Prep
 | Visibility | Always shown while the character is on screen (FR-17). Hidden, with a `--duration-fast` fade, when the wall line-of-sight test fails or the character is off-screen; instant under reduced motion |
 | Collision | If the two labels overlap on screen, raise the label of the character farther from the camera by its own height plus 4 px (once) |
 | Framed view (v1.2) | While the presentation camera is active (6.12), a label must not cover the picture. The framing solver counts each label's rectangle as part of its character (6.12.4). If a label still intersects the picture rectangle grown by 8 px, shift that label sideways, away from the picture's centre, by up to half its own width (eased over `--duration-fast`, instant under reduced motion). The label is never hidden and never scaled (FR-17). The 5.5 label-collision rule still applies after the shift |
+| Framed view, portrait: below the caption strip (v1.5, BUG-10) | On portrait screens during a photo presentation the caption strip (3.5, 5.6) is a reserved band at the top of the screen. A label never sits above the strip's bottom edge: if its top would be higher, it slides down until its top is on that edge. The edge is **68 px plus the strip height** from the top of the viewport (68 px is the top bar and its margin), and the strip height follows the caption size setting:<br>Caption scale 1: 68 + 104 = **172 px**<br>Caption scale 1.25: 68 + 112 = **180 px**<br>Caption scale 1.5: 68 + 124 = **192 px**<br>Rules: (a) this shift is applied **last**, after the sideways shift away from the picture and after the label-collision rule above, so it always wins. (b) It applies to both labels, including the Guide's at her presentation spot. (c) The label may overlap the Guide's head (or the Visitor's) by a few pixels. It must **never** overlap the picture: the framing's safe rectangle already keeps the picture clear of the strip, and the label only moves down to the strip edge, not over the picture. (d) Label size, text and wrapping do not change (FR-17). (e) Eased over `--duration-fast`, instant under reduced motion, like the other shifts. (f) The rule applies only on portrait screens; landscape and wide layouts are unaffected. The framing solver itself is unchanged. QA check: at 360x640 with caption size 1.5 and a 24-character Guide name, the label's top is at least 192 px and the label does not intersect the picture |
 | Layer | `--z-labels`, below the HUD and every panel |
 | Builder preview | The same style under each preview character, so Creators see exactly what the Visitor will see (US-7) |
 
@@ -954,7 +957,7 @@ After release, the Visitor may be standing between the camera and the picture ag
 
 #### 6.12.8 Name labels while framed
 
-See 5.5, "Framed view". In short: labels stay on, stay the same size, count as part of their character in the solver, and slide sideways, never up over the picture, if a label would still touch the picture. Labels hidden by the wall line-of-sight test stay hidden. The Visitor's and the Guide's labels never swap sides.
+See 5.5, "Framed view" and "Framed view, portrait: below the caption strip". In short: labels stay on, stay the same size, count as part of their character in the solver, and slide sideways, never up over the picture, if a label would still touch the picture. On portrait a label also never sits above the caption strip's bottom edge (68 px plus 104, 112 or 124 px); it slides down to it. Labels hidden by the wall line-of-sight test stay hidden. The Visitor's and the Guide's labels never swap sides.
 
 #### 6.12.9 Calm rules, setting and accessibility
 
