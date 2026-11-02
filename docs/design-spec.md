@@ -1,6 +1,16 @@
 # Design spec: Surprise Museum
 
-Version 1.5 | 02/11/2026 | Owner: ux-ui-designer | Based on requirements v0.3, user stories v0.3 and architecture v1.0
+Version 2.0 | 02/11/2026 | Owner: ux-ui-designer | Based on requirements v0.4 (CR-4, Epic E10), user stories v0.4 and architecture v1.0
+
+**Change note, v2.0 (CR-4 polish, 02/11/2026).** The user asked for "Improved UI" (CR-4): polish the current look, keep the identity, layout and flows, with no design checkpoint before the build. All new and changed rules are in **section 12**, which is written to be built as it stands. **Where section 12 and sections 1 to 11 disagree, section 12 wins.** The older sections are kept because they still describe the unchanged behaviour (caption card placement 3.5, presentation camera 6.12, avatar options 9). Short "superseded" pointers were added where a sentence in 1 to 11 is now wrong.
+- **Polish, not a new direction (FR-94).** Palette, logo, typeface, the four builder steps and their order, the data model (apart from the two new character options below), camera, controls and Guide behaviour are unchanged. Nothing is removed.
+- **User feedback received 02/11/2026, three points.** (1) "More defined characters" now also means **more choice** (FR-96 to FR-102): **Face shape** (5), **six more clothing styles** (twelve in all, Q-30) and a clothing **Pattern** (4, in tints of the outfit colour, Q-31), for every gender, with neutral labels, defaulting to today's look. They all sit in a **More options** group that shares the Reset row, so with it closed the Characters step is no taller than today (FR-102). Placement, pictograms, the 12-style picker and preview behaviour are in 12.5.3; the six style concepts are in 12.8.2 G; avatar rows in 9.2 and 9.4 are extended. (2) **Phones are not hard to use** (FR-82 is now Could, FR-84 Should), so there is no thumb-reach redesign: FR-81 and FR-83 stay as guard rails, and the only reach changes are small and additive (12.7). The caption card dock is untouched. (3) **Ceiling blocks the view from a high camera** (FR-95): 6.3 gains a ceiling fade rule (preferred over a hard pitch clamp).
+- **Builder feels shorter through clarity (FR-85 to FR-87, A-25).** A progress line in the sticky action bar; a visible "still to do" list on every step that leads to each field; short labelled sections with Required and Optional tags; a purpose line per step; compact photo rows; a sticky customiser preview on phones; Preview added to the phone action bar (12.4, 12.5).
+- **Mobile guard rails (FR-81 to FR-84).** Text floor 12 px, secondary text 14 px (`--text-xs` is now 14 px); 8 px between targets at 360 px; safe areas and keyboard behaviour written down; a small bottom-right **Done** button for the caption card and **Carry on** for the finale (12.7) that leaves every 3.5 behaviour untouched; bottom sheets capped at 60 dvh.
+- **Visit polish.** HUD trays, progress ring, welcome, finale and notices restyled; the caption card changes are visual only and never alter the sizes, widths, gaps, strip heights or the upgrade rule in 3.5 (12.6).
+- **Art direction (12.8).** Scene finish (contact darkening, dado and rail, brass fillet on frames, stronger picture-light washes, deeper ceiling, contact shadows, finished wall caps for the ceiling cutaway) and character definition (a dual-band screen-space edge, region trims, bigger eyes with catchlights, thicker brows with a 3:1 floor, a deep-skin blush, a clearer idle and walk, plus the face shape and pattern rendering). All inside the budgets: 6,000 triangles (at most 60 added), the three.js chunk under 1,000 kB (guard 985 kB) and the frame-rate targets.
+- **Tokens (4.1, 12.9).** Added only; no name changed. Value changes: `--text-xs` 13 to 14 px, `--scene-ceiling`, `--scene-light-ground`. The scene drift test needs `palette.ts` updated in the same change (12.11, technical-artist task 1).
+- **Open for the product manager and architect (12.12).** Final option ids and counts for face shape, clothing style and pattern; the one-sentence landing description (FR-80); the 250 ms limit of FR-79 against the existing 300 ms `--duration-normal` (overlays use a new 220 ms token); time hints (FR-88, Could) have no observed data and are not specified. NFR-29 settles the old question: published museums show the improved look with no migration.
 
 **Change note, v1.5 (02/11/2026).** 5.5 "Framed view" gains the portrait caption-strip rule (BUG-10, as built by the scene-developer): on portrait screens during a photo presentation, a name label never sits above the strip's bottom edge; it slides down to that edge (68 px plus the strip height of 104, 112 or 124 px). It may overlap the Guide's head by a few pixels and never the picture. 6.12.8 and 3.5 gain a one-line cross-reference. No tokens changed.
 
@@ -55,6 +65,7 @@ Tokens live in `src/styles/tokens.css` (values) and `src/styles/base.css` (share
 9. Appendix A: Avatar kit and customiser
 10. Appendix B: Copy deck
 11. Appendix C: Requirement coverage
+12. CR-4 polish (v2.0): scales, landing, builder, visit, mobile ergonomics, art direction, tokens, task list
 
 ---
 
@@ -141,7 +152,7 @@ The final room is the emotional payoff, so it changes mood clearly from the line
 Full kit, labels and rules are in Appendix A. In short:
 
 - "Designer toy" proportions: about 5.5 heads tall, large head, soft rounded limbs, mitten hands, simple rounded shoes. Friendly, not cartoonish and not uncanny.
-- Flat, bold colour blocking, no outlines. Hair, skin and outfit contrast clearly so each reads at 120 px tall.
+- Flat, bold colour blocking. Hair, skin and outfit contrast clearly so each reads at 120 px tall. **v2.0: "no outlines" is superseded.** A thin, soft screen-space contour (about 1.5 px) now separates each figure from its backdrop (12.8.2).
 - **The Visitor mostly sees their own character from behind**, so hair and the back of the outfit carry identity. Hair styles are designed back-first (ponytail, bun, braids, bob length and afro volume must read from behind). The customiser has a "Back view" button for this reason.
 - Face: two dark oval eyes, thin brows in the hair colour, a small smile, soft rose cheek blush. No nose geometry beyond a tiny bump in a slightly deeper skin tone.
 - The Guide wears a small brass round badge on the left chest; the Visitor wears a cream "visitor sticker" with a rose heart in the same spot. This quietly signals roles without relying on name labels, and the Guide's badge is the slot for the Creator's face photo in a later release (FR-21).
@@ -239,7 +250,7 @@ flowchart LR
 2. **The centre stays clear.** Controls live at the edges. Panels dock at the edge that is free of the Visitor and the active picture (section 3.5).
 3. **Thumb zones.** Movement bottom-left, look-around anywhere else, primary actions in the lower half. Top corners hold rarely used buttons.
 4. **Use `dvh`, not `vh`**, and add safe-area insets (`--safe-*`) to every edge so notches, rounded corners and the home indicator never clip a control.
-5. **Touch targets 44 by 44 px minimum** (`--touch-target`), 56 px for primary calls to action (`--touch-target-lg`), 8 px or more between targets.
+5. **Touch targets 44 by 44 px minimum** (`--touch-target`), 48 px for builder bar buttons and option tiles (`--touch-target-md`), 56 px for primary calls to action (`--touch-target-lg`), 8 px or more between targets (`--target-gap`; v2.0: this is now a hard rule at 360 px, FR-81, and there are no "touching" clusters). **FR-82 (reach) is met by small additions only, not a redesign (12.7).**
 6. Orientation changes never restart anything: position, viewed pictures, panels and the Guide are kept (US-33).
 
 ### 3.2 Breakpoints
@@ -252,6 +263,8 @@ flowchart LR
 | Desktop | 1024 px and wider | No joystick; keyboard and mouse hints; caption card docks right; picture list and settings are side drawers | Left vertical stepper (12 rem), content, and on the Characters step a sticky live preview |
 
 Design floor is 360 px wide. Text content (builder, dialogs, error screens) must also reflow without horizontal scrolling at 320 px (WCAG 1.4.10). The HUD is designed from 360 px.
+
+**v2.0 sub-bands.** Phone portrait splits at 480 px: small phone (up to 479 px) and large phone (480 to 639 px). HUD button labels now appear from 480 px (they were 400 px; the 400 to 479 px band needed a 4 px gap that FR-81 no longer allows). The reference viewports for CR-4 are 360 by 640, 390 by 844, landscape 844 by 390 (and 640 by 360), tablet 768 by 1024, desktop 1280 by 720 and the 320 px reflow check.
 
 ### 3.3 Visitor screen composition
 
@@ -437,6 +450,8 @@ All tokens are CSS custom properties in `src/styles/tokens.css`. Scene tokens (`
 | Layers | `--z-canvas` 0, `--z-labels` 5, `--z-hud` 10, `--z-preview-bar` 14, `--z-panel` 20, `--z-sheet` 22, `--z-fade` 24, `--z-viewer` 26, `--z-screen` 28, `--z-modal` 30, `--z-toast` 40 | Name labels sit below every panel (ADR 0011). Pass `zIndexRange={[5, 0]}` to drei `Html` |
 | Motion | `--duration-instant/fast/normal/slow/camera/fade-through/gender-morph`, `--duration-presentation-camera-in` (800 ms), `--duration-presentation-camera-out` (600 ms), `--ease-standard/emphasised/out`, `--ease-camera`, `--press-scale` | All durations are 0 ms under reduced motion. The two presentation-camera durations and `--ease-camera` are mirrored by the scene (6.12.3) |
 
+**CR-4 additions (v2.0).** Full list with values and uses in 12.9. Added: `--text-micro` (12 px), `--text-hero`, `--text-lead`, `--leading-snug`, `--tracking-display`; `--space-7`, `-14`, `-20`, `--target-gap`, `--page-gutter`, `--section-gap`; `--touch-target-md`, `--sheet-max-height-phone`, `--bar-min-height`, `--bar-min-height-compact`, `--progress-bar-height`, `--photo-thumb-size`, `--tile-height`, `--accent-bar-width`, `--preview-sticky-height`, `--joystick-*-compact`; `--color-surface-raised`, `--color-bg-glow`, `--color-accent-top`, `--color-accent-wash`, `--gradient-page`, `--gradient-accent`, `--color-divider-night`, `--color-track-night`; `--shadow-raised`, `-button`, `-button-pressed`, `-glass`, `-bar`, `-art`; `--z-sticky`; `--duration-overlay`, `--duration-stagger`, `--rise-distance`; `--avatar-skin-blush-deep`; and the `--look-*` finish group. **Value changes:** `--text-xs` 13 to 14 px; `--scene-ceiling`; `--scene-light-ground`. No token was renamed or removed.
+
 Scaffold names kept for compatibility: `--font-body`, `--radius-2`, `--touch-target`, `--color-accent`, `--color-surface`, `--color-text`, `--space-2`, `--space-4`.
 
 ### 4.2 Contrast record (WCAG 2.2 AA)
@@ -514,6 +529,8 @@ Prefer enabled buttons that explain what is missing on press (inline error plus 
 | Tabs (Guide or Visitor; Face, Hair, Outfit, Body) | `role="tablist"`, automatic activation, arrow keys, `aria-selected`, 44 px tall, active tab has a 3 px accent underline plus bold weight |
 
 ### 5.4 Photo row (builder step 1)
+
+> **v2.0:** the row's layout and density are superseded by 12.5.1 (compact row, 8 px between actions). Every state, label and keyboard rule below is unchanged.
 
 States: **uploading** (progress bar plus "Uploading 62%"), **processing** ("Preparing photo..."), **ready** (check plus "Ready"), **failed** (alert icon, reason, **Retry**), **removed** (row leaves; announced "Photo removed").
 
@@ -679,6 +696,8 @@ Changes apply immediately and persist in `localStorage` (`settingsStore`). Same 
 
 ### 5.16 Stepper and action bar (builder)
 
+> **v2.0:** the phone stepper, the action bar contents and the Preview and Publish placement are superseded by 12.4. Behaviour not mentioned there (focus to the heading, announcement, document title) is unchanged.
+
 | Part | Spec |
 |---|---|
 | Stepper (phone) | Text "Step 2 of 4: Words" plus four 44 px-tall segments (the visible bar is 6 px; the tap target is taller). Current: `aria-current="step"`. Completed steps are links back; future steps are not focusable until reachable |
@@ -771,6 +790,14 @@ Every interaction is specified as Trigger, Feedback, Camera, Exit, Touch, Keyboa
 - **Occlusion:** when a wall blocks the line to the Visitor the boom shortens, down to 1.2 m, easing over 150 ms.
 - **Moves on its own only for a presentation (v1.2).** The camera does not move because of the Guide's walking, a hint, a picture list jump or the finale. The only non-input changes are (a) following the Visitor's own movement, (b) a cut to the default pose after Replay or a jump-to-picture, which the user caused, and (c) the **presentation camera** (6.12), which eases to a framing of the picture when a presentation starts and eases back when it ends or the Visitor moves. (c) is the single exception, it is always interruptible by any input, and it is a cut under reduced motion.
 - **Reduced motion:** the same, with no damping (the camera is rigidly attached), no eased boom change, no eased Reset, and no fade-through (hard cuts). The presentation camera becomes a hard cut in and out (6.12.6).
+- **Ceiling and a high camera (v2.0, FR-95, user feedback 02/11/2026).** At a high pitch with a long boom (desktop: up to 55 degrees and 6 m, so the camera can sit above the ceiling) the ceiling hides the rooms. Decision: **fade the ceiling out; do not clamp the pitch** (the 4 to 55 degree range in 6.2 stays, because looking down at the whole museum is a nice thing to do). A ceiling only blocks the view when the camera is at or above its plane (the camera is never below the floor and looks down), so the rule is about camera height, not about the line of sight. Owned by the scene-developer; applies in the visit, the preview and the builder's museum preview:
+  - The ceiling opacity is a continuous function of the camera's height: `opacity = 1 - smoothstep(ceilingHeight - 0.6, ceilingHeight - 0.1, cameraY)`. Fully opaque with the camera 0.6 m or more under the ceiling, fully clear within 0.1 m of it and above. No timer, so it follows the user's own input and cannot flicker; the ceiling is not drawn at all at an opacity under 0.02 (and goes back to the opaque, non-transparent material at 1, so there is no sorting cost in the default view).
+  - **Default view unchanged:** the default follow camera must sit at least 0.6 m under the ceiling so the ceiling is exactly as opaque as today. The scene-developer checks this with the real wall height (`layout.wallHeight`); if the default camera is closer than 0.6 m, start the range at `defaultCameraY + 0.1` instead.
+  - Everything fixed to the ceiling fades with it: the rose, the recessed strips, the oculus ring. The finale light cone and floor pool stay.
+  - Walls keep their full height so the rooms read as a cutaway. Each wall gets a flat 0.06 m cap in `--look-dado-rail` so the cut edge looks finished (technical-artist, 12.8.3). The camera still never passes through a wall (ADR 0014 occlusion is unchanged).
+  - **Reduced motion (FR-95: any fade is instant):** a hard step with hysteresis: the ceiling switches off when `cameraY` rises above `ceilingHeight - 0.35` and back on when it falls below `ceilingHeight - 0.55`, so it never flickers at the threshold. Either way the change only happens because the Visitor moved the camera.
+  - The presentation camera (6.12) keeps its 8 to 20 degree pitch, so it never triggers the fade. Low graphics quality: the same rule; it is one opacity value.
+  - QA: at pitch 55 degrees and boom 6 m on desktop (and with the keyboard camera controls) the Visitor, the route and at least the next room are visible; at the default pose the ceiling is opaque and the picture matches today's; hovering the camera at the threshold causes no flicker; reduced motion switches in one frame.
 - **Not used:** camera shake, head bob, FOV changes, motion blur, auto-orbit, intro fly-through (there is no intro; the welcome screen is the intro).
 
 ### 6.4 Interaction: Reset view
@@ -1231,6 +1258,9 @@ Option ids are the stable storage keys in `contract.ts`. The labels below are th
 | Outfit style (6) | `tee-jeans` T-shirt and jeans (top in the outfit colour, fixed denim `--avatar-denim`), `hoodie` Hoodie (hoodie in the outfit colour, fixed joggers), `shirt-trousers` Shirt and trousers (shirt in the outfit colour, fixed charcoal trousers), `dress` Dress (all in the outfit colour, skin-tone legs), `suit` Suit (jacket and trousers in the outfit colour, cream shirt), `jumpsuit` Jumpsuit (all in the outfit colour) |
 | Outfit colour (12) | `red` `#C23B3B`, `coral` `#EE7B66`, `orange` `#E98A2E`, `mustard` `#D9A82B`, `green` `#4F9A5E`, `teal` `#2F8F8F`, `sky` `#6DB2E0` (Sky blue), `navy` `#263A66`, `purple` `#7B55A6`, `pink` `#E58FB0`, `charcoal` `#3A3A44`, `cream` `#EFE3CC` |
 | Gender (3, optional, v1.1) | `feminine` **Woman**, `masculine` **Man**, `neutral` **Neutral** (default). Ids are the architect's to confirm in the schema decision; the labels are fixed. Display order is Woman, Man, Neutral |
+| Face shape (5, new in v2.0, both characters, any gender) | **Provisional ids, the architect confirms:** `oval` **Oval** (default; exactly today's head), `round` **Round**, `square` **Square**, `heart` **Heart**, `long` **Long**. Neutral shape words only; no option is tied to a gender. A draft or museum with no value loads as Oval. Rendering rules in 12.8.2 |
+| Clothing pattern (4, new in v2.0, both characters, any gender) | **Provisional ids:** `plain` **Plain** (default, exactly today's garments), `stripes` **Stripes**, `checks` **Checks**, `dots` **Dots**. Applies to the garment that carries the outfit colour (tee, hoodie, shirt, dress, jacket and trousers of a suit, jumpsuit); fixed garments (denim, trousers, joggers, shoes) stay plain. The pattern's second colour is derived from the outfit colour (12.8.2), not chosen. Missing value loads as Plain |
+| Outfit style (12 from v2.0, Q-30) | The existing six (above) plus six new, **provisional ids and labels**: `sweater` **Sweater**, `overalls` **Overalls**, `coat` **Coat**, `cardigan` **Cardigan**, `tracksuit` **Tracksuit**, `tunic` **Tunic**. Every style is offered to every gender. Colour roles, silhouettes and the triangle rule are in 12.8.2 G; the picker is in 12.5.3 (today's six stay visible, the new six sit in More options). A missing or old value keeps its existing style |
 | Body type (4) | `slim` Slim, `regular` Regular, `curvy` **Wider hips**, `broad` **Wider shoulders**. Ids are unchanged, only the display text and accessible names change (see the review below) |
 | Height (3) | Shorter (about 1.55 m), Medium (about 1.70 m), Taller (about 1.85 m) |
 | Facial hair (5, both characters, v1.1) | None, Stubble, Moustache, Goatee, Full beard (in the hair colour). Available with every gender |
@@ -1295,7 +1325,7 @@ Defaults avoid assuming anyone's gender and keep the two characters visibly diff
 - Selecting an option updates the preview within 1 s (FR-15), rebuilding only the affected part. There is no "Apply" button.
 - Selections persist in the draft; coming back to the step shows them (US-6).
 - All option groups are radiogroups with arrow-key navigation. Tabs use automatic activation.
-- The preview is `role="img"` with a live text description that updates (debounced 400 ms, polite). Template: "{Name}: [woman or man, only when not Neutral, ]{height} height, {build}, {hair style} {hair colour} hair[, {facial hair}], {outfit}." Examples: "Tom: man, medium height, regular build, short crop dark brown hair, goatee, navy shirt and trousers." and, for Neutral, "Sam: medium height, regular build, bob brown hair, coral jumpsuit." The gender word is the label of the option the Creator chose and appears only here and in the Gender group, never in any Visitor-facing text (A-20). Announce only the description of the character that changed, not both, to keep screen-reader chatter low.
+- The preview is `role="img"` with a live text description that updates (debounced 400 ms, polite). Template: "{Name}: [woman or man, only when not Neutral, ]{height} height, {build}, {hair style} {hair colour} hair[, {facial hair}], {outfit}." Examples: "Tom: man, medium height, regular build, short crop dark brown hair, goatee, navy shirt and trousers." and, for Neutral, "Sam: medium height, regular build, bob brown hair, coral jumpsuit." The gender word is the label of the option the Creator chose and appears only here and in the Gender group, never in any Visitor-facing text (A-20). Announce only the description of the character that changed, not both, to keep screen-reader chatter low. **v2.0 additions to the template:** after the build, `{face shape} face` only when the shape is not Oval ("round face"); and a pattern word before the outfit only when the pattern is not Plain: Stripes "striped", Checks "checked", Dots "spotted" ("navy striped shirt and trousers", "coral spotted jumpsuit"). Example: "Tom: man, medium height, regular build, square face, short crop dark brown hair, goatee, navy striped shirt and trousers."
 - Gender, facial hair and the reset button are scoped to the active character: the Guide and the Visitor each keep their own value, and switching the Character tab shows that character's selection.
 - **Reset** returns the active character to the starting look (9.3), including Neutral. Choosing a gender never resets anything else.
 - Drag-to-turn is an enhancement; the Turn buttons are the keyboard and switch path.
@@ -1469,3 +1499,678 @@ Remaining watch list for other owners (not in this document):
 | NFR-13 (privacy link) | 7.2, 10 |
 | NFR-23 (Australian English, DD/MM/YYYY) | 1.8, 10 |
 | NFR-25 (live-readiness) | The card, labels and cues read presentation and state from the registry and `sessionStore` only, so a future network source needs no design change. In live mode the Guide's header and card would be driven by the Creator's input without layout changes |
+
+---
+
+## 12. CR-4 polish (v2.0)
+
+Requirement IDs are from requirements v0.4 (Epic E10, FR-77 to FR-94, NFR-27 to NFR-31) and user stories US-49 to US-61. This section is written to be built as it stands. Hex values live in `src/styles/tokens.css`; this section names the tokens.
+
+### 12.0 How to read this section
+
+| Rule | Detail |
+|---|---|
+| Precedence | Section 12 wins over sections 1 to 11 where they disagree |
+| Unchanged | Palette, logo, typeface family (Q-29 default: keep Fraunces and the system stack), flows, the four builder steps and their order, draft and museum formats (except the new optional character choices in 9.2: face shape, six clothing styles, pattern), camera and Guide behaviour, the caption card rules in 3.5, the presentation camera in 6.12 |
+| No new CSS file | Every rule goes into the existing `src/ui/styles/*.css`. `src/styles/base.css` needs no change |
+| Selector safety | Existing class names, ids, `data-*` attributes and accessible names stay (list in 12.11). New elements get new class names. Where a control must appear in two places (Preview on phones), exactly one is visible per viewport and the hidden one is `display: none` so it leaves the accessibility tree |
+| Motion | Every new transition uses a token and is 0 ms under reduced motion (`--duration-overlay`, `--duration-stagger`, `--rise-distance`). No overlay, sheet, dialog or card transition is over 250 ms (FR-79) |
+| Copy | New text follows FR-76 and Australian English (12.10) |
+
+### 12.1 Scales and one component style set (FR-77, FR-78)
+
+**Type scale (FR-83: 16 px body, 14 px secondary, 12 px floor).**
+
+| Token | Size | Use |
+|---|---|---|
+| `--text-micro` | 12 px | Floor. Decorative or repeated text only, for example joystick direction marks. Never the only place information appears |
+| `--text-xs` | 14 px (was 13) | Counters, eyebrows (uppercase, `--tracking-eyebrow`), file names, step labels, tags, edge-arrow distance |
+| `--text-sm` | 14 px | Helper text, tertiary buttons, HUD pill, caption card secondary text (unchanged) |
+| `--text-md` | 16 px | Body, inputs, buttons, tabs, tiles, strip caption |
+| `--text-lg` / `--text-lead` | 18 px | Lead lines, captions, card titles, large buttons |
+| `--text-xl` | 22 px | Section headings (h2) |
+| `--text-2xl` | 28 px | Screen headings (h1), "For {name}" |
+| `--text-display` | 30 to 52 px | Welcome title |
+| `--text-hero` | 32 to 56 px | Landing heading only |
+
+Line heights: `--leading-tight` 1.2 for display and h1, `--leading-snug` 1.3 for card titles and lead lines, `--leading-normal` 1.5 body, `--leading-reading` 1.6 captions. Headings are Fraunces 600; from 28 px up add `letter-spacing: var(--tracking-display)`. Weights: 400 body, 500 labels, 600 headings and buttons. The caption card header and strip keep their exact sizes (3.5 depends on them).
+
+**Spacing.** The 4 px scale only. Inside components: `--space-2` (8), `--space-3` (12), `--space-4` (16). Between siblings in a stack: `--space-4`. Between sections: `--space-6` on phones, `--space-8` from 640 px. Between targets: never under `--target-gap` (8 px). Page side padding is `--page-gutter`. Landing sections use `--section-gap`.
+
+**Radius.** `--radius-sm` 6 (scroll shadows, chips inside a card), `--radius-md` 12 (fields, tiles, alerts, inline cards), `--radius-lg` 20 (cards, dialogs, sheets, caption card), `--radius-xl` 28 (welcome card, landing frame), `--radius-pill` (buttons, tags, HUD trays, stepper segments).
+
+**Elevation (one scale for every surface).**
+
+| Level | Token | Used by |
+|---|---|---|
+| 0 flat | none | Fields, tiles, tags on a card |
+| 1 card | `--shadow-card` | Builder cards, review cards, photo rows |
+| 2 raised | `--shadow-raised` | Hovered or selected card, landing step cards; the action bar uses `--shadow-bar` |
+| 3 panel | `--shadow-panel` | Caption and finale cards, dialogs, sheets |
+| 4 glass | `--shadow-glass` | HUD trays, hint chips, night buttons |
+
+**Component style set.** Same component, same style on every screen.
+
+| Component | Style |
+|---|---|
+| Primary button | Fill `--gradient-accent` (top `--color-accent-top` to `--color-accent`), text `--color-on-accent`, `--shadow-button`, pill. Heights 44 (`--touch-target`), 48 (`--touch-target-md`, builder bar) or 56 (`--touch-target-lg`, calls to action). Hover: `--color-accent-hover` fill (gradient off). Pressed: `--color-accent-active`, `--shadow-button-pressed`, scale `--press-scale`. Focus: the two-tone ring (base.css) |
+| Secondary | `--color-surface` fill, `--border-control` accent outline, accent text. Hover `--color-accent-tint`. Pressed tint plus scale |
+| Tertiary | Transparent, accent text, 44 px. Hover tint and underline |
+| Danger | `--color-danger` fill, `--color-on-danger` text. Used only for delete, remove and start again. Never next to a primary of the same size without a visual gap of `--space-4` |
+| Night | Glass over the scene (5.1), `--shadow-glass` |
+| Fields | 48 px minimum, `--border-control` `--color-border-strong`, `--radius-md`, label above, helper below, text 16 px |
+| Cards | `--color-surface`, `--radius-lg`, `--shadow-card`, padding `--space-4` (phone) or `--space-5` (640 px up) |
+| Alerts | Tint fill, state icon, a `--accent-bar-width` bar on the left in the state colour (danger, warning, success, info = `--color-accent`), `--radius-md`. Role rules in 5.14 |
+| Tags | Pill, `--text-xs`, 600. **Required**: `--color-accent-tint` fill, `--color-accent` text. **Optional**: `--color-surface-sunken` fill, `--color-text-muted` text. The word is always in the tag, never colour alone |
+| Tabs | Segmented: equal-width pills in a `--color-surface-sunken` track, selected pill `--color-accent` with `--color-on-accent` text, 44 px, 8 px gap |
+| Dialogs and sheets | `--radius-lg`, `--shadow-panel`, brass hairline (`--shadow-inset-frame`), scrim `--color-scrim`, enter in `--duration-overlay` |
+
+**Hierarchy: one primary action per screen (FR-78).**
+
+| Screen | Primary | Secondary | Destructive |
+|---|---|---|---|
+| Landing | Create a museum | Footer links | none |
+| Builder steps 1 to 3 | Next | Back, Preview | Remove (photo row, inline confirm) |
+| Builder step 4 | Publish museum | Back, Preview | none |
+| Published | Copy link (share) until the edit link is acknowledged, then **Finish** | Copy edit link, Share..., Open my museum, and Copy link once Finish is primary | none |
+| Edit screen | Copy share link | Back to home | Delete museum |
+| Delete dialog | Cancel (default focus, secondary look until focused) | | Delete museum |
+| Welcome | Start | Privacy | none |
+| Caption card | none (Close and Look closer are quiet icon buttons; Read more is a text button) | | |
+| Finale card | Keep exploring | Replay from the start | none |
+| Error screens | Try again, or Go to the home page | | none |
+| Photo viewer | none (Close is the strongest control, a night icon button) | Zoom buttons | none |
+| Dialogs (missing items, context lost) | Close, Reload | | none |
+
+### 12.2 States, transitions, empty and error states (FR-79)
+
+| State | Rule |
+|---|---|
+| Default | As 12.1 |
+| Hover | Pointer only: `@media (hover: hover)`. A tint or fill change in `--duration-fast`. Never the only cue |
+| Focus | Two-tone ring (base.css), unchanged. Never removed |
+| Pressed | Scale `--press-scale` plus the pressed fill. Instant under reduced motion |
+| Disabled or unavailable | 45% opacity, `aria-disabled`, the reason in nearby text (5.1). Not for hiding information |
+| Loading | Spinner in place of the icon, `aria-busy`, presses ignored, label kept short |
+
+**Transitions.** Colour and fill changes: `--duration-fast` (150 ms). Cards, sheets, dialogs, hint chips: enter with a fade and a rise of `--rise-distance` over `--duration-overlay` (220 ms), `--ease-out`; exit in `--duration-fast`. Bottom sheets slide up 100% over `--duration-overlay`. Progress fills keep `--duration-normal` (they are not overlays). Siblings that enter together (landing steps, welcome lines) delay by `--duration-stagger` each, at most four siblings. All three tokens are 0 under reduced motion, so the final state appears at once.
+
+**Empty and error states are designed, not bare text.** Shared pattern: a `--color-surface` card on `--gradient-page`, radius `--radius-xl`, `--shadow-raised`, brass hairline, an illustration or frame mark of 96 to 160 px, a heading, one sentence, one primary action.
+
+| State | Design |
+|---|---|
+| No photos yet (step 1) | The drop area itself: frame mark (64 px), "No photos yet", the file rules line, **Add photos** (56 px). When photos exist the same area shrinks to the count line |
+| Upload failed (photo row) | A 4 px danger bar on the row's left, the alert icon and reason in the status line, **Retry** as a primary 44 px button in the row |
+| Museum not found, Couldn't open it | 7.5 and 7.6 on the shared pattern; the crooked-frame illustration on not found |
+| WebGL unavailable, and the builder's "3D preview isn't available" | 7.7 on the shared pattern; in the builder the message sits inside the preview frame with the text description of both characters under it |
+| Offline | The offline bar (12.6.7) |
+
+### 12.3 Landing page (FR-80, NFR-27)
+
+**Order of content (DOM order changes: the Create button moves above the steps).** Header (brand) then main: eyebrow, h1, description, **Create a museum**, "No account needed.", the three steps, then the framed illustration (on phones it comes after the steps visually; on desktop it sits in the right column). Footer last. The illustration is decorative (`alt=""`), so reading order is unaffected.
+
+| Part | Spec |
+|---|---|
+| Page | Background `--gradient-page`, min-height 100 dvh. Side padding `--page-gutter`. Content max `--content-wide-max-width` |
+| Header | Brand in Fraunces 600, `--text-lg`, 44 px target, with the frame mark (24 px) before it. Padding `--space-3` `--page-gutter` plus the top safe area |
+| Eyebrow | "A private view", `--text-xs`, uppercase, `--tracking-eyebrow`, muted, preceded by a 24 by 1 px brass rule (decoration) |
+| Heading | `--text-hero`, Fraunces 600, `--leading-tight`, `--tracking-display`, balanced, max 14 em wide. Copy unchanged |
+| Description | The copy-deck sentence pair, `--text-lead`, `--leading-reading`, `--color-text`, max 34 em |
+| Create a museum | Primary, 56 px, minimum width 15 rem on phones (full width up to 22 rem), `--shadow-button` |
+| Reassurance | "No account needed." below the button, `--text-sm`, muted. Source: FR-1 |
+| Steps | An ordered list of three cards (`--color-surface`, `--radius-lg`, `--shadow-card`, hairline `--color-border`). Phone: stacked rows, each 64 px minimum: number disc (36 px, brass hairline ring, Fraunces numeral in accent) then the title (`--text-md`, 600) and a muted one-line description (`--text-sm`). From 640 px: three columns, number on top. Cards enter with the stagger (12.2). Hover (pointer) lifts to `--shadow-raised` and `--color-surface-raised` |
+| Illustration | Inside a picture frame: `--scene-mat` mat 12 px, `--scene-frame` outer 6 px, brass hairline, `--shadow-art`, `--radius-md`, rotated -1.5 degrees (static). Phones: width 70% (max 14 rem), centred, after the steps. Desktop: the right column, width up to 26 rem |
+| Footer | Hairline `--color-border` above, links centred on phones and left on desktop, 44 px targets with 8 px gaps, the Sales line in `--text-sm` muted |
+
+**Step descriptions (new muted lines).** 1: "Photos hang along the museum in the order you choose." 2: "Pick a look for you and for your visitor." 3: "They open it on their phone and wander through."
+
+**Above the fold.** At 360 by 640 the brand, eyebrow, heading (three lines at about 33 px), description (about four lines at 18 px) and the Create button end near y 420 to 450 (header 52, then 16, 20, 12, 119, 12, 112, 20, 56, and the reassurance line). It must be fully visible with at least 80 px to spare at 360 by 640 and 390 by 844. At 1280 by 720 the two-column layout puts everything above y 560. QA measures the Create button's bottom edge in both. FR-80 asks for a one-sentence description; the copy deck has two short sentences. They stay as one paragraph so the existing copy and tests hold; if the product manager wants one sentence, drop the second (12.12).
+
+**Size and stability (NFR-27, NFR-28).** CSS only: no new font (Fraunces 400 and 600 as now), no new image, the illustration is the existing 5.8 kB SVG. Expected growth is under 10 kB. Give the illustration `width`, `height` and `aspect-ratio` so nothing shifts; add an `@font-face` fallback for the display font with `size-adjust` and `ascent-override` tuned to Georgia, so the swap moves the layout by less than 0.02 CLS. Measure CLS at 360 by 640 and 1280 by 720: 0.1 or less.
+
+### 12.4 Builder shell: progress, outstanding list, bar (FR-82, FR-84 to FR-88)
+
+#### 12.4.1 Header
+
+Brand left (44 px). From 640 px the **Preview** tertiary button stays in the header. Below 640 px it moves into the action bar (12.4.4) and the header button is `display: none`. The header scrolls away; it is not sticky.
+
+#### 12.4.2 Step header and stepper
+
+Every step opens with the same block: eyebrow (`--text-xs`, "Step 2 of 4"), the h1 (the step name, focused on arrival as today), and a **purpose line** (`--text-lead`, muted, at most two lines at 360). Purpose lines (new copy, 12.10) tell the Creator what the step is for and what is required. The stepper nav keeps its text "Step 2 of 4: Words" in the DOM exactly as today; visually only "Step 2 of 4" shows (the rest is a visually hidden span), which removes the duplicated step name.
+
+| Part | Phone and tablet (under 1024 px) | Desktop (1024 px and up) |
+|---|---|---|
+| Position | In the page flow, **not sticky** (it was sticky and took 80 px for good) | Left rail, sticky at 16 px, 14 rem wide (was 12) |
+| Form | Four segments, 8 px gap. Each: a 44 px-tall button whose top part is the bar (`--progress-bar-height`, 8 px) and under it a short label (`--text-xs`): Photos, Words, Characters, Review. Accessible names stay the full labels ("Review and publish") | Vertical list: 32 px numbered marker, label `--text-md`, a 2 px `--color-border` connector between markers |
+| Done | Bar fill `--color-accent`, label with a 16 px check icon before it, plus the visually hidden " (done)" | Marker filled accent with a check |
+| Current | Bar `--color-accent-tint` fill, `--border-control` accent outline, label 600, `aria-current="step"` | Row `--color-accent-tint`, marker ringed accent, label 600 |
+| Reachable, not done | Empty bar with `--hairline` `--color-border-strong`, label normal | Marker outlined |
+| Locked | Not a button, label `--color-text-muted`, no outline change | Same |
+| Narrow or large text | Container query on the nav: from `min-width: 20em` four across; under it a 2 by 2 grid (it happens at 320 px and at 200% text). Labels wrap, never clip | n/a |
+
+#### 12.4.3 "Still to do" list (FR-85)
+
+A region under the purpose line on every step, always visible, never behind a control.
+
+| Part | Spec |
+|---|---|
+| Source | `validateDraft(snapshot, 'publish')`, the same function and issue ids as the Preview "what is missing" dialog (which shows its preview-level subset). One list, two views |
+| Contents | Only what is still outstanding. Chips for these issue ids, in step order. Short labels (new copy): `photos` "Add a photo"; `photos-uploading` "Wait for photos to finish"; `photos-failed` "Fix the photo that didn't upload"; `visitorName` "Add the Visitor's name"; `guideName` "Add a Guide name"; `consent` "Confirm you can share the photos". Final strings come from the shared issue list; these are the targets |
+| Empty | One line with a check icon: "Ready to publish" |
+| Heading | A visible label "Still to do" (`--text-sm`, 600) |
+| Chip | A button, 44 px tall, `--radius-pill`, `--color-accent-tint` fill, accent text `--text-sm` 600, an open-circle icon (20 px) before the label, 8 px gaps, wraps. Pressing it does what the dialog links do: go to the step and focus the field (`goToIssue`) |
+| Phone | Chips wrap in the flow under the purpose line (at most about 100 px tall with four chips) |
+| Desktop | In the left rail under the stepper, as full-width left-aligned rows |
+| Behaviour | Not a live region and never announced (it would chatter). A chip leaves when its item is fixed (fade in `--duration-fast`, instant under reduced motion). It does not hide while the user is typing |
+
+#### 12.4.4 Action bar (sticky)
+
+| Part | Spec |
+|---|---|
+| Position | `position: sticky; bottom: 0`, `--color-bg` background, `--shadow-bar`, no hard top border. Padding `--space-3` `--space-4` plus the bottom safe area. `min-height: var(--bar-min-height)` (never a fixed height, so it grows with text size). Landscape phone: `--bar-min-height-compact` |
+| Progress line | A 3 px line along the bar's top edge: track `--color-border`, fill `--color-accent`, width 25%, 50%, 75%, 100% for steps 1 to 4, width change in `--duration-normal`. `aria-hidden` (the stepper carries the meaning) |
+| Phone (under 640 px) | Three controls in one row, 8 px gaps: **Back** (secondary, 48 px, from step 2; absent on step 1, its slot stays empty), **Preview** (tertiary with the eye icon, 48 px), **Next** (primary, 48 px, minimum 7 rem, `margin-left: auto`). Step 4: Next is absent and Publish stays in the content (12.5.4) |
+| 640 px and up | Back left, Next right (as today). Preview stays in the header |
+| While publishing | Back and Preview are not rendered; nothing else changes |
+| Large text | The row may wrap to two lines; nothing is clipped |
+| Keyboard open (FR-84) | `index.html` already sets `interactive-widget=resizes-content`. For browsers that ignore it (iOS Safari): while a text field is focused and `visualViewport.height` is under 75% of `innerHeight`, set `data-keyboard="open"` on `.builder`; the bar becomes `position: static` at the end of the content so it never covers the field, and every field gets `scroll-margin-block: 7.5rem` so the focused field clears the keyboard. Inputs stay at 16 px, so the page never zooms on focus |
+| Browser bars | Use `dvh`. The bar is sticky inside the scrolling page, so a retracting address bar never leaves a gap or hides it |
+
+#### 12.4.5 Validation (FR-87)
+
+Required fields show their message **on blur** (after the Creator has typed in the field, or tabbed through it empty) and on a failed Next, beside the field (5.2). Never on first render and never while the Creator is still typing in it. The message says how to fix it ("Add your name so the museum can greet you" is the target tone). Existing messages from the draft issue list are reused.
+
+#### 12.4.6 Time hints (FR-88, Could)
+
+Not specified. The requirement wants figures from observed usability tests, and none exist. Do not invent times.
+
+### 12.5 Builder steps
+
+Every step: step header (12.4.2), "Still to do" (12.4.3), then sections. Sections are labelled groups: a card with an h2 (`--text-lg`, Fraunces 600) and a tag, **Required** or **Optional** (FR-86). The reading order is the DOM order. Nothing is removed or reordered across steps. **Three Next presses reach Publish:** step 1 Next (needs one usable photo), step 2 Next (needs both names), step 3 Next (always allowed, everything has a default), then on step 4 the consent box and Publish (FR-86).
+
+#### 12.5.1 Step 1: Photos
+
+| Part | Spec |
+|---|---|
+| Purpose line | The existing sentence: "You can add 1 to 20 photos. JPEG, PNG, WebP or HEIC, up to 15 MB each." (it moves up from the body into the purpose slot) |
+| Section "Your photos" | Tag **Required** with the text "at least 1 photo" |
+| Drop area | The card from 12.2 (empty state). Contains the **Add photos** primary button (56 px, full width up to 22 rem on phones), the count line "5 of 20 photos" (`--text-sm`) and a determinate bar (8 px, `aria-hidden`, fill `--color-accent`). Desktop adds "or drag photos here" (pointer devices only) |
+| Order help | "Photos hang along the museum from the entrance to the finale, in this order." once photos exist, `--text-sm` muted |
+| After the list | When 1 to 19 photos exist, a secondary **Add more photos** button below the list (different name from "Add photos") |
+| DemoNotice, rejections | Unchanged, using the alert pattern with the accent bar |
+
+**Compact photo row (phone and tablet; replaces the 5.4 layout, behaviour unchanged).** Target at 360 px: no more than 300 px tall (it is about 390 px today), so 12 photos scroll about a quarter less.
+
+| Part | Spec |
+|---|---|
+| Card | `--shadow-card`, `--radius-lg`, padding `--space-3` |
+| Header row | Grip (44 px) then thumbnail (`--photo-thumb-size`, 72 px, `contain`) then the title "Photo 3" (`--text-md`, 600) and the status line (`--text-sm`: Ready with a check, Uploading 62%, Preparing, or the failure). The file name stays in the DOM but is visually hidden under 640 px |
+| Upload | A determinate 8 px bar directly under the header row while uploading |
+| Caption | Label "Caption (optional)", textarea of **2 rows** (it grows as the Creator types, up to 6 rows, then scrolls), helper on the left and the counter on the right of one line, wrapping if it must |
+| Actions | One row of 44 px buttons, 8 px gaps (also between wrapped rows): **Earlier** and **Later** as icon-only buttons under 480 px (their accessible names keep "Earlier" and "Later" plus the photo number, exactly as now; from 480 px the word shows), **Replace** and **Remove** as icon plus text. Earlier is absent on the first row and Later on the last. Remove still asks inline |
+| Failed | A 4 px danger bar, the reason in the status line, Retry (primary, 44 px) in place of the actions' first slot when retryable |
+| Desktop | The three-column grid of 5.4 stays; rows use the same layout inside each card |
+
+#### 12.5.2 Step 2: Words
+
+Order and grouping change; every field, label, id and limit is unchanged.
+
+| Order | Section | Fields |
+|---|---|---|
+| 1 | **The names** with tag **Required** (card with a 4 px `--color-accent` bar on its left and a faint `--color-accent-wash` fill) | "Who is this museum for?" and "Your name". Both keep "(required)" in the label |
+| 2 | **How it will look** (the live sample, unchanged content) | Shows the title, "For {name}" and both name labels as typed, so the Creator sees the result of the names at once |
+| 3 | **Make it yours** with tag **Optional** (plain card, no bar, visually quieter) | "Museum title (optional)" and "Closing message (optional)" |
+
+- Defaults shown, not stored (FR-86): the title field's **placeholder** is "A museum for {name}" and updates as the Visitor name is typed; the closing message's placeholder is "For example: Thanks for coming. I hope it made you smile." Placeholders never replace labels; their colour is `--color-text-muted` (6.0:1 on a card). The draft format is unchanged; blank still means the default.
+- The purpose line says what is required: "Two names are all you need. The rest is optional."
+- Validation: 12.4.5.
+
+#### 12.5.3 Step 3: Characters, with the new options (FR-96 to FR-102)
+
+**Layout.** Preview, then the character switch, then the appearance tabs, then groups. The data model adds three optional choices per character (face shape, six more clothing styles, pattern), each defaulting to today's look. **All of them live in a "More options" group; with it closed the step shows exactly the controls it shows today (FR-102).**
+
+| Part | Phone portrait and tablet | Phone landscape | Desktop (1024 px and up) |
+|---|---|---|---|
+| Preview | **Sticky** at the top of the step (`position: sticky; top: var(--safe-top); z-index: var(--z-sticky)`), height `--preview-sticky-height` (176 to 256 px, 32 dvh), full width, radius `--radius-lg`, stage backdrop (12.8.4). The stepper and the "Still to do" list scroll away above it; the options scroll under it | Left 45%, sticky, full height minus the compact bar | Left column, sticky (as today) |
+| Preview controls | Turn left, Turn right and Back view become **icon-only 44 px night buttons** over the preview's bottom-right corner, 8 px gaps. Their accessible names are unchanged | Same | The existing tertiary buttons under the preview |
+| Character switch | Two segmented tabs "Guide: {name}" and "Visitor: {name}" (names unchanged), then a muted line: "The Guide is you. The Visitor is who you're making this for." | Same | Same |
+| Section tabs | Body, Face, Hair, Outfit as four equal segments (44 px, 8 px gap) | Same | Same |
+| Description | The live text description under the section tabs (not in the sticky area) | Same | Under the preview |
+
+Purpose line: "Both characters already have a starting look. Change as much or as little as you like." The step is marked **Optional** as a whole (a tag by the h1's purpose line: "Optional: everything here has a starting look"). Reset keeps its place.
+
+**Where the groups sit.** "Closed" is exactly today's content. Every group inside More options is labelled "(optional)" in text (FR-86, like Gender) and starts on its default.
+
+| Tab | Visible with More options closed (unchanged, same DOM, same tiles) | Inside **More options** (new) |
+|---|---|---|
+| Body | Gender (optional), Body type, Height | none (no disclosure on this tab) |
+| Face | Skin tone, Facial hair | **Face shape (optional)** |
+| Hair | Hair style, Hair colour | none |
+| Outfit | Outfit style (today's six tiles, text only), Outfit colour | **More styles (optional)** (the six new styles), **Pattern (optional)** |
+
+Why this split: today's controls, their order, their tiles and their accessible names stay where tests and habits expect them. A new radio never duplicates an existing name. The clothing style is **one value** (`outfitStyle`) shown in two radiogroups: "Outfit style" (six tiles) and "More styles" (six tiles). Exactly one tile is selected across the two; choosing in one deselects the other. If the saved style is one of the six new ones, More options opens by itself so the choice is visible.
+
+**Making the step feel no longer (FR-102).**
+- **The disclosure shares the Reset row.** Today the last row is the Reset button (44 px, then the stack gap). The closed disclosure button and Reset sit in **one** row of the same height, so a tab with More options is exactly as tall as today. Body and Hair keep the Reset row alone, as now.
+- **Measure.** The strict check: the options panel (everything under the section tabs) is no taller closed than today at 360 by 640 and 390 by 844, on every tab. The whole-step height is also checked and is expected to be no taller: the sticky preview is 32 dvh against today's 42 dvh (about 64 px shorter at 640, 98 px at 844) and the turn buttons leave the flow (about 52 px), which pays for the purpose line (about 48 px), the character line (24 px) and the "Still to do" block (24 px when ready, about 68 px with a row of chips). If the whole-step check fails, shorten the purpose line to one line first.
+- The preview stays in view (sticky), so the Creator never scrolls up to check a change inside More options.
+
+**Footer row and the More options disclosure (new component `MoreOptions`).**
+
+| Part | Spec |
+|---|---|
+| Row | One flex row, `justify-content: space-between`, 8 px gap, 44 px tall: the **More options** button on the left, **Reset** (tertiary, as today) on the right. With no disclosure on the tab, Reset sits alone at the left as today. Under 480 px Reset's visible text is "Reset" (the accessible name stays "Reset Guide to the starting look" or "...Visitor...", which contains the visible word) so both fit in 336 px |
+| Button | 44 px tall (`--touch-target`), `--radius-md`, `--color-surface-sunken` fill, `--border-control` `--color-border-strong`, label "More options" (600), a chevron that turns 180 degrees in `--duration-fast` (instant under reduced motion). When any group inside is off its default a small count chip follows the label ("1", accent tint, with the visually hidden text " changed"), so a changed value is never hidden |
+| Content | Opens **under the row**, in the order of the table above, groups separated by `--space-4`, in the page flow (no inner scrolling). Closing hides it; choices are kept |
+| Semantics | `aria-expanded`, `aria-controls` the content. Hidden content is `hidden` so it leaves the tab order and the accessibility tree |
+| State | Open state is kept per character role and tab, in memory only (not in the draft). New draft: closed |
+| Open on load | Opens when any value inside is not its default (including a saved new clothing style) |
+| Keyboard and touch | Enter and Space toggle; focus stays on the button; the button is a 44 px target |
+| Reset | Resets everything for the active character, including the new options, to the starting look (9.3 plus Oval and Plain), and closes nothing |
+
+**Face shape picker.**
+
+| Part | Spec |
+|---|---|
+| Group | `role="radiogroup"`, label "Face shape (optional)", helper "Changes the shape of the face. Your other choices stay as they are." (`--text-sm`, muted). Inside More options on the Face tab |
+| Tiles | Five tiles in one row: `grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr))`, gap `--space-2`, minimum height `--option-tile-tall` (72 px). A 32 px pictogram (`--option-thumb-size`, a plain head outline in `currentColor`, one shape per option: oval, round, square, heart, long) above the label (Oval, Round, Square, Heart, Long, `--text-sm`). At 360 px five tiles are about 56 px wide in one row; at larger text they wrap to three and two. Selected: tint, `--border-selected` accent ring and a check (5.3). Roving tabindex, arrow keys, as every radiogroup |
+| Neutrality | The pictograms are bare outlines with no hair, features or expression. Every shape is offered to every gender, and nothing is pre-selected by gender |
+
+**Clothing style: twelve in all (Q-30), six visible and six in More options.**
+- **"Outfit style" (visible, unchanged):** today's six text tiles (T-shirt and jeans, Hoodie, Shirt and trousers, Dress, Suit, Jumpsuit), no pictograms and no size change, because a taller tile or an extra wrapped row would make the closed step taller (FR-102).
+- **"More styles (optional)" (in More options):** the six new styles as a grid of pictogram tiles. `grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr))`, gap `--space-2`: **two columns at 360 px** (about 164 px each), three rows, about 160 px tall in all. Each tile is 48 px tall (`--tile-height`), with a 24 px garment pictogram (`--option-thumb-size` scaled to 24) at the left and the label at its right, centred as a pair. At 200% text the tiles wrap their label (never clip) and stay one column wide at 320 px. Selected: tint, `--border-selected` accent ring, check (5.3). Roving tabindex and arrow keys as every radiogroup.
+- **Pictograms** sit on one shared neutral torso outline (no bust, no waist cue) and are drawn in the **current outfit colour** (`fill: var(--swatch)`), so the choice previews the colour too. The text label is always visible and is the accessible name. No pictogram is tied to a gender.
+- Order in "More styles": Sweater, Overalls, Coat, Tracksuit, Cardigan, Tunic (concepts and silhouettes in 12.8.2 G).
+- If the user and product manager later accept moving all twelve into More options (and the tests are updated), show one pictogram grid of twelve (three columns from 480 px); nothing else in this section changes.
+
+**Pattern picker (inside the disclosure).**
+
+| Part | Spec |
+|---|---|
+| Group | `role="radiogroup"`, label "Pattern (optional)", helper "Adds a pattern in tints of your colour. There is no second colour to pick." |
+| Tiles | Four tiles in one row (`repeat(4, 1fr)`, 8 px gap), minimum height `--option-tile-tall`. Each carries a **fabric swatch** 32 px square (radius `--radius-sm`, `--color-border-strong` hairline) above its label (Plain, Stripes, Checks, Dots). The swatch is pure CSS in the current outfit colour and its derived second colour (12.8.2): Plain a flat fill, Stripes `repeating-linear-gradient` bands, Checks two crossed gradients, Dots a `radial-gradient` grid. No images |
+| Disabled | Never. For outfit styles where the main garment is small the pattern still applies to it |
+
+**Preview behaviour (FR-15, live update).**
+
+| Change | Behaviour |
+|---|---|
+| Any choice | The preview updates within 1 s (it should be near-instant); no Apply button; saved to the draft at once |
+| Face shape | The active character's head shape morphs over `--duration-gender-morph` (250 ms, `--ease-standard`, instant under reduced motion), the same mechanism as gender (9.5): shape parameters interpolate, hair and facial hair follow the head because they are built on the same head warp. Retargets on rapid changes with no queue. Nothing else moves; the name label does not move (12.8.2) |
+| Pattern | The pattern amount cross-fades from the old value to the new over `--duration-fast`, as a material uniform, with no geometry rebuild. Instant under reduced motion |
+| Outfit style (any of the twelve) or colour | As today (rebuild or colour change); the pattern is kept. A style rebuild shows no unclothed or empty frame (9.5) |
+| Face tab opened | The preview frames the **active character's head and shoulders** over `--duration-camera` (450 ms, `--ease-standard`; a cut under reduced motion), so a small sticky preview still shows the face shape. The other tabs return to the two-character framing. If the Creator has turned the preview with Back view, the framing keeps that yaw. Should; Turn buttons are the fallback |
+| Description | The text description (9.4) gains "round face" and "striped" words when not default; announced only for the character that changed |
+
+**Phone targets.** Every tile, swatch cell, tab and the More options button is at least 44 by 44 px with 8 px between neighbours (FR-81): swatch cells become 48 px (`--tile-height`) with a 40 px visible swatch and `--space-2` gaps, six to a row at 360 px.
+
+#### 12.5.4 Step 4: Review and publish
+
+| Part | Spec |
+|---|---|
+| Purpose line | "Check everything, then publish. You can preview first." |
+| Cards | Three summary cards, each: h2 left, **Edit** tertiary (44 px) right; the card's content is one short block. Your museum (title, For, Guide, closing message), Photos (all thumbnails in a grid of `minmax(3.5rem, 1fr)`, so about five per row at 360 px, never truncated), Characters (the two descriptions) |
+| Consent | Its own card with the tag **Required**. The checkbox is 28 px inside a 48 px-tall row; the full sentence is the label; links on their own line (44 px targets). Error state: a danger bar, an icon and the message |
+| Actions | Preview (secondary) and **Publish museum** (primary, 56 px) in one row from 640 px, stacked on phones with Publish last and full width. **Under 640 px the in-content Preview is `display: none`** (the bar has it, 12.4.4); Publish stays in the content, at the bottom of the page where the Creator has just ticked consent. Reason line for an unavailable Publish stays under the button |
+| After a failed publish | The danger alert (with the accent bar) above the actions; button reads "Try again" |
+
+#### 12.5.5 Published screen
+
+A brass seal icon (48 px) and the h1 "Your museum is ready". Share link card first, with **Copy link** as the one primary (hierarchy table). The edit link card beneath, using the warning alert (accent bar `--color-warning-border`), **Copy edit link** secondary, then the acknowledgement. **Finish** is secondary and unavailable until the box is ticked, and becomes the primary then. Cards use `--shadow-card`; all targets 44 px or more with 8 px gaps.
+
+### 12.6 The visit: HUD, welcome, cards, notices
+
+Polish only. Nothing here changes a position that the caption dock, the framing safe rectangles (6.12.2) or the label rules depend on, except where stated.
+
+#### 12.6.1 Top bar
+
+| Part | Spec |
+|---|---|
+| Trays | Each `.hud__cluster` becomes a **tray**: one glass pill (`--color-hud`, 14 px blur, `--shadow-glass`, 1 px ring of `--color-on-night` at 18%, `--radius-pill`) that holds its buttons. The buttons inside lose their own fill, ring, shadow and backdrop filter (one blur per tray, not per button; three blur layers instead of five). They stay 44 by 44 px, **8 px apart** (`--target-gap`) with a 1 px by 24 px `--color-divider-night` rule centred in each gap. Hover or pressed: a `--color-night-raised` disc behind the icon. Left tray: Pictures, Where next?. Right tray: Settings, Help, and Reset view when shown (it joins as the middle item, as now) |
+| Labels | "Pictures" and "Where next?" show their words from **480 px** (was 400), so the 8 px gaps hold at 360 to 479 px. At 359 px and narrower the gaps may fall to 4 px (the 320 px reflow case only) |
+| Progress pill | 36 px tall (not interactive), `--color-hud`, `--shadow-glass`. A 16 px progress ring before the text: `conic-gradient(var(--color-brass) calc(var(--p) * 1%), var(--color-track-night) 0)` with a 5 px hole (radial mask); the frontend sets `--p` to viewed divided by total times 100. Text "5 of 12", `--text-sm`, 600. The ring is `aria-hidden`; the visually hidden "5 of 12 pictures viewed" stays |
+| Fit at 360 px | Left tray 96, right tray 96 (148 with Reset), pill up to 84, two 8 px gaps, margins 2 by 12: 96 + 84 + 148 + 16 = 344 of 336 available only if the pill is 84 px **and** Reset is showing. So the pill drops its ring below 400 px when Reset is showing (text only, 72 px) |
+| Preview mode | The preview bar (7.11) stays at the top; its Exit button is a once-only action |
+
+#### 12.6.2 Controls and hints
+
+| Part | Spec |
+|---|---|
+| Joystick | Same size, position and hit area on phones in portrait (128 px base, 56 px knob, 176 px hit). Restyle: base `--color-hud` plus a soft radial highlight at the top left; four small chevrons (CSS triangles, `--color-on-night-muted` at 70%) replace the N, E, S, W letters; knob `--color-on-night` at 92% with a 3 px inset `--color-brass` ring and `--shadow-glass`; held: base opacity 100%, knob scale 1.06 in `--duration-fast` (none under reduced motion) |
+| Compact joystick (Could) | On phone landscape the hit area is 45% of the screen height, so the tokens `--joystick-size-compact` (112), `-knob-compact` (48), `-hit-compact` (152) and `-travel-compact` (40) are available. The frontend may switch to them there; the joystick maths reads the sizes from CSS |
+| Arrow pad | Same layout; buttons restyled like the tray buttons (glass, 56 px, 8 px gaps) |
+| Hint chips | `--radius-lg`, glass, `--text-sm`, 20 px icon, max 30 rem, enter with the overlay fade and rise (12.2). The first-use "Drag to walk" and "Drag here to look around" chips keep their wording and timing (6.1) |
+
+#### 12.6.3 Welcome (FR-80 spirit, 7.2)
+
+| Part | Spec |
+|---|---|
+| Background | `--gradient-page` (a warm glow behind the card) |
+| Card | `.welcome__card` keeps its structure, `--radius-xl`, `--shadow-raised`, the brass hairline inset 8 px, padding `--space-8` `--space-6`. A 40 px frame mark above the eyebrow |
+| Type | Eyebrow `--text-xs`; title `--text-display` with `--tracking-display`; "For {name}" `--text-2xl` in accent; guide line `--text-md` muted |
+| Start | Primary, 56 px, min width 12 rem, focused on load as now. Waiting state unchanged |
+| Entrance | Card fades and rises by `--rise-distance` in `--duration-overlay`; lines inside stagger by `--duration-stagger`. Under reduced motion it simply appears. Leaving still cross-fades in `--duration-slow` (2.2) |
+| Phone landscape | A two-column card: title block on the left, Start and Privacy on the right; padding `--space-4` `--space-6`; the frame mark is hidden. The whole card fits 390 px tall without scrolling for a title up to 40 characters |
+| Worst case | A 60-character title and 24-character names at 360 by 640 scroll inside the screen (`overflow: auto`), with Start reachable by scrolling and never clipped |
+
+#### 12.6.4 Caption card: visual finish only
+
+Allowed (they change no measured box): surface and shadow tokens (`--color-surface`, `--shadow-panel`, brass hairline); the badge gets a brass ring drawn with `box-shadow` (`0 0 0 2px var(--color-surface), 0 0 0 3.5px var(--color-brass)`, which takes no layout space); the divider under the header becomes a 1 px gradient hairline (transparent, `--color-border`, transparent) of the same height; thin scroll shadows at the clipped edge of the Full and Fitted bodies (8 px, `--radius-sm` fade, not on a strip); tint on hover of Look closer, Read more and Close; `text-wrap: pretty` on the caption.
+
+**Not allowed:** any change to padding, gaps, heights, min-widths, header height, container-query breakpoints, header or strip font sizes, the strip heights and line count, the placement order, the upgrade rule, data attributes (`data-dock`, `data-card-size`, `data-expanded`), or the DOM element. One check to run: the header gaps between Look closer or Read more and Close must be at least 8 px (FR-81). The CSS already uses `--space-2` (8) in strips; the 4 px in the 5.6 width sum was a spec figure only. QA re-runs S4 at 256 px.
+
+#### 12.6.5 Finale card
+
+Same shell as 5.7 with: a 40 px brass seal (radial brass gradient, heart icon in `--color-text`), the heading `--text-xl` Fraunces, a hairline brass rule with a small diamond ornament under the header, the message in `--caption-size` Fraunces, and footer buttons **Keep exploring** (primary, 56 px) and **Replay from the start** (secondary, 48 px, 8 px gap), stacked and full width under 480 px, side by side from 480 px. Placement, focus on Keep exploring, Escape and the reading sheet are unchanged.
+
+#### 12.6.6 Overlays and sheets
+
+Pictures, Settings and Help sheets: radius `--radius-lg`, `--shadow-panel`, brass hairline, scrim `--color-scrim`. Phone portrait max height `--sheet-max-height-phone` (60 dvh, was 70), so the sheet's Close sits at or below 40% of the screen. Enter in `--duration-overlay` (slide up), leave in `--duration-fast`. Rows keep 56 px and 8 px gaps. The photo viewer is unchanged in layout (its Close is at the top, and a tap on the dark background closes it when not zoomed, which is the reachable path).
+
+#### 12.6.7 Notices
+
+| Notice | Finish |
+|---|---|
+| Hint chip | 12.6.2 |
+| Retry chip ("Photo 3 did not load. Retry") | Glass chip, text left and Retry (night-primary, 44 px) right from 400 px; stacked under 400 px with Retry full width |
+| Offline bar | `--color-warning-tint`, warning icon, `--text-sm` 600, sticky at the top, 8 px padding, accent bar not needed |
+| In-app browser, restored-draft and builder alerts | The alert pattern (12.1): tint, icon, **4 px state bar**, `--radius-md`. The restored-draft notice keeps its 5.17 text, placement and rules, and gains an info bar in `--color-accent` |
+| Toasts, dialogs | As 5.14, with the overlay motion in 12.2 |
+
+#### 12.6.8 Name labels on narrow screens (QA N-10)
+
+A 24-character Guide name on a 360 px portrait screen is clipped at the left edge and the two labels overlap. Labels may not be truncated (FR-17), so the fix is placement. Add rule 7 to 5.5, applied **last**, after the BUG-10 rule:
+
+1. **Clamp into the viewport.** The label's left and right edges stay at least 8 px inside the viewport (after safe areas). A label never sits half off the screen while its character's head anchor is on screen.
+2. **De-overlap sideways.** If the clamped labels still overlap, push them apart horizontally by half the overlap each (then re-clamp). The maximum label width is `min(11rem, 44vw)` (158 px at 360), so two labels plus an 8 px gap need 324 px: they always fit at 360 px and this always resolves. Never scale, never truncate, never move up (the BUG-10 strip rule forbids it).
+3. **Hidden only when the head is off-screen.** If the head anchor projects outside the viewport horizontally, the label is hidden as in 5.5 (the character is off-screen). A partly visible body keeps its label.
+4. **Precedence if rules conflict:** never over the picture, then inside the viewport, then no overlap between labels, then centred on the head. If the picture rule and the viewport rule cannot both hold, keep the picture clear and allow up to 40% of the label width to go past the edge (rare).
+5. **Solver input.** In the presentation framing (6.12.4) a label's horizontal extent counts as `min(label width, body width + 32 px)` around the head, because rules 1 and 2 move it sideways anyway. Today the full 158 px width makes the solver drop the Guide from the fit set, which is the cause of the off-screen Guide in N-10. Owner: scene-developer. QA: 360 by 640 and 390 by 844 with 24-character names for both characters: both labels fully inside the viewport, no overlap, the picture still clear.
+
+### 12.7 Mobile: guard rails, not a redesign (FR-81 to FR-84)
+
+The user reports that phones are not hard to use. FR-81 and FR-83 (Must) stay as guard rails; FR-82 is now Could and FR-84 Should (requirements v0.5), and existing behaviour must not regress. The layout, the caption dock and the controls keep their places. Only the small, additive changes below were made, and each can be dropped without affecting anything else (the Done and Carry on buttons first, then the phone Preview button).
+
+| Item | Rule |
+|---|---|
+| Reach (FR-82), builder | **Preview** joins the phone action bar (12.4.4); Back and Next were already there; Publish is at the bottom of its page |
+| Reach (FR-82), caption card | A small **Done** button, bottom-right, 48 px tall, glass pill, check icon and "Done" (accessible name "Done with this photo"), shown only on phone portrait while a caption card is open **and** its dock is the top. It runs the same action as Close, takes no focus, adds no announcement, and sits on the side opposite the joystick or arrow pad. It is part of the dock's `keepOut` so no placement lands under it. It does not change a single 3.5 behaviour: placement order, strips, upgrade rule and sizes are untouched. Its name differs from "Close", so tests that look for the card's Close are unaffected |
+| Reach (FR-82), finale | The same bottom-right button reads **Carry on** (accessible name "Carry on exploring") and runs Keep exploring. Phone portrait only, while the finale card is open |
+| Reach (FR-82), sheets | 60 dvh cap (12.6.6). Photo viewer: tap the dark background (exists) |
+| Targets (FR-81) | 44 px minimum everywhere, 48 px for builder bar buttons and tiles, 56 px for calls to action; **8 px between adjacent targets** at 360 px. Fixes found in the audit: tabs gap 4 to 8; preview controls 4 to 8; photo actions row gap 4 to 8; swatch cells 52 to 48 with an 8 px gap; link lists in alerts get 8 px between items |
+| Text (FR-83) | Body, input and caption text 16 px or more; helper, label and secondary 14 px or more (`--text-xs` now 14 px); nothing under 12 px (`--text-micro`, decorative only). Name labels stay 15 px |
+| 200% text and reflow | Everything is `rem`-based. The bar, tiles and chips use `min-height`, never `height`. The stepper switches to a 2 by 2 grid by container query. No horizontal scrolling at 320 px; QA checks the builder, welcome and overlays at 200% |
+| Safe areas (FR-84) | Unchanged: `.ui-layer` padding, the bar's bottom padding, `viewport-fit=cover`. New elements (Done, the sticky preview, the bar) add the same insets |
+| Keyboard (FR-84) | 12.4.4 |
+| Browser bars (FR-84) | `dvh` everywhere; sticky rather than fixed bars in the builder |
+
+**Checks at the three phone viewports.**
+
+| Viewport | What to look at |
+|---|---|
+| 360 by 640 | Landing: Create button bottom edge at or above y 560. Builder: bar 72 px plus the safe area, Back, Preview and Next in one row (each at least 48 px tall and 44 px wide, 8 px apart); sticky preview 205 px (32 dvh) with at least 360 px left for options; photo row at most 300 px tall; stepper four across with labels. HUD: trays, pill and (with Reset) no overlap. Face tab: five shape tiles in one row of about 56 px |
+| 390 by 844 | Sticky preview 256 px (capped at 16 rem); lower 60% starts at y 338, which holds the bar, the Done button and the joystick; welcome card fits without scrolling for a 30-character title |
+| 844 by 390 | No lower-60% rule (landscape). Builder bar compact (56 px), preview left 45% full height, options right; welcome card two columns; HUD labels shown; caption card unchanged in the right dock; compact joystick optional |
+
+### 12.8 Art direction for the technical-artist (FR-89 to FR-93)
+
+**Principle.** Keep the identity (linen, oak, claret, brass, designer-toy figures). Finish it: more definition where the eye looks (faces, edges, pictures), more depth in the room, nothing flashy. Everything below is a vertex colour, a parameter, a small shader patch or a decal. **No post-processing, no new library, no new texture above 128 by 128, no new geometry except the catchlights.**
+
+**Budgets (NFR-27, NFR-28).**
+
+| Budget | Now | CR-4 limit |
+|---|---|---|
+| Triangles per character | 5,878 worst | At most **60 added** (the two catchlights); hard stop 5,950. Face shape, pattern, contour, region trims and the animation add none. If something needs more, trade it against hand or shoe segments, and report |
+| Draw calls per character | 3 | 3 (no new mesh) |
+| Scene draw calls | 35 to 40 steady, up to 59 at a photo cross-fade | At most **4 more** (merged decals: frame contact shadows, edge shadows, dado rails, ceiling strips), still far under 120 |
+| three.js chunk | 970.7 kB | Guard **985 kB**. The shader patches are about 3 kB minified; import no new three class |
+| Frame rate | NFR-1: 60 FPS laptop, 30 FPS reference phone on Low | Re-measured with the performance.md method; the Low tier still holds 30 FPS (NFR-28) |
+| Textures | Oak, finale floor, linen, runner (procedural) | Planks and runner border go into the existing textures; no new textures |
+
+#### 12.8.1 What should read more clearly (the brief in one table)
+
+| Area | Problem | Fix |
+|---|---|---|
+| Silhouette against the floor and walls | Flat colour blocks blur into the floor and wall at 150 to 200 px tall | Dual-band edge (12.8.2 A) |
+| Regions | Hair, head, sleeves, hands, top and bottom run together when colours are close | Region trims and ambient darkening (B) |
+| Face | Features are 1 to 3 px at the default camera; brows on deep skin are a faint grey line; blush looks purple on deep skin | Bigger eyes with catchlights, thicker brows, a 3:1 brow floor with warm lift, deep-skin blush (C) |
+| Choice | Characters feel alike | Face shape and pattern (D, E) |
+| Life | Idle looks frozen, stride is small | Animation (F) |
+
+#### 12.8.2 Characters
+
+**A. Dual-band edge (FR-89, the main change).** A screen-space band of constant pixel width on every silhouette, in the body and hair materials (`onBeforeCompile` patch of the existing vertex-colour Lambert; no extra pass, no extra mesh, no geometry).
+
+- Idea: a light rim on the outermost fraction of a pixel and a dark contour just inside it. On a light backdrop (linen wall, stage) the dark contour is the edge; on a dark backdrop (runner, finale wall and floor) the light rim is the edge. One treatment holds for every backdrop and every camera direction, so nothing needs to know the room.
+- Pseudocode: `ndv = clamp(dot(normal, viewDir), 0, 1)`; `d = ndv / max(fwidth(ndv), 1e-4)` (about the distance in pixels from the silhouette); `w1 = rimPx * pixelRatio`; `w2 = contourPx * pixelRatio`; `rim = (1 - smoothstep(0.6 * w1, w1, d)) * rimMax`; `con = smoothstep(0.6 * w1, w1, d) * (1 - smoothstep(0.7 * w2, w2, d)) * contourMax`; then `colour = mix(colour, contourColour, con)` and `colour = mix(colour, rimColour, rim)`. Constants are the tokens `--look-rim-px` (0.6), `--look-contour-px` (1.5), `--look-rim-max` (0.6), `--look-contour-max` (0.95), `--look-rim` and `--look-contour`. Apply before tone mapping.
+- Because the band is measured in pixels, thin limbs get the same 1.5 px edge as the torso, and the band stays a fine line on the larger builder preview.
+- Fallback without derivatives (WebGL 1): use the fresnel term alone with the same constants (the band then widens on rounder parts). Do not ship a WebGL 1 path unless the renderer needs it.
+- Edges on open shells (dress hem, hair curtains, the cut edge of a collar) have no silhouette fresnel: they get the trim in B instead.
+- Applies identically to the Guide and the Visitor, in the visit, the preview and the Visitor preview (FR-74).
+- **Contrast arithmetic (calculated by hand; the technical-artist measures).** Contour colour `--look-contour` has relative luminance 0.012. At strength 0.95 the contour pixel's luminance is 0.05 times the region's plus 0.011: 0.054 for the lightest region (cream outfit, white hair, skin-01, about 0.86). Against oak (0.29) that is 3.3:1; against the linen wall (0.69) 5.4:1; against the stage (0.73 to 0.88) 5.8:1 or better. Rim colour `--look-rim` has luminance about 0.79; at 0.6 the rim pixel is at least 0.49 even for the darkest region, against the runner (0.065) 4.8:1, the finale wall (0.036) 6.3:1, the finale floor (0.017) 8.1:1. All pass 3:1 on paper.
+
+**B. Region separation (FR-90), vertex colour only, zero triangles.**
+
+| Region boundary | Treatment |
+|---|---|
+| Hair against head | Darken the skin 8% in a 10 mm band under the hairline and fringe; lighten the hair crown by 10% (clamped) and darken the hair under-surface and nape by 15%. Hair keeps volume; the exaggeration in 9.6 stays |
+| Neck against head | Neck and the skin just under the jaw 10% darker (a soft chin shadow). Ears 4% darker (existing) |
+| Hands against sleeves | The last 10 mm ring of each sleeve (cuff) is trimmed 12% darker if the sleeve is light (luminance over 0.3) and 25% lighter if dark. Hands stay skin |
+| Top against bottom | At the waist, the top's hem ring is trimmed the same way. **Separation rule:** if the contrast ratio between the top colour and the fixed bottom (`--avatar-denim`, `--avatar-trousers`, `--avatar-joggers`) is under `--look-separation-threshold` (1.3), the trim is doubled and the bottom's top edge goes 10% lighter if dark. Charcoal on trousers and navy on denim are the cases to check |
+| Collar, placket, hood | A trim ring at the collar and a centre placket line on shirt, suit and hoodie (the same trim colour rule) |
+| Shoes | Soles stay cream. Add a 10 mm 15%-darker band where the shoe meets the trouser |
+| Armpit, crotch, behind knees | Ambient darkening 10% on the existing rings, so limbs read as separate from the torso |
+| Badge and sticker | Keep. Add a darker rim ring on the Guide's badge (`--scene-brass-deep`) and make the badge at least 55 mm across |
+
+**C. Face (FR-90).**
+
+| Feature | Change |
+|---|---|
+| Eyes | Radii times `--look-eye-scale` (1.1) on top of the gender eye multiplier (the ordering Woman larger than Neutral larger than Man stays). Deep skins (skin-08 to 10) keep the eye whites |
+| Catchlights | One tiny highlight (`--look-catchlight`, radius about 4 mm, a 6-segment disc of 20 triangles or fewer) on the upper outer part of each eye, 40 triangles for both. Visible in the preview and presentations, harmless at 120 px |
+| Brows | Half-height times `--look-brow-thickness` (1.45), so Neutral is about 19 mm tall (about 1.4 px at 120 px, was 0.9). Keep Woman 0.90 and Man 1.15 on top, so the ordering holds (17, 19, 22 mm). A slight outward lift of 0.12 rad |
+| Brow colour | Minimum contrast with the skin `--look-brow-contrast` (3, was 2). Lighten **toward `--look-brow-lift`** (a warm tan) instead of toward white, so black brows on skin-10 become a warm brown (about `#8c674f`, 3.0:1) rather than a faint grey. Hair colour is kept whenever it already reaches 3:1 |
+| Mouth | Smile tube radius times `--look-mouth-thickness` (1.22) and an arc of 0.7 pi; colour rule unchanged (dark rose on light skin, light rose on deep) |
+| Nose | Unchanged (a bump in 8% darker skin) |
+| Blush | `--avatar-skin-blush` on skin-01 to 07; **`--avatar-skin-blush-deep`** (terracotta, not purple-pink) on skin-08 to 10 |
+| Facial hair | Colour moved only as needed to reach 1.6:1 against the skin (the brow rule with a lower floor), so a white beard on skin-01 does not vanish. Its silhouette also gets the edge band (hair material) |
+
+**D. Face shape (new option, FR-90 and user feedback).** Five shapes of the same head mesh: no new geometry. One warp function applies to every part skinned to `head` (as the jaw warp does in CR-1), so the hair, ears and facial hair follow the head and cannot float or clip. Features are placed on the unwarped head and carried by the warp.
+
+| Shape | Width | Height | Jaw (lower width) | Upper width (above the equator) | Chin length |
+|---|---|---|---|---|---|
+| Oval (default) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| Round | 1.05 | 0.97 | 1.04 | 1.00 | 0.94 |
+| Square | 1.02 | 0.99 | 1.12 | 1.00 | 0.97 |
+| Heart | 1.00 | 1.00 | 0.84 | 1.05 | 1.08 |
+| Long | 0.95 | 1.06 | 0.96 | 1.00 | 1.06 |
+
+- Oval is exactly today's head, so museums with no value look as they do after the other CR-4 changes (NFR-29).
+- Multipliers combine with the gender jaw and brow multipliers (9.1) by multiplication. The combined jaw stays between 0.78 and 1.20. The technical-artist may tune each number by up to 0.03; the ordering and the Oval baseline are fixed.
+- **The name label never moves between shapes.** Anchor the label at the height of the tallest shape (Long), not the current one. Head top varies by at most 10 mm beyond today's. The framing solver and the camera see no change in character height.
+- Morph in the preview: the same mechanism as gender (`beginGenderMorph` generalised to a shape morph, 250 ms, `--duration-gender-morph`, instant under reduced motion). The visit builds the final shape once.
+- At the default visit camera the head is about 22 px, so a 5% width change is about 1 px: face shape reads in the builder preview (Face tab zoom) and in presentations, not necessarily at 120 px. That is expected, and FR-90's feature checks do not depend on it.
+- Checks: 5 shapes by 12 hair styles by 3 genders for hair fit; by 5 facial hair styles for jaw attachment; Neutral, Woman and Man silhouettes still 10% or more apart; the budget (zero added triangles).
+
+**E. Clothing pattern (new option).** Plain, Stripes, Checks, Dots on the garment that carries the outfit colour. A shader feature of the body material; no geometry, no texture.
+
+- A per-vertex garment mask (0 for skin, shoes, badge, fixed garments; 1 for the outfit-colour garment) is written by the garment builders. One float per vertex, no new triangles.
+- The pattern coordinate is the **bind-pose position** (the `position` attribute before skinning), so the pattern sticks to the cloth while the figure walks. Stripes: horizontal bands along height, 40 mm period, 50% duty. Checks: 40 mm cells. Dots: a grid 36 mm apart, 7.5 mm radius. All antialiased with `fwidth`, and the pattern amplitude fades to flat when its period falls under about 2.2 px (`amp = 1 - smoothstep(0.35, 0.6, fwidth(coord))`) so a small figure never shimmers.
+- **Second colour (a tint of the outfit colour; no second picker, Q-31):** if the outfit colour's luminance is 0.3 or more, the second colour is the outfit colour at 72% brightness (a shade); otherwise it is the outfit colour lifted 45% toward cream `#efe3cc` (a tint). Adjust until the contrast ratio between the two is between 1.6 and 4 (a calm pattern, never harsh). Unit-test all 12 outfit colours.
+- Uniforms per character: pattern index, pattern mix (0 to 1, cross-faded over `--duration-fast`, instant under reduced motion) and the second colour.
+- Checks: all 6 outfit styles by 4 patterns by 12 colours by 3 genders by 4 body types: the mask covers only the garment (a dress's skin legs and a tee's jeans stay plain), seams across the sleeve and torso are continuous, no pattern on the badge. Plain is vertex-identical to today.
+
+**F. Idle and walk (FR-91, Should).** Larger amplitudes, no new bones: leg swing 25 to 32 degrees, arm counter-swing 20 to 26 degrees, hip bob 3 cm to 4 cm peak to peak, cycle frequency unchanged. Idle: a breathing scale of the spine bone between 1.000 and 1.008 at 0.3 Hz, a head yaw of plus or minus 2 degrees at 0.12 Hz, a 1.5 degree arm sway at 0.3 Hz. Check no clip between the trouser shell and the hem at the new amplitudes. Reduced motion: the existing still pose (`resetPose`), no breathing.
+
+**G. Six new clothing styles (Q-30, FR-97, FR-99).** Provisional ids and labels; the architect confirms the contract. Each is built from the existing ring lofts and joint functions (so it follows shoulder, waist, hip, chest, height and gender like every current garment, with no gender-specific cut), uses the outfit colour for its main garment, and fits every body type, height and gender (216 combinations per style, as 9.7). The pattern (E) and the colour apply to every style; no combination is blocked.
+
+| Id and label | Silhouette (the difference to read at 120 px, front and back) | Colour roles | Notes |
+|---|---|---|---|
+| `sweater` Sweater | Crew neck, long sleeves ending in a snug cuff, boxy body ending in a ribbed hem band a little wider than the waist, hip length | Sweater: outfit colour. Bottoms: fixed trousers (`--avatar-trousers`) | Hem and cuff bands are the trim (12.8.2 B). Reads as a soft, wide hip line against the tee's straight one |
+| `overalls` Overalls | Straight trouser legs, a chest bib with two straps over the shoulders, a short-sleeved tee underneath | Overalls: outfit colour. Tee: the suit's fixed cream shirt colour | The straps and bib give a back-view cue (two straps crossing the shoulders). Pattern applies to the overalls only |
+| `coat` Coat | Knee-length, flared from the hip, collar, a centre line down the front and the back vent, long sleeves | Coat: outfit colour. Bottoms and neck: fixed trousers | The longest top: the one style that hides the legs above the knee. Keep the flare inside the walking pose's leg swing so the hem does not clip the legs |
+| `tracksuit` Tracksuit | Zip jacket with a stand collar plus tapered joggers gathered at the ankle, a side stripe | Jacket and joggers: outfit colour, joggers 8% darker; stripe in the lighter tint | The tapered ankle against the wider cuff is the cue. Pattern applies to the jacket and joggers |
+| `cardigan` Cardigan | Open front showing a tee beneath, hip length, long sleeves, a button line down each front edge | Cardigan: outfit colour. Tee: the fixed cream. Bottoms: fixed trousers | The open front is a contrast panel on the chest and distinguishes it from the closed sweater |
+| `tunic` Tunic | Long straight shirt to the knee with a mandarin (stand) collar and short side slits, over trousers | Tunic: outfit colour. Trousers: fixed trousers | A kurta-style tunic: straight and long without the dress's flare, so it differs from Dress and Coat. If the product manager prefers a skirt, swap `tunic` for `skirt` (an A-line knee-length skirt with a fitted top in the lighter tint); a skirt must remain a plain garment option for every gender, as Dress is |
+
+- **Triangle rule.** No new style may exceed the triangle count of Suit (the largest garment today) for the same body type and hair, so the worst character total does not move (5,878 plus the catchlights, at most 5,950). Prefer a few clean loft rings to many small parts; trim lines are vertex colours, not meshes.
+- **Distinct silhouettes.** Render all twelve styles as flat single-colour silhouettes at 120 px, front and back, on one body. Every pair must differ in at least one of: top length (hip, mid-thigh, knee), sleeve length, hem width, leg shape (straight, tapered, covered), a front opening, or a strap or hood feature. A pair that does not is redesigned. Today's six are the references: tee and jeans (short sleeve, hip), hoodie (hood, hip), shirt and trousers (long sleeve, hip), dress (knee flare, bare legs), suit (jacket line, collar), jumpsuit (one piece, straight leg).
+- **Colour check.** Each style in all 12 outfit colours against the three skin extremes: the main garment is 1.3:1 or more against the skin it touches at the neck and hands, or gets the trim in B; the separation rule (B) handles top against bottom.
+- **Gender neutrality.** No style is hidden, ordered, pre-selected or renamed by gender. Labels name the garment (FR-99): Sweater, Overalls, Coat, Tracksuit, Cardigan, Tunic.
+- **Description words** (9.4 template): "{colour} sweater and trousers", "{colour} overalls and cream tee", "{colour} coat", "{colour} tracksuit", "{colour} cardigan", "{colour} tunic and trousers".
+
+#### 12.8.3 The museum
+
+| Element | Change (all inside the existing identity) |
+|---|---|
+| Walls | **Dado:** lower wall 0 to 0.95 m in `--look-dado` (vertex colour) with a slim rail (`--look-dado-rail`, 0.05 by 0.04 m, a merged strip) on top. **Contact darkening:** wall base darkens by `--look-ao-wall-base` (12%) over the lowest 0.5 m, and the top by `--look-ao-ceiling` (18%) over 0.4 m, tinted `--look-ao`. **Wall cap:** a flat 0.06 m cap in `--look-dado-rail` on every wall top, so the ceiling cutaway (6.3) looks finished |
+| Floor | Oak: plank seams every 0.2 m along the route (1 px, `--scene-floor-grain`), plank-to-plank tone variation of plus or minus 4%, faint grain (existing texture, edited). **Edge shadow decal:** a 0.45 m soft dark strip along each wall at 18% alpha (merged, normal blend) so walls sit on the floor. **Runner:** a darker inner band `--look-runner-border` 0.12 m wide inside the brass line; pile noise as now |
+| Ceiling | `--scene-ceiling` deeper. One recessed strip per room (`--look-ceiling-strip`, emissive, 0.06 by 1.2 m, a leading line along the route) and the rose in the entrance hall and finale. Strips and roses fade with the ceiling (6.3) |
+| Frames | Keep 0.06 m border and 0.05 m depth. Add a **brass fillet** (`--look-frame-fillet`, 3 mm, 8 triangles) between the walnut and the mount, and shade the mount's inner edge 6% darker (vertex colour, a fake bevel). **Contact shadow:** a soft decal (`--look-contact-shadow`, wider by 0.04 m, shifted 0.02 m down, behind the frame, never over the photo) |
+| Picture lights and wash | Wash peak alpha `--look-wash-alpha` (0.18, was 0.10 to 0.14), 1.6 times the frame height tall, tinted `--scene-pool`. The decal is drawn **behind** the frame and never covers the mat or the photo |
+| Standing pools | **At least as visible as before** (FR-92): unchanged peak alpha 0.3, proximity ramp 40% to 100%, colour `--scene-pool` |
+| Plaques | The entrance title plaque: Fraunces 600 title on `--scene-plaque`, a brass edge and a 1 px inner bevel line; text drawn at 2 times for sharpness. Numbered plaques stay R2 |
+| Finale | Podium: top `--scene-podium`, side `--look-plinth-side`, brass inlay ring (existing), a soft contact shadow decal under it; ring glow at least as strong as before. Cone and motes unchanged. Lectern unchanged |
+| Lighting | Starting values, tuned by eye: hemisphere intensity 2.7 to **2.5**, key 1.2 to **1.15**, environment intensity 0.3 unchanged, Neutral tone mapping unchanged. The wash and ceiling changes carry the contrast. Mood stays warm (3000 K key) |
+| Photos | Unlit and not tone mapped as now (FR-40). Nothing may overlay a photo: no shadow, no wash, no vignette. Check: the mean colour of a rendered photo is within 2% of the source |
+| Not added | Fog, vignette, bloom, real shadows, new materials with environment reflections on Low |
+
+**Look checks (screenshots at the four viewports):** frame, mat and wall are distinct at a glance; the wall near a picture light is at least 1.25 times as bright as the wall 1.5 m away; no more than 1% of non-photo pixels clip to white; the dado, rail and cap read as trim and not as seams; no new moire or banding on the planks at 360 px (check the mip levels).
+
+#### 12.8.4 Builder preview stage and plinth
+
+Stage: a CSS radial gradient behind a transparent canvas, `radial-gradient(70% 70% at 50% 40%, var(--look-stage-centre), var(--look-stage-edge))`. If a transparent canvas is not practical, keep the flat `PREVIEW_BACKGROUND`. The plinth under the two characters matches the finale podium (cream top, `--look-plinth-side` side, brass ring; the active character's ring glows), with a contact shadow decal. Lighting stays neutral and slightly cool so skin and hair colours read true while they are chosen; the dual-band edge is lighting independent, so the preview shows what the visit shows. The Face tab zoom is in 12.5.3.
+
+#### 12.8.5 Auto against Low quality (FR-93)
+
+| Feature | Auto | Low |
+|---|---|---|
+| Dual-band edge, region trims, face changes, catchlights, face shape, pattern | On | On (all are a few shader operations or vertex colours) |
+| Contact shadow decals under frames, plinths | On | Off; the baked edge darkening and mat shading carry it |
+| Floor and wall edge darkening | Decal and vertex colour | Vertex colour only |
+| Dado, rail, cap, fillet, ceiling strips | On | On |
+| Environment reflections on floors and brass, dust motes, light cone | On (as now) | Off (as now) |
+| Ceiling fade (6.3) | On | On |
+| Idle breathing and the larger stride | On | On |
+
+#### 12.8.6 Acceptance, measurement and recording (FR-89)
+
+- **Edge contrast.** Render each character at the default follow camera at 360 by 640 and in the builder preview, supersampled 4 times. For each **skin tone** (10), **hair colour** (11) and **outfit colour** (12), take the pixels 0.3 to 1.0 px inside the silhouette (both bands) and the backdrop pixels just outside, against each backdrop family: linen wall, oak floor, claret runner, finale wall and floor, preview stage. The edge contrast ratio is the WCAG ratio of the better of the two bands against the backdrop. Target 3:1.
+- **Record every failure** in `docs/handoffs/technical-artist.md` as a table (region, option id, backdrop, ratio, cause). Likely candidates: a pale figure against a pale wall seen through a doorway at a grazing angle; the top of dark hair against the dark ceiling at a low camera pitch (under 10 degrees); the runner's edge, where the backdrop changes under one silhouette. A failure is recorded, not hidden.
+- **Silhouette check:** the Woman, Neutral and Man silhouettes at 120 px (flat single colour) stay at least 10% apart in shoulder-to-hip ratio (CR-1) and the contour does not close the gap between the legs, arms and torso.
+- **Feature check (FR-90):** at the presentation framing on 360 by 640 and at the Face tab zoom, a reviewer can name the eyes, brows, nose and mouth, the hair as a shape, the hands apart from the sleeves, and the top and bottom as two regions, for all ten skin tones.
+- **Budgets:** the triangle test (worst case at most 5,950, expected 5,918), the draw-call test, `npm run build` three.js chunk under 985 kB, and the performance.md runs on Low and High.
+- **Test changes:** the Neutral fingerprint test is re-baselined once for the CR-4 face and edge changes (NFR-29: older museums show the improved look); keep two invariants: a character with no gender, no face shape and no pattern equals Neutral, Oval and Plain, and Plain with Oval and no edge band equals the pre-CR-4 vertices for body and hair apart from the documented face changes.
+
+### 12.9 Tokens added in v2.0, and contrast
+
+All in `src/styles/tokens.css`. No name was removed or renamed.
+
+| Group | Tokens |
+|---|---|
+| Type | `--text-micro`, `--text-hero`, `--text-lead`, `--leading-snug`, `--tracking-display`; **value change** `--text-xs` 13 to 14 px |
+| Space | `--space-7`, `--space-14`, `--space-20`, `--target-gap`, `--page-gutter`, `--section-gap` |
+| Size | `--touch-target-md`, `--sheet-max-height-phone`, `--bar-min-height`, `--bar-min-height-compact`, `--progress-bar-height`, `--photo-thumb-size`, `--tile-height`, `--option-thumb-size`, `--option-tile-tall`, `--accent-bar-width`, `--preview-sticky-height`, `--joystick-size-compact`, `-knob-compact`, `-hit-compact`, `-travel-compact` |
+| Colour | `--color-surface-raised`, `--color-bg-glow`, `--color-accent-top`, `--color-accent-wash`, `--gradient-page`, `--gradient-accent`, `--color-divider-night`, `--color-track-night`, `--avatar-skin-blush-deep` |
+| Depth | `--shadow-raised`, `--shadow-button`, `--shadow-button-pressed`, `--shadow-glass`, `--shadow-bar`, `--shadow-art`; `--z-sticky` (4) |
+| Motion | `--duration-overlay` (220 ms), `--duration-stagger` (60 ms), `--rise-distance` (12 px); all three are 0 under both reduced-motion paths |
+| Scene value changes | `--scene-ceiling` `#3b2c33` to `#30232b`; `--scene-light-ground` `#7a5844` to `#6a4a3c`. **`palette.ts` must change in the same commit** or the drift test in `src/scene/materials/palette.test.ts` fails |
+| Look (mirrored in a new `look.ts`) | `--look-contour`, `-rim`, `-rim-px`, `-contour-px`, `-contour-max`, `-rim-max`, `-separation-threshold`, `-eye-scale`, `-catchlight`, `-brow-thickness`, `-brow-contrast`, `-brow-lift`, `-mouth-thickness`, `-dado`, `-dado-rail`, `-ao`, `-ao-wall-base`, `-ao-ceiling`, `-wash-alpha`, `-frame-fillet`, `-runner-border`, `-ceiling-strip`, `-plinth-side`, `-contact-shadow`, `-stage-centre`, `-stage-edge` |
+
+Values that **must not change** because other code depends on them: `--hud-margin`, `--card-min-width`, `--card-width-landscape`, `--card-width-wide`, `--panel-peek-height`, `--panel-fit-min-height`, `--panel-strip-lines`, `--joystick-size`, `-knob`, `-hit`, `-travel` (portrait values), and the presentation-camera durations and easing.
+
+**Contrast additions (calculated with the WCAG formula; QA re-verifies with a tool).**
+
+| Foreground | Background | Ratio | Use |
+|---|---|---|---|
+| `--color-on-accent` | `--color-accent-top` | 6.9 | Top of the primary button gradient (the lowest point of the gradient; the bottom is 7.8) |
+| `--color-text` / `--color-text-muted` | `--color-surface-raised` | 15.2 / 6.2 | Hovered and selected cards |
+| `--color-text` / `--color-text-muted` | `--color-bg-glow` (and anywhere on `--gradient-page`) | 14.4 / 5.9 (the gradient never goes darker than `--color-bg`: 13.4 / 5.4) | Landing and welcome text |
+| `--color-accent` | `--color-accent-tint` | 6.3 | Required tag, still-to-do chips |
+| `--color-text-muted` | `--color-surface-sunken` | 5.2 | Optional tag, disclosure value text |
+| `--color-on-accent` | `--color-accent` | 7.8 | Selected tab pill |
+| `--color-brass` (ring fill) and `--color-track-night` (empty ring) | `--color-hud-solid` | 7.3 and 3.5 | HUD progress ring (the number carries the meaning as well) |
+| `--color-on-night` | HUD glass over a white pixel | 8.7 | Done and Carry on buttons, trays |
+| State bars: `--color-danger` / `--color-success` / `--color-warning-border` / `--color-accent` | `--color-bg` | 5.5 / 5.3 / 3.1 / 7.1 | 4 px alert bars (each needs 3:1; each alert also has an icon and words) |
+| Placeholder `--color-text-muted` | `--color-surface` | 6.0 | Title and closing message placeholders |
+
+Not text, so not rated: the divider rule inside a tray, the faint claret wash behind the Required card, the scroll shadows.
+
+### 12.10 Copy added (FR-76, NFR-31)
+
+| Where | Copy |
+|---|---|
+| Landing | "No account needed." Step lines: "Photos hang along the museum in the order you choose." / "Pick a look for you and for your visitor." / "They open it on their phone and wander through." |
+| Step purpose lines | 1 "You can add 1 to 20 photos. JPEG, PNG, WebP or HEIC, up to 15 MB each." 2 "Two names are all you need. The rest is optional." 3 "Both characters already have a starting look. Change as much or as little as you like." 4 "Check everything, then publish. You can preview first." |
+| Sections and tags | "Your photos" (Required, "at least 1 photo"); "The names" (Required); "How it will look"; "Make it yours" (Optional); "Optional: everything here has a starting look" (step 3); "Consent" (Required) |
+| Still to do | Heading "Still to do"; "Ready to publish"; chips "Add a photo", "Wait for photos to finish", "Fix the photo that didn't upload", "Add the Visitor's name", "Add a Guide name", "Confirm you can share the photos" |
+| Step 3 | "The Guide is you. The Visitor is who you're making this for." Disclosure button "More options" (visible text "Reset" on the Reset button under 480 px, accessible name unchanged). Group "Face shape (optional)" (Oval, Round, Square, Heart, Long), helper "Changes the shape of the face. Your other choices stay as they are." Group "More styles (optional)" (Sweater, Overalls, Coat, Tracksuit, Cardigan, Tunic). Group "Pattern (optional)" (Plain, Stripes, Checks, Dots), helper "Adds a pattern in tints of your colour. There is no second colour to pick." |
+| Step 1 | "No photos yet", "Add more photos" |
+| Placeholders | "A museum for {name}"; "For example: Thanks for coming. I hope it made you smile." |
+| Visit | "Done" (accessible name "Done with this photo"); "Carry on" (accessible name "Carry on exploring") |
+| Customiser description | Words "round face", "striped", "checked", "spotted" as in 9.4 |
+
+FR-76 scan: none of these contains she, her, he, him, his, girlfriend or boyfriend. "Their" and "your" are used as before. The face shape words are shape words; no option label names a gender.
+
+### 12.11 Task list by owner
+
+**frontend-developer** (`src/ui/`, `src/ui/styles/`; in this order)
+1. Tokens: use the new ones; set `--ui-bar-height` to `--progress-bar-height`; swap every raw size for a token; fix the 8 px gap audit (tabs, preview controls, photo actions, swatch cells 48 px, alert link lists).
+2. Landing (12.3): DOM order (Create above steps), hero type, step cards, framed art, "No account needed.", font fallback face for CLS.
+3. Builder shell (12.4): step header with purpose lines, stepper (segments with short labels, container-query 2 by 2, not sticky on phones, rail on desktop), **Still to do** list from `validateDraft(..., 'publish')` shared with the Preview dialog, action bar with progress line and phone Preview, keyboard-open fallback, blur validation.
+4. Steps (12.5): sections with Required and Optional tags, compact photo row, Add more photos, Words regrouping and placeholders, review cards (all thumbnails), Published hierarchy.
+5. Characters step (12.5.3): sticky preview, icon-only preview controls, character-switch line; the **More options** footer row that shares the Reset row (closed = today's controls and height, FR-102); inside it **Face shape**, **More styles** (six pictogram tiles, two columns at 360 px, bound to the same `outfitStyle` value as "Outfit style") and **Pattern** (CSS fabric swatches); `describeAvatar` words; Face-tab framing request; handle missing values (Oval, Plain, old style). Do not touch the visible tiles' DOM or sizes. Needs the contract and schema change first (architect, 12.12).
+6. Visit (12.6): trays, progress ring (`--p`), welcome (including landscape), finale footer, notices, sheets at 60 dvh, **Done** and **Carry on** buttons (phone portrait only, in `keepOut`), joystick restyle (compact sizes optional), overlay motion tokens.
+7. Caption card visual finish only (12.6.4); do not touch 3.5 sizes or logic.
+8. Keep the selector-safety list (below); update unit tests for the new strings and the FR-76 scan.
+
+**technical-artist** (`src/scene/materials/`, `src/scene/shaders/`, `src/scene/characters/kit/`, `public/`; in this order)
+1. Update `palette.ts` for `--scene-ceiling` and `--scene-light-ground`; add `look.ts` mirroring the `--look-*` tokens with a drift test.
+2. Character edge: dual-band patch on body and hair materials (12.8.2 A), with the derivative fallback.
+3. Region trims, ambient darkening, separation rule (B); face changes: eyes, catchlights (at most 60 triangles added), brows and colour, mouth, deep-skin blush, facial hair floor (C).
+4. **Face shape** warp and morph generalisation; label anchor at the tallest shape (D). **Pattern** mask attribute, shader and tint rule (E). **Six new clothing styles** (G: sweater, overalls, coat, tracksuit, cardigan, tunic), each at or under Suit's triangle count, with the 120 px distinct-silhouette check and 216-combination fit checks. All default to today's look. Extend `describeAvatar` and the options file with the new ids (provisional).
+5. Idle and walk amplitudes and breathing (F).
+6. Museum finish (12.8.3): dado, rail, caps, contact darkening, plank seams, runner border, edge shadow decal, ceiling strips, frame fillet and shadow, wash alpha, podium sides, plaque, lighting values; ceiling material that supports an opacity value (6.3).
+7. Preview stage and plinth (12.8.4); Auto and Low split (12.8.5).
+8. Measure and record (12.8.6): edge-contrast table with failures, triangles, draw calls, chunk size, performance runs. Re-baseline the Neutral fingerprint test.
+
+**Also needed, outside the two named owners**
+- scene-developer: ceiling opacity from camera height (6.3); label clamp and de-overlap and the solver's label width (12.6.8, N-10); Guide kept in the fit set; read face shape and pattern for every character; face shape morph in the preview; place the new decals and strips.
+- architect and product-manager: final ids and counts for face shape, clothing style and pattern in the contract and schema (provisional ids in 9.2); the schema change must default missing values (NFR-29).
+- qa-engineer: derive checks from 12.3 to 12.8 (target size and gaps, font audit, 200% and 320 px, fold measurements, three-Next path, Still to do, edge contrast, budgets, CLS, legacy museum load). Selectors may be updated only where visuals changed.
+
+**Selector safety (must not change).** Class names `.btn*`, `.ui-hit`, `.ui-layer`, `.scene-root`, `.hud*`, `.caption-card*`, `.finale-card*`, `.stepper__item`, `.photo-row*`, `.radio-option*`, `.tabs__tab`; attributes `data-dock`, `data-card-size`, `data-expanded`, `data-layout`, `data-sheet`, `data-row-id`, `data-presentation-camera`; field ids from `FIELD_IDS`; accessible names "Next", "Back", "Preview", "Publish museum", "Add photos", "Earlier", "Later", "Replace", "Remove", "Close", "Look closer", "Read more", "Show less", "Start", "Pictures", "Where next?", "Settings", "Help", "Reset view", "Turn left", "Turn right", "Back view", "Keep exploring", "Replay from the start"; the stepper text "Step n of 4: Label". New controls have different names (for example "Done with this photo", "Add more photos").
+
+### 12.12 Coverage, conflicts and open questions
+
+| Requirement | Where |
+|---|---|
+| FR-77, FR-78 (scales, one style set, one primary) | 12.1 |
+| FR-79 (states, 250 ms, empty and error states) | 12.2 |
+| FR-80 (landing above the fold) | 12.3 |
+| FR-81, FR-83 (targets, text) | 12.7, 12.1 |
+| FR-82, FR-84 (reach, safe areas, keyboard) | 12.4.4, 12.7 |
+| FR-85, FR-86, FR-87 (progress, grouping, defaults, validation) | 12.4, 12.5 |
+| FR-88 (time hints, Could) | Not specified: no observed times (12.4.6) |
+| FR-89, FR-90 (edge contrast, features) | 12.8.2, 12.8.6 |
+| FR-91 (idle and walk) | 12.8.2 F |
+| FR-92, FR-93 (finish, depth, Low fallback) | 12.8.3, 12.8.5 |
+| FR-95 (ceiling never blocks the view) | 6.3 (ceiling fade, reduced-motion step with hysteresis), 12.8.3 (wall caps) |
+| FR-96 to FR-99 (face shape, clothing style, pattern, every gender) | 9.2, 12.5.3, 12.8.2 D, E, G |
+| FR-100, FR-101 (optional in the data, identical rendering everywhere, validation) | 9.2 (defaults and missing values), 12.8.2 (same kit and parameters in every view); schema validation is the architect's and backend's |
+| FR-102 (More options, closed = no taller) | 12.5.3 (shared Reset row, measure) |
+| FR-82 (Could), FR-84 (Should) | 12.7 (small additions only), 12.4.4 |
+| FR-94 (out of scope) | Respected, except the new character choices the user asked for (face shape, clothing styles, pattern) |
+| NFR-27 to NFR-31 | 12.3 (size, CLS), 12.8 (budgets), 12.9 (contrast), 12.10 (copy), NFR-29 (no flow change; two options default to today's look) |
+| User feedback 02/11/2026 (more choice, phones fine, ceiling) | 12.5.3, 9.2, 12.7, 6.3 |
+
+**Conflicts and open questions.**
+1. **Ids for the new options (product-manager, architect).** Face shape: oval, round, square, heart, long. Pattern: plain, stripes, checks, dots. Clothing style: today's six plus `sweater`, `overalls`, `coat`, `cardigan`, `tracksuit`, `tunic` (a skirt is the named alternative to the tunic). All provisional; the UI needs only labels and ids from the contract, and missing values must load as Oval, Plain and the existing style.
+1a. **Split of the clothing style across two groups.** To keep today's tiles, tests and the closed step height unchanged (FR-102), the new six styles sit in "More styles" inside More options while today's six stay visible. If the user would rather see all twelve together, move the whole group into More options as one pictogram grid (12.5.3) and update the tests that pick an outfit style.
+1b. **Whole-step height (FR-102).** The strict measure is the options panel under the tabs; the whole-step height is expected to be no taller but is an estimate (12.5.3). QA measures it at 360 by 640 and 390 by 844.
+2. **FR-80 wants a one-sentence description.** The copy deck has two sentences. Kept as one paragraph to protect copy and tests (12.3). Product-manager: confirm or shorten.
+3. **FR-79's 250 ms against `--duration-normal` (300 ms).** Overlays use the new `--duration-overlay` (220 ms). `--duration-normal` stays for progress fills and photo fades, which are not overlays.
+4. **Edge contrast against every backdrop cannot be guaranteed.** The arithmetic in 12.8.2 A passes on paper, but a few combinations (a pale figure through a doorway at a grazing angle, dark hair against the ceiling at low pitch, the runner's edge) may fall short in a real render. They are to be recorded (FR-89), not hidden.
+5. **Deep-skin brows.** Brows get a 3:1 floor with a warm lift; if black hair on skin-10 still looks faint, raise `--look-brow-thickness` to 1.6 before touching colour.
+6. **Time hints (FR-88).** Left for after a usability test.
+7. **Ceiling fade or pitch clamp (user preference: fade).** 6.3 specifies the fade, keeps the existing pitch range, and adds a hard step under reduced motion.`

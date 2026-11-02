@@ -1,5 +1,54 @@
 # Handoff: ux-ui-designer
 
+## Update v2.0: CR-4 polish (02/11/2026)
+
+## Summary
+Design spec is now v2.0 with a "CR-4 polish" change note. All new rules are in a new section 12, which wins over sections 1 to 11 where they disagree; short pointers were added in 1.6, 3.1, 3.2, 4.1, 5.4, 5.16, 6.3, 9.2 and 9.4. The spec covers the landing page, every builder step (progress, still-to-do list, Required and Optional sections, compact photo rows, sticky preview), the visit HUD and overlays, mobile guard rails at 360x640, 390x844 and 844x390, art direction for the scene and the characters, the three user decisions (more choice, phones fine, ceiling fade) and the v0.5 decisions (twelve clothing styles, pattern tints, More options). Nothing was run, built or committed; only `tokens.css` and docs changed.
+
+## Files changed
+- `docs/design-spec.md`: v2.0 header and change note; contents; new section 12 (12.0 to 12.12); edits to 1.6, 3.1, 3.2, 4.1, 5.4, 5.16, 6.3 (ceiling fade), 9.2 (face shape, pattern, twelve styles), 9.4 (description words)
+- `src/styles/tokens.css`: added tokens only (type, space, size, colour, gradients, shadows, `--z-sticky`, overlay motion tokens, `--avatar-skin-blush-deep`, the `--look-*` group). Value changes: `--text-xs` 13 to 14 px, `--scene-ceiling` `#3b2c33` to `#30232b`, `--scene-light-ground` `#7a5844` to `#6a4a3c`. Reduced-motion blocks zero the three new motion tokens. No name removed or renamed
+- `docs/handoffs/ux-ui-designer.md`: this section
+
+## Decisions
+- Section 12 holds everything new, so the caption card rules (3.5), the presentation camera (6.12) and the avatar kit appendix stay intact and nothing needs rewriting
+- No code outside `tokens.css` was touched; `base.css` needs no change (every new rule belongs in `src/ui/styles/`)
+- Builder clarity: not-sticky phone stepper with short labels and a 3 px progress line in the sticky bar; a "Still to do" chip list from `validateDraft(..., 'publish')` shared with the Preview dialog (FR-85); sections tagged Required or Optional (FR-86); purpose lines (FR-87); photo row cut from about 390 px to 300 px
+- Characters step: sticky preview (32 dvh), a **More options** button that shares the Reset row so the closed step is as tall as today (FR-102); Face shape, **More styles** (the six new styles) and Pattern sit inside it. Today's six style tiles stay visible and unchanged; the clothing style is one value shown in two radiogroups. Reason: no duplicate accessible names, no taller closed step, existing tests keep working
+- Mobile: user says phones are fine, so only guard rails (text floors, 8 px gaps, safe areas, keyboard fallback) plus two small, droppable additions: Preview in the phone action bar and a bottom-right **Done** (caption) or **Carry on** (finale) button. No dock change
+- Edge treatment (FR-89): a dual-band screen-space edge, a 0.6 px light rim outside a 1.5 px dark contour, so one treatment holds on light walls, oak, the claret runner and the dark finale room, with no per-room plumbing. Zero triangles. Paper arithmetic passes 3:1 everywhere; failures must still be measured and recorded
+- Face shape is one head warp (5 shapes), pattern is a shader with a garment mask, the six new styles are built from existing rings. Only the two catchlights add triangles (40; limit 60 added, hard stop 5,950)
+- Ceiling (FR-95): fade by camera height, `1 - smoothstep(ceilingHeight - 0.6, ceilingHeight - 0.1, cameraY)`, reduced motion a hard step with 0.2 m hysteresis; the pitch range is not clamped
+- New clothing styles proposed: Sweater, Overalls, Coat, Tracksuit, Cardigan, Tunic (a skirt is the named alternative to the tunic)
+- Scene token values: only `--scene-ceiling` and `--scene-light-ground` changed; new finish colours use `--look-*` so the strict scene drift test only needs those two edits
+
+## Assumptions
+- The default follow camera sits at least 0.6 m under the ceiling (the scene-developer checks `layout.wallHeight`; the spec has a fallback)
+- `validateDraft(snapshot, 'publish')` already returns stable ids for photos, names and consent (read from `CreateScreen.tsx`); chip strings are targets, final text comes from the issue list
+- Landing description stays as the two-sentence paragraph from the copy deck (FR-80 says one sentence)
+- Face shape ids, pattern ids and the six style ids are provisional until the architect confirms the contract
+- The caption card's 4 px figure in the 5.6 width sum was spec-only; the CSS already uses 8 px
+- Contrast figures for new pairs were calculated by hand (no tool was available); QA must re-verify
+
+## Open questions
+- Product-manager: one-sentence landing description (FR-80), or keep the two sentences?
+- Product-manager and user: keep today's six style tiles visible with the six new ones in More options (current design), or move all twelve into one pictogram grid in More options (needs test updates)?
+- Product-manager and architect: final ids, and the schema must accept missing values and reject unknown ones (FR-100, FR-101)
+- Technical-artist and QA: the whole-step height check for FR-102 is an estimate; the options-panel measure is the strict one
+- Technical-artist: which edge-contrast combinations fail in a real render (doorway grazing angles, dark hair against the ceiling at low pitch, runner edge)? Record them per FR-89
+- User: FR-88 time hints are not specified because there are no observed times
+
+## Requests for other agents
+- frontend-developer: the task list in 12.11 (landing, builder shell, steps, Characters step with More options, visit, caption card visual finish only, tests). Keep the selector-safety list. The Characters step needs the contract and schema first
+- technical-artist: the list in 12.11. First update `src/scene/materials/palette.ts` for the two changed `--scene-*` values (the drift test fails until you do), add `look.ts` mirroring `--look-*` with its own drift test, then the edge, face, shape, pattern, six styles, animation, museum finish and measurement. Re-baseline the Neutral fingerprint test once (NFR-29)
+- scene-developer: ceiling fade (6.3); label clamp and de-overlap, plus the solver's label width, which fixes N-10 (12.6.8); read face shape and pattern for every character; place the new decals and strips; keep the Guide in the fit set with long names
+- architect: add the three optional fields and the six styles to the contract and schema (defaults on missing, reject unknown); no ADR needed unless the edge shader is judged a "post-processing technique" (it is not: it is a material patch)
+- qa-engineer: derive checks from 12.3 to 12.8 and 6.3 (fold measurements, gaps and sizes, 200% text and 320 px, Still to do, three-Next path, closed Characters step height, ceiling fade and reduced-motion step, edge-contrast table, budgets, CLS, legacy museum load); update the visual baselines (they change by design)
+- product-manager: see the open questions above
+- devops-engineer: none
+
+---
+
 ## Update v1.5: portrait labels below the caption strip (02/11/2026)
 
 Design spec is now v1.5 (change note at the top of `docs/design-spec.md`). Documentation only, to match the scene-developer's BUG-10 fix. Nothing was run, built or committed.
