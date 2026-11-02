@@ -379,16 +379,28 @@ export function labelAnchorHeight(height: number): number {
   return height + (FRAMING.labelAbove * height) / FRAMING.nominalHeight;
 }
 
+/**
+ * A label's horizontal extent for the solver (design spec 12.6.8 rule 5): `min(label width, body
+ * width + 32 px)` around the head. The scene clamps a label into the viewport and pushes two apart
+ * sideways, so the full width of a long name must not count; with it a 24-character Guide name
+ * made the solver drop her from the fit set.
+ */
+export function labelExtentWidth(labelWidth: number, bodyWidth: number): number {
+  return Math.min(labelWidth, Math.max(0, bodyWidth) + 32);
+}
+
 function labelRect(
   m: CameraModel,
   actor: FramingActor,
   size: { w: number; h: number },
+  bodyWidth: number | null,
 ): Rect | null {
   if (!projectToScreen(m, actor.x, labelAnchorHeight(actor.height), actor.z, scratch)) return null;
+  const w = bodyWidth === null ? size.w : labelExtentWidth(size.w, bodyWidth);
   return {
-    left: scratch.x - size.w / 2,
+    left: scratch.x - w / 2,
     top: scratch.y - size.h / 2,
-    right: scratch.x + size.w / 2,
+    right: scratch.x + w / 2,
     bottom: scratch.y + size.h / 2,
   };
 }
@@ -403,12 +415,15 @@ export function projectFramingRects(
     input.picture.corners.map((c) => [c.x, c.y, c.z] as const),
   );
   const body = (a: FramingActor) => boundsOf(m, characterPoints(a.x, a.z, a.height, m.rx, m.rz));
+  const visitor = body(input.visitor);
+  const guide = body(input.guide);
+  const widthOf = (r: Rect | null) => (r ? r.right - r.left : null);
   return {
     picture: pic,
-    visitor: body(input.visitor),
-    guide: body(input.guide),
-    visitorLabel: labelRect(m, input.visitor, input.labelSize.visitor),
-    guideLabel: labelRect(m, input.guide, input.labelSize.guide),
+    visitor,
+    guide,
+    visitorLabel: labelRect(m, input.visitor, input.labelSize.visitor, widthOf(visitor)),
+    guideLabel: labelRect(m, input.guide, input.labelSize.guide, widthOf(guide)),
   };
 }
 

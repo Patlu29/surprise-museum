@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { generateLayout } from '@/domain/layout/generateLayout';
 import { LAYOUT } from '@/domain/layout/constants';
+import { Color } from 'three';
+import { SCENE_PALETTE } from '../materials/palette';
 import { buildMuseumShell } from './museumGeometry';
 
 const layout = generateLayout(
@@ -63,5 +65,16 @@ describe('museum shell ceilings (spec 6.3 cutaway)', () => {
       0,
     );
     expect(area).toBeCloseTo(expected, 6);
+  });
+
+  it('is coloured from the palette ceiling colour (spec 6.3: --scene-ceiling)', () => {
+    const colour = g.getAttribute('color');
+    expect(colour).toBeDefined();
+    const expected = new Color(SCENE_PALETTE.ceiling);
+    for (let i = 0; i < colour.count; i++) {
+      expect(colour.getX(i)).toBeCloseTo(expected.r, 5);
+      expect(colour.getY(i)).toBeCloseTo(expected.g, 5);
+      expect(colour.getZ(i)).toBeCloseTo(expected.b, 5);
+    }
   });
 });

@@ -1,7 +1,14 @@
-import { BoxGeometry, PlaneGeometry, type BufferGeometry } from 'three';
+import {
+  BoxGeometry,
+  Color,
+  Float32BufferAttribute,
+  PlaneGeometry,
+  type BufferGeometry,
+} from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { LAYOUT } from '@/domain/layout/constants';
 import type { MuseumLayout } from '@/domain/layout/types';
+import { SCENE_PALETTE } from '../materials/palette';
 
 /**
  * Merged static geometry for the museum shell, built from the layout: a handful of draw calls
@@ -42,6 +49,13 @@ function ceilingQuad(x0: number, x1: number, y: number, z0: number, z1: number):
   const g = new PlaneGeometry(x1 - x0, z1 - z0);
   g.rotateX(Math.PI / 2); // +Z becomes -Y: faces down
   g.translate((x0 + x1) / 2, y, (z0 + z1) / 2);
+  // The ceiling colour comes from the palette (`--scene-ceiling`), as a vertex colour (the shell's
+  // ceiling material is vertex-coloured). `Color` holds linear values, which is what three.js
+  // expects in a colour attribute.
+  const c = new Color(SCENE_PALETTE.ceiling);
+  const colours: number[] = [];
+  for (let i = 0; i < g.getAttribute('position').count; i++) colours.push(c.r, c.g, c.b);
+  g.setAttribute('color', new Float32BufferAttribute(colours, 3));
   return g;
 }
 

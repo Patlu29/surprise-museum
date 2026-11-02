@@ -18,7 +18,13 @@ import {
 import { isReducedMotion } from '../runtime/motion';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { FRAME_COMMANDS } from './frameQueue';
-import { clampDown, layoutLabels, resetLabels } from './labelLayout';
+import {
+  clampDown,
+  clampShiftX,
+  LABEL_EDGE_MARGIN,
+  layoutLabels,
+  resetLabels,
+} from './labelLayout';
 import { characterCorners, frameCorners, projectPoints } from './projection';
 
 /**
@@ -335,8 +341,7 @@ function publishRects(
   // under it slides down to its bottom edge (BUG-10).
   const size = useSettingsStore.getState().captionSize;
   const stripMinTop =
-    presentation.kind === 'photo' &&
-    classifyViewport(area.width, area.height) === 'phone-portrait'
+    presentation.kind === 'photo' && classifyViewport(area.width, area.height) === 'phone-portrait'
       ? area.top + portraitStripBottom(size === 'xlarge' ? 1.5 : size === 'large' ? 1.25 : 1)
       : null;
 
@@ -394,6 +399,14 @@ function publishRects(
       };
     }
     if (label && stripMinTop !== null) label.y += clampDown({ top: label.y }, stripMinTop);
+    // The label is also kept inside the viewport (12.6.8), as the drawn label is.
+    if (label) {
+      label.x += clampShiftX(
+        { left: label.x, right: label.x + label.width },
+        area.left + LABEL_EDGE_MARGIN,
+        area.left + area.width - LABEL_EDGE_MARGIN,
+      );
+    }
     guideRect = unionScreenRects(body, label) ?? guideRect;
   }
   publishScreenRects({

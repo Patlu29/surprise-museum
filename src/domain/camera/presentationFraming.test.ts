@@ -9,6 +9,7 @@ import {
   FRAMING,
   cardLeftEdge,
   framingRightBound,
+  labelExtentWidth,
   framedPitchDeg,
   pictureVisibleFraction,
   solveFraming,
@@ -381,5 +382,53 @@ describe('portraitStripBottom (BUG-10)', () => {
     expect(portraitStripBottom(1)).toBe(172);
     expect(portraitStripBottom(1.25)).toBe(180);
     expect(portraitStripBottom(1.5)).toBe(192);
+  });
+});
+
+describe('label extent in the solver (spec 12.6.8 rule 5, N-10)', () => {
+  it('counts min(label width, body width + 32 px)', () => {
+    expect(labelExtentWidth(158, 40)).toBe(72);
+    expect(labelExtentWidth(158, 200)).toBe(158);
+    expect(labelExtentWidth(70, 60)).toBe(70);
+    expect(labelExtentWidth(158, 0)).toBe(32);
+  });
+
+  const layout = layoutFor(20);
+  const LONG = { w: 158, h: 68 }; // a 24-character name, wrapped to three lines, at 360 px
+
+  function sweep(vw: number, vh: number, guide: { w: number; h: number }) {
+    let dropped = 0;
+    let worst = 1;
+    let n = 0;
+    for (const slot of layout.slots) {
+      for (const side of [1, -1]) {
+        const sol = solveFraming(
+          inputFor(layout, slot, vw, vh, side, {
+            labelSize: { visitor: { w: 90, h: 30 }, guide },
+          }),
+        )!;
+        n++;
+        if (sol.guideDropped) dropped++;
+        worst = Math.min(worst, sol.pictureVisibleFraction);
+      }
+    }
+    return { dropped, worst, n };
+  }
+
+  it('a long Guide name drops the Guide from the fit set in at most half the 360x640 fixtures (it was all of them)', () => {
+    const long = sweep(360, 640, LONG);
+    expect(long.dropped).toBeLessThanOrEqual(long.n / 2);
+    expect(long.worst).toBeGreaterThanOrEqual(0.98);
+  });
+
+  it('keeps the 390x844 picture visibility floor of 0.98 with a long Guide name', () => {
+    const long = sweep(390, 844, LONG);
+    expect(long.worst).toBeGreaterThanOrEqual(0.98);
+  });
+
+  it('a short name is unchanged by the cap (the label is narrower than the body plus 32 px)', () => {
+    const short = sweep(360, 640, { w: 70, h: 30 });
+    expect(short.dropped).toBe(0);
+    expect(short.worst).toBe(1);
   });
 });

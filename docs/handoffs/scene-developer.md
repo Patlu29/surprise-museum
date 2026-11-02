@@ -1,5 +1,47 @@
 # Handoff: scene-developer
 
+## Update 02/11/2026 (later): N-10 name labels on narrow screens, ceiling colour
+
+### N-10 (spec 12.6.8)
+- **Label clamp, de-overlap, hide (`src/scene/controllers/labelLayout.ts`).** Run last, after the BUG-10 `minTop` rule (unchanged) in `layoutLabels`:
+  1. Each label is clamped so its left and right edges are at least 8 px inside the viewport (`clampShiftX`, `LABEL_EDGE_MARGIN`).
+  2. If the labels still overlap, `separateShiftX` pushes them apart sideways by half the overlap plus an 8 px gap each, re-clamps, and gives any shortfall to the label that has room. Two 158 px labels always resolve at 360 px (tested). Never scaled, never truncated, never moved up.
+  3. A label whose head anchor projects outside the viewport horizontally is hidden with `style.visibility = 'hidden'` (not `opacity`, which `CharacterView` owns for the line-of-sight fade) and omitted from the published rectangles. It is restored on the next layout or `resetLabels`. A partly visible body keeps its label. Note this hide is instant, not faded, because only opacity transitions in `NameLabelPill`.
+  4. Precedence: the picture is cleared last; if clearing it and staying inside cannot both hold, the label may go up to 40% of its width past the margin edge (`LABEL_EDGE_OVERHANG`), and the label overlap rule then gives way.
+  - `SceneDriver.publishRects` also clamps the published Guide label at her presentation spot into the viewport (that branch computes its own rectangle).
+  - Safe-area insets are not read: the canvas rectangle is the viewport, the margin is 8 px. Landscape notches are not handled specially.
+- **Solver label width (`src/domain/camera/presentationFraming.ts`).** `labelExtentWidth(label, body) = min(label width, body width + 32 px)`, used by `projectFramingRects` for both labels (the label's height and centre are unchanged). The solver's published `guideLabel` / `visitorLabel` rectangles are therefore narrower for long names; the scene's own labels are measured from the DOM as before.
+- **Effect on the Guide fit set** (20 pictures x both Guide sides = 40 fixtures per viewport, a 158x68 three-line Guide label, Visitor 90x30):
+
+| Viewport | Guide dropped before | now | worst `pictureVisibleFraction` before | now |
+|---|---|---|---|---|
+| 360x640, short names (control) | 0 of 40 | 0 of 40 | 1.000 | 1.000 |
+| 360x640, long Guide name | 40 of 40 | 20 of 40 | 0.979 | 1.000 |
+| 360x640, both names long | 40 of 40 | 20 of 40 | 0.865 | 0.995 |
+| 390x844, short names (control) | 20 of 40 | 20 of 40 | 0.986 | 0.986 |
+| 390x844, long Guide name | 40 of 40 | 40 of 40 | 0.986 | 0.986 |
+| 390x844, both names long | 40 of 40 | 40 of 40 | 0.937 | 0.954 |
+
+  So the width fix halves the drops at 360x640 and removes the picture-coverage loss, but it does not remove them. What remains is geometry, not label width: at 390x844 half the fixtures drop the Guide even with a short name (the picture plus the Visitor is already wider than the safe rectangle, from the 6.12.4 trace), and a long name adds the other half. The 390x844 "both long" worst case 0.954 is below 0.98 but is the solver's conservative figure (it counts label rectangles as covering the picture; the scene slides labels off the picture afterwards); the e2e tolerances (0.98 at 390x844 with the short fixture names) are unchanged and pass. Not changed: framing tolerances, timing, easing.
+- **Seen in the browser** (software GL, both names 24 and 23 characters, caption size normal, pictures 1 to 3):
+  - 390x844: both labels inside the viewport and apart in pictures 1 to 3 except where the Guide is dropped and off screen (pictures 1 and 3): her label is hidden (head off screen), the Visitor's label is inside (x 2 in picture 1, x -11 in picture 3: the Visitor's label is pushed 11 px past the left edge to stay clear of the picture; this is the picture-first rule).
+  - 360x640: pictures 2 and 3 fine (labels at x 128 to 352 and 8 to 166). **Picture 1 is the rare conflict**: the Guide is dropped and sits to the right of the picture, her head is on screen at about x 336, and her 158 px label would cover the picture, so the picture rule wins and her label overhangs the right edge by 63 px (40%), clipped. QA's "fully inside" check will fail in that one case; making it hold needs the solver to keep her in the fit set there (framing, not placement). I did not find a placement that keeps the label clear of the picture, above the strip edge (BUG-10: never move up) and inside the viewport.
+- **Tests:** `labelLayout.test.ts` (clamp, separation, symmetric, the 360 px worst case, the BUG-10 rule still holds with a 24-character Guide, hide and restore, partly visible keeps its label, picture before edge, size never changes), `presentationFraming.test.ts` (`labelExtentWidth`; Guide kept at least as often at 360x640; the 390x844 floor of 0.98 with a long Guide name; short names unchanged).
+
+### Ceiling colour
+`ceilingQuad` (`museumGeometry.ts`) now writes a `color` vertex attribute from `SCENE_PALETTE.ceiling` (read only; palette.ts already has #30232b). The ceiling material is the technical-artist's vertex-coloured material, which already supports opacity (set at runtime only while it fades). Test: the quad's colours equal the palette's linear colour. Visible effect: the ceiling seen from below is the palette's dark colour instead of a lit white albedo; in the entrance and presenting baselines it did not exceed the screenshot tolerance (they pass).
+
+### Checks (02/11/2026, this task)
+- Final state: `npm run typecheck` and `npm run build` (and the test-mode build) pass; `npm test` 1027 of 1028 pass; `npm run lint` has 2 errors, both in the technical-artist's uncommitted kit work (`kit/parts/hair.ts` and `kit/cr4.test.ts`, type-only imports). The one failing unit test is `src/api/__tests__/avatarOptionalFields.test.ts` (the builder hiding new outfit styles; not mine). Earlier in the task the kit work-in-progress also broke `tsc -b`, so the e2e bundle below was built with `npx vite build --mode test` (my files are the same).
+- E2E after that build, `caption-card label-strip presentation-camera` on desktop-chromium and mobile-webkit: **84 passed, 0 failed** (includes the BUG-10 label-strip checks, the 0.98 picture visibility at 390x844 and the 80 in / 101 out degrees per second limits).
+- `visual` on desktop-chromium: the 3D baselines (entrance, presenting, viewer, and both gender entrances) pass; 8 fail, all UI or character art from other roles' uncommitted work: home screen, welcome card, finale card (card text and layout; the 3D area of the diff is clean) and five builder-preview character baselines (kit changes).
+
+### Requests
+- qa-engineer: add the N-10 check from 12.6.8 (24-character names, 360x640 and 390x844: both labels inside the viewport, no overlap, picture clear); expect picture 1 at 360x640 to be the known overhang case above until the solver keeps the Guide there. `style.visibility` is `hidden` on a label whose head is off screen.
+- ux-ui-designer: 12.6.8 rule 4 ("up to 40% past the edge") happens at 360x640 picture 1 with two long names; decide whether to accept it or to specify a vertical alternative (the label may move down over the character's head when the strip and the picture leave no room).
+- technical-artist: the kit WIP above breaks `tsc -b` and 4 unit tests (not touched by me).
+
+
 ## Update 02/11/2026: the ceiling no longer blocks a high camera (user feedback)
 
 ### Cause
