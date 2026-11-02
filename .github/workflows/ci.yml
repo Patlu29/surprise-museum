@@ -27,11 +27,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  # Node 24 is the version CI uses. package.json requires >=22.12.0; local development used 26.
-  # There is no .nvmrc yet (root config, architect). Keep this in step with it when one exists.
-  NODE_VERSION: '24'
-
 jobs:
   checks:
     name: Typecheck, lint, unit tests, build, bundle size
@@ -42,7 +37,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -117,7 +112,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -193,7 +188,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci

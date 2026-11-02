@@ -39,7 +39,7 @@ Supporting files: `.github/scripts/check-bundle-size.mjs` (the size budget) and 
 
 Details that matter:
 
-- **Node 24** on `ubuntu-24.04`. `package.json` requires `>=22.12.0`; development used Node 26. There is no `.nvmrc`; the version is the `NODE_VERSION` env in each workflow.
+- **Node 26** on `ubuntu-24.04`, matching development (v26.7.0). The version lives in one place, `.nvmrc` at the repo root, and every workflow that uses Node reads it through `actions/setup-node` with `node-version-file: .nvmrc`. To change the CI Node version, edit `.nvmrc`. `package.json` `engines` stays at `>=22.12.0` (the minimum the dependencies support), so it is a floor, not the CI version.
 - **`npm run format:check` is not run.** On 02/11/2026 it fails on 30 files (21 in `tests/e2e`, 5 in `src/ui`, one each in `src/domain`, `src/scene`, `src/styles`, and `playwright.config.ts`). Adding it would fail every run. To enable it, run `npm run format` as its own commit, then add the step to `ci.yml` (a comment marks the place).
 - **The build in `checks`** is a plain `npm run build` (live, no Supabase variables needed, because the live guard only fires when `VITE_API_MODE=live` is set). It proves the production build compiles. The Pages build is separate.
 - **Bundle size.** `check-bundle-size.mjs` fails if any file in `dist/assets/*.js` is over 1000 kB (1 kB = 1000 bytes), except the lazy HEIC decoder (`heic-to-*.js`), which has its own 3500 kB ceiling. These are the same budgets as `chunkSizeBudgets()` in `vite.config.ts`, which only warns. On 02/11/2026: three.js chunk 961.8 kB of 1000 kB, HEIC decoder 3150.9 kB of 3500 kB. Vite names the three.js chunk after one of its modules (currently `NameLabel-<hash>.js`), so the script checks every chunk rather than a name. The top chunks are written to the job summary.
@@ -96,7 +96,8 @@ Do these in order. Steps 1 to 3 can happen before any deploy; 4 to 7 are the go-
    4. Commit `tests/e2e/__screenshots__/desktop-chromium-linux/` (qa-engineer or tech lead). CI then runs `visual.spec.ts` on Linux automatically.
    5. If the verify step fails, the run is not stable on Linux; do not commit those images. Tell the qa-engineer.
 4. **Create the Supabase project** in Sydney and do the one-time setup: `supabase/README.md` steps 1 to 6 (project, sign-ups off, link, migrations, Vault secrets, function secrets). In `ALLOWED_ORIGINS` the value must contain exactly `https://patlu29.github.io` (origin only, no path, no trailing slash), or every browser call from the live site is refused. Choosing a plan (the free tier pauses idle projects, which would stop the purge job and break old gift links) is yours; for pricing, ask Supabase sales.
-5. **Add the GitHub variables and secrets** listed above (Settings, Secrets and variables, Actions). If you want an approval click before each backend or site deploy, add required reviewers to the `supabase-production` and `github-pages` environments (Settings, Environments).
+5. **Add the GitHub variables and secrets** listed above (Settings, Secrets and variables, Actions).
+   - **Required reviewers (recommended for `supabase-production`, optional for `github-pages`).** A required reviewer makes a deploy job pause until someone approves it. To add one: Settings, Environments, `supabase-production`, tick "Required reviewers", pick at least one person (you can be your own reviewer on a personal repo), then "Save protection rules". If the environment is not listed yet, choose "New environment" and name it exactly `supabase-production`. Recommended here because that workflow applies migrations and replaces live functions. For `github-pages` the same path applies (Settings, Environments, `github-pages`, Required reviewers), but it is optional: that deploy only replaces static files and can be rolled back by re-running an earlier deploy.
 6. **Deploy the functions before the site.** Either follow `supabase/README.md` steps 6 to 7 from your machine, or run Actions, "Deploy Supabase (functions and migrations)" on `main` (tick `migrations` only if you have not pushed them yet). Then run `node supabase/scripts/smoke-test.mjs https://<ref>.supabase.co <anon key>` and the lockdown `curl` checks from `supabase/README.md` step 8. Every line must say PASS.
 7. **First site deploy.** Actions, "Deploy to GitHub Pages", Run workflow, branch `main`. It re-runs all checks (about 15 to 25 minutes), then builds and publishes. Open the URL it prints, then create a throw-away museum and open its share link in a second browser.
 
@@ -142,8 +143,6 @@ Order matters when a release changes the API: roll the frontend back first, then
 | Screen readers | Not tested with a real screen reader (axe-core checks run in e2e, but those are not a substitute) |
 | `format:check` | Not enforced; 30 files fail Prettier today |
 | Action versions | Pinned by major tag (`@v7`, `@v6`, and so on, current on 02/11/2026), not by commit SHA. Pinning by SHA is the stricter choice if supply-chain risk matters |
-| No `.nvmrc` | Node version is duplicated in four workflow files; the architect can add `.nvmrc` and switch them to `node-version-file` |
-| Node 24 | CI uses Node 24; the team developed and tested on Node 26 |
 | No PR previews | See Hosting notes |
 | No scheduled checks | No Dependabot, no scheduled run. Not requested |
 | Legal | Photo-consent and Privacy Act wording, and the LGPL-3.0 licence of `heic-to`, still need review before a public launch (`docs/project-status.md`). Deploying publishes the site to the world |

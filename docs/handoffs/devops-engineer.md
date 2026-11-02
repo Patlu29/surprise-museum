@@ -3,6 +3,12 @@
 ## Summary
 Phase 7 (Delivery): wrote the CI workflow, a manual-only GitHub Pages deploy, a manual-only Supabase deploy, and a manual Linux visual-baseline recorder, plus `docs/deployment.md`. Nothing was pushed, deployed, enabled or created, and no secret or variable was set. Pushing these files triggers CI only; no workflow deploys automatically.
 
+## Update 02/11/2026: Node 26 from .nvmrc
+- `.nvmrc` (value `26`) added at the repo root; tech lead authorised it on the architect's behalf. ci.yml (3 jobs), deploy-pages.yml and visual-baselines-linux.yml now use `node-version-file: .nvmrc`. The `NODE_VERSION` envs are removed. deploy-supabase.yml does not use Node.
+- `package.json` `engines` left at `>=22.12.0`: no concrete reason to raise it; it is the floor, CI uses Node 26.
+- `docs/deployment.md`: Node mention updated; required-reviewer steps made explicit (Settings, Environments, `supabase-production`, Required reviewers: recommended; `github-pages`: optional). The two "no .nvmrc / Node 24" known gaps are removed.
+- Not run: the workflows on GitHub. Node 26 availability on `actions/setup-node` v7 is unverified here (needs the first CI run).
+
 ## Files changed
 - `.github/workflows/ci.yml`: PR and push-to-main CI (also `workflow_call`). Jobs `checks` (typecheck, lint, unit tests, build, bundle size), `deno` (check, lint, test; unverified), `e2e` (desktop-chromium, mobile-chromium, mobile-webkit; 2 workers; report and traces uploaded), `e2e-firefox` (non-blocking)
 - `.github/workflows/deploy-pages.yml`: `workflow_dispatch` only. Calls ci.yml, then check:live, live build, base-path and CSP verification, 404.html, configure-pages, upload-pages-artifact, deploy-pages. main only
@@ -25,7 +31,7 @@ Phase 7 (Delivery): wrote the CI workflow, a manual-only GitHub Pages deploy, a 
 - 404.html is generated into the artefact at deploy time from `.github/pages/404.html`, so no file outside my folders was touched. Hash routing means it only appears for mistyped paths.
 
 ## Assumptions
-- Node 24 is acceptable in CI (package.json says >=22.12.0; local development used Node 26 and all tests ran there).
+- Node 26 in CI (from `.nvmrc`) matches development.
 - `deno test` works without `--allow-*` flags, as the backend developer's README documents. Unverified.
 - Playwright `--workers=2` on a standard 2-vCPU GitHub runner is slow but stable enough. Unverified on Linux.
 - GitHub environments `github-pages` and `supabase-production` are created on first use; required reviewers are optional and the user's choice.
@@ -43,12 +49,11 @@ Phase 7 (Delivery): wrote the CI workflow, a manual-only GitHub Pages deploy, a 
 ## Open questions
 - Should the Pages site ever be allowed to run in mock (demo) mode for a first, public smoke test? Default: no. (user)
 - Do you want required reviewers on the `github-pages` and `supabase-production` environments? (user)
-- Is Node 24 the right CI version, or should CI follow the Node 26 used in development? (architect)
 
 ## Requests for other agents
 - User (manual steps, details in `docs/deployment.md`): enable Pages with Source "GitHub Actions"; create the Supabase project and finish supabase/README.md steps 1 to 6; add variables `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (optional `VITE_SUPABASE_FUNCTIONS_REGION`) and secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`; make sure `ALLOWED_ORIGINS` includes `https://patlu29.github.io`; deploy functions before the site; run the Linux baseline workflow and commit the result; trigger the first deploy by hand.
 - Tech lead: commit and push `.github/` and the docs. After the push, watch the first CI run (Deno and Linux e2e have never run). Do not run the deploy workflows without the user's approval.
 - qa-engineer: after the Linux baselines are downloaded, review the images and commit `tests/e2e/__screenshots__/desktop-chromium-linux/`. Review the first Linux e2e run for timing flakes. Run `npm run format` on `tests/e2e` and `playwright.config.ts` if `format:check` is to be enforced.
-- architect: add `.nvmrc` so the workflows can use `node-version-file`; decide on `format:check` enforcement.
+- architect: decide on `format:check` enforcement (`.nvmrc` now exists).
 - frontend-developer, scene-developer: the remaining Prettier failures in `src/ui` (5 files), `src/domain`, `src/scene`, `src/styles` need `npm run format` if `format:check` is to be enforced.
 - backend-developer: look at the first `deno` job log; fix any flag or lockfile problems (`supabase/functions/deno.lock` and per-function lock files).
