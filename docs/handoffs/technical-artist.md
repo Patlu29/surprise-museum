@@ -1,5 +1,150 @@
 # Handoff: technical-artist
 
+The newest round (CR-4, 02/11/2026) is the first section. Earlier sections below describe the v1.0 and CR-1 kit; where they quote 5,878 triangles per character or 970.7 kB, the CR-4 figures replace them.
+
+## CR-4 update (02/11/2026): face, edge, shape, pattern, twelve styles, museum finish
+
+Everything is code, vertex colour or a small shader patch. No new texture, library, post-processing pass or draw call. Not rendered on a real phone: all renders are headless Chromium on SwiftShader (software GL) through a throw-away harness, and the contrast figures are from flat token backdrops, not the lit museum.
+
+### Result in numbers
+
+| Budget | Before | Now | Limit | Status |
+|---|---|---|---|---|
+| Worst character (curly-short, full beard, suit, slim, Guide, skin-10) | 5,878 | **5,682** | 5,950 hard stop, 6,000 NFR-27 | Pass. ADR 0021's provisional 6,500 is not needed (7.3a step 5) |
+| Draw calls per character | 3 | 3 (body, hair, shadow) | 10 | Pass |
+| Scene draw calls from the shell finish | n/a | 0 added (dado, rail, cap colour, contact darkening, edge shadow, runner border are shader changes on existing materials) | 4 more | Pass. The placement requests below would add at most 4 merged meshes |
+| three.js chunk (`NameLabel-*.js`) | 961,853 B | **976,550 B** (+14.7 kB; gzip +4.7 kB) | guard 985 kB; target at most +10 kB | **Guard passes with 8.5 kB spare; the +10 kB target is missed by 4.7 kB** (see "Chunk size") |
+| Shader programs | 2 (body, hair Lambert) | 2 (patched, constant cache keys) | n + 1 | Pass |
+| Pattern memory | n/a | +4 B per body vertex (`outfitMask`), about 10 kB per character | | Pass |
+
+**Triangles per style** (worst body over 4 body types, 2 roles, skin-01 and skin-10; worst hair 1,480 plus the 2-triangle shadow). The kit tests loop over all 12 and have an explicit 120 s timeout (`KIT_TEST_TIMEOUT`).
+
+| Style | Body | Character | | Style | Body | Character |
+|---|---|---|---|---|---|---|
+| tee-jeans | 3,896 | 5,378 | | sweater | 4,008 | 5,490 |
+| hoodie | 3,996 | 5,478 | | overalls | 4,056 | 5,538 |
+| shirt-trousers | 4,040 | 5,522 | | coat | 3,920 | 5,402 |
+| dress | 3,940 | 5,422 | | tracksuit | 4,088 | 5,570 |
+| suit | **4,200** | **5,682** | | cardigan | 3,976 | 5,458 |
+| jumpsuit | 3,968 | 5,450 | | tunic | 3,952 | 5,434 |
+
+Every new style is at or under the suit (art target met). The default Guide rig is 4,422 triangles. Face shape and pattern add 0 triangles (tested for every hair style, outfit and shape). Catchlights add 36 (2 discs of 18, limit 60). **Why the total fell by 196 against the old 5,878:** arms, forearms and shins went from 10 to 8 sides (-232), see Decisions.
+
+### Edge contrast (FR-89), measured
+
+Method: 360 by 640 at the follow-camera framing (figure 329 px tall), supersampled 3 times (pixel ratio 3), default Guide in shirt and trousers, one option varied at a time (10 skins, 11 hair colours, 12 outfit colours = 33 characters) against six flat backdrops in token colours (linen wall, oak, claret runner, finale wall, finale floor, preview stage; the stage with the preview lighting). The contrast of a silhouette sample is the WCAG ratio of the better of the pixel 0.3 px inside (rim band) and the pixel 1.0 px inside (contour band) against the backdrop pixel 0.5 px outside. Edge samples are the left and right silhouette of every row and the top of every column, grouped as hair (hair mesh pixels), head, torso and arms, legs. Each cell is the **median** over the zone's samples. The worst option's median is shown, then the typical (median over the 33 characters). Target 3:1.
+
+| Backdrop | Hair | Head | Torso and arms | Legs |
+|---|---|---|---|---|
+| Linen wall | **2.66** (platinum), typical 12.4 | 11.30 (skin-01), 12.2 | 7.24 (green), 9.1 | 13.79, 13.8 |
+| Oak floor | **1.93** (blonde), 5.8 | 5.48 (skin-01), 5.8 | **2.29** (cream outfit), 4.2 | 6.34, 6.3 |
+| Claret runner | 4.23 (black), 4.3 | 3.08 (skin-09), 3.2 | 4.33, 4.3 | 4.28, 4.3 |
+| Finale wall | 5.72 (black), 5.8 | 3.90 (skin-09), 4.3 | 5.79, 5.8 | 5.74, 5.7 |
+| Finale floor | 6.99 (black), 7.2 | 5.12 (skin-09), 5.3 | 7.22, 7.2 | 7.15, 7.2 |
+| Preview stage | **2.54** (platinum), 15.3 | 13.91 (skin-01), 15.1 | 5.69 (cream outfit), 11.2 | 17.11, 17.1 |
+
+**Failures (median under 3:1), recorded, not hidden:**
+
+| Region | Option id | Backdrop | Median | p10 | Samples under 3:1 | Cause |
+|---|---|---|---|---|---|---|
+| Hair | blonde | Oak | 1.93 | 1.42 | 69% | Mid-light hair against mid-tone oak: the cream rim (about 0.5 luminance) is close to the hair and the oak (0.29), and the contour band does not reach the 1.0 px sample on the faceted hair shell (5 latitude rows, so the silhouette normals are far from square to the view) |
+| Hair | pink | Oak | 1.93 | 1.55 | 62% | Same |
+| Hair | grey | Oak | 2.08 | 1.60 | 59% | Same |
+| Hair | platinum | Oak | 2.16 | 1.51 | 69% | Same |
+| Hair | white | Oak | 2.21 | 1.58 | 69% | Same |
+| Hair | ginger | Oak | 2.43 | 1.58 | 58% | Same |
+| Hair | platinum | Linen wall | 2.66 | 1.08 | 54% | Pale hair against a pale wall; the contour is partial on the faceted shell (p10 1.08 means some stretches have no band) |
+| Hair | platinum | Preview stage | 2.54 | 1.25 | 52% | Same |
+| Torso and arms | cream outfit | Oak | 2.29 | 1.80 | 54% | Cream sleeve against mid-tone oak: rim and cream sleeve are both light, and the contour covers only part of the samples |
+
+Passing but close: head on the runner for skin-09 (3.08) and head on the finale wall for skin-09 (3.90). Not measured: the doorway grazing-angle case, the dark hair against the ceiling at under 10 degrees pitch, the runner edge where the backdrop changes under one silhouette (spec 12.8.6), the builder preview at its larger size, WebKit and Firefox. The ceiling and the lit museum surfaces will differ from flat tokens.
+
+**What the measurement changed.** (1) The first run found no light rim on any arm or shin: the 10-sided tubes have a flat facet, not a vertex, at the left and right of the figure, so the interpolated normal is 18 degrees off square to the view there and `ndv / fwidth` never reaches zero. Torso and arms on the dark backdrops measured 1.2 to 1.5. Going to 8 sides puts a vertex on each of the four sides; torso and arms now measure 4.3 to 7.2 on the dark backdrops. (2) The distance estimate is exact at a factor 0.5 on a smooth part and at 1.0 on a flat facet. I tried 0.5, 0.6, 0.65, 0.7, 0.75, 0.8 and 1.0 and kept **0.7**: it was the best compromise (0.5 and 0.6 leave the limbs 1.4 to 2.6 on light and mid backdrops, 0.75 and above start failing the head on the runner and the hair on every light backdrop).
+
+### Files changed (CR-4)
+
+Palette and look (step 1):
+- `src/scene/materials/palette.ts`: `ceiling` `#30232b` and `lightGround` `#6a4a3c` (final; the drift test passes).
+- `src/scene/materials/look.ts`, `look.test.ts`: typed mirror of every `--look-*` token, with a drift test (parses `tokens.css`, fails on a missing, extra or changed token). `index.ts` exports `LOOK`.
+- `src/scene/characters/kit/palette.ts`, `palette.test.ts`: `SKIN_BLUSH_DEEP` and its drift test.
+
+Edge and pattern (steps 2 and 4):
+- `src/scene/shaders/avatarSurface/AvatarSurfaceMaterial.ts`, `avatarEdge.glsl`, `avatarPattern.vert.glsl`, `avatarPattern.frag.glsl`: the patched body and hair Lambert materials (edge, pattern, mask).
+- `src/scene/characters/kit/pattern.ts`: the pattern ink rule (`patternInk`).
+
+Kit:
+- `rig.ts`: new materials, pattern uniforms, face-shape morph, `beginFaceShapeMorph`, `setMorphProgress`, `patternMix`, rebuild on face shape or hair style change, skirt leg scale.
+- `proportions.ts`: `FACE_SHAPES`, `faceWarp`, `chinBottomY`, `blendFace`, `AvatarShape.face`, `shapeFor` reads `avatarFaceShape`.
+- `geometry/partBuilder.ts` (head warp, `outfitMask`), `geometry/surface.ts` (cells, tube end shading and end colour).
+- `colour.ts` (brow floor 3:1 with the warm lift, facial hair floor 1.6:1, trim helpers), `pose.ts` (amplitudes, breathing).
+- `parts/face.ts` (eyes, catchlights, mouth, deep blush), `parts/hair.ts` (brows, hairlines table, crown and nape shading, facial hair colour), `parts/body.ts` (hairline and chin shading, neck shade, region trims, pattern cells, new styles), `parts/outfits.ts` (twelve garments, trims, collar clamp, `legScaleFor`).
+- Tests: `cr4.test.ts` (new, 34 tests), `gender.test.ts`, `kit.test.ts`, `neutralSnapshot.testutil.ts` (re-baselined once, explicit timeouts).
+
+Museum finish (step 6) and stage (step 7):
+- `materials/worldMapping.ts`: wall dado, painted rail, contact darkening (12% base, 18% ceiling), wall-top cap colour; floor edge shadow; runner border band. `materials/geometry/walls.ts`: rose and oculus now face down, 0.06 by 1.2 m ceiling strip, wall cap builder. `geometry/frames.ts`: 8-triangle brass fillet, mount bevel shade. `geometry/decals.ts`: wash 1.6 times the frame height and behind the frame, frame and plinth contact shadows. `geometry/finale.ts`: podium side `--look-plinth-side`, scalable plinth. `museumMaterials.ts`: `ceilingDressing` with `setCeilingDressingOpacity`, `contactShadow`, wash alpha 0.18. `proceduralTextures.ts`: planks. `lighting.ts`: 2.5 and 1.15, `PREVIEW_STAGE_CSS`. `quality.ts`: `contactShadows` flag. `finish.test.ts` (new, 15 tests). `index.ts`: exports.
+- `src/lib/avatars.ts`: the one list. **Note: it is `OUTFIT_STYLES_PENDING_KIT` in `src/lib/avatars.ts`, not in `avatarOptions.ts`; it is now empty.**
+- `src/api/__tests__/avatarOptionalFields.test.ts`: one test asserted the gate ("hides the new styles"); I changed it to expect all 12. This is outside my folders; it is the minimum edit to keep `npm test` green, so the architect or QA may rewrite it.
+
+### Decisions
+
+- **Face and hairline changes are on all 12 styles; trims are colour only, except the new styles.** The six v1.0 styles have no added geometry: cuffs on short sleeves are a colour grade on the sleeve's last ring (`endColour`), hem trims are the lowest ring only (grading into the body over 18 mm), shoe and knee darkening are tube-end ring colours. A proof test shows every vertex outside the head and the limb tubes of the six v1.0 styles is bit-identical to the committed pre-CR-4 kit.
+- **One re-baseline of the Neutral fingerprint** (NFR-29), for the deliberate face changes (eyes, catchlights, brows, mouth, hairline shading, face warp path) and the 8-sided limbs. Old golden: body `5af56628 1b2931b0 85a3a108 aa5bbd48`; new: `a3663f0e 3725789a d1d8b486 1e040752`, plus 12 new hair hashes (each hair mesh carries the brows). Two invariants kept: Neutral with no gender, no face shape and no pattern equals Neutral, Oval, Plain (tested for body and hair); and the vertices outside the head and limbs are the v1.0 vertices (`V1_NO_HEAD_GOLDEN`).
+- **Arms, forearms and shins: 10 to 8 sides** (the measured fix above). Costs nothing visible at 360 px; saves 232 triangles.
+- **Small face features and the badge get no edge** (`outfitMask` -1): without it every eye, nose, blush and brow was outlined.
+- **Edge factor 0.7** (see above). Rim and contour widths follow the tokens (0.6 and 1.5 px times the pixel ratio).
+- **Pattern period 40 mm for all three patterns** (the spec's dots were 36 mm): a single cell size keeps the angle round each part an exact even number of cells (torso 18, skirt 22, arm 8, leg 10), so checks and dots close seamlessly. Dots are staggered. Stripes run on height so they are continuous across sleeve and torso; checks and dots start afresh on each limb tube. The amplitude fades to flat under about 2.2 px (spec formula).
+- **Pattern cross-fade is not animated by the kit.** `rig.patternMix` (0 to 1) is exposed; the scene can animate it over `--duration-fast`. Plain/other switches are instant by default. Reason: a kit-side clock needs a frame loop that an on-demand preview may not have.
+- **Face shape values** (spec table, tuned inside 0.03): Long height 1.06 to 1.05 and chin 1.06 to 1.04, Heart chin 1.08 to 1.06 (the chin must clear the collar). The head top moves at most 10 mm (Long +8 mm, Round -5 mm). Neck collar rings are lowered under a longer chin (`clampCollars`), Oval unchanged. The label anchor is a constant above 1.70 m, higher than the tallest shape, so it never moves.
+- **Brows:** floor 3:1 for every skin and hair pair (tested), warm lift toward `#b88a6a` then white if needed; lift angle 0.12 rad. Facial hair floor 1.6:1. Deep blush for luminance under 0.1 (skin-08 to 10).
+- **Skirted styles swing the legs 10% less** (`legScaleFor`: dress, coat, tunic): at the full 28 degrees the thighs came through the dress hem by about 1 cm (measured), and would have come through the original straight tunic by several centimetres (estimated). Tested over the whole walk for 4 body types. Tunic is slightly A-line (hem 0.8, depth 1.0) for the same reason.
+- **Walk and idle:** leg 28 degrees, arm 23, hip bob 3.7 cm, breathing 1.000 to 1.008 at 0.3 Hz on the spine (uniform, so the head swells 0.8%), head yaw 2 degrees at 0.12 Hz, arm sway 1.5 degrees at 0.3 Hz. `resetPose` is exactly 1, no breathing.
+- **Museum finish in the shell shader, not geometry:** the scene builds walls, floors and the runner from plain boxes, so the dado, the painted rail, contact darkening and the wall-top cap colour are in `worldMapping.ts`. The floor edge shadow is baked there too, so it works on every tier with no decal (the spec had decal on Auto and vertex colour on Low). The finale walls get a deeper claret dado.
+- **Wash:** the old decal sat 4 mm in front of the frame (z 0.054) and so covered the mount and the photo. It is now 4 mm off the wall, behind the frame, 1.6 times the frame height tall (FR-40, spec 12.8.3).
+
+### Chunk size
+
+976,550 B against 961,853 B (+14.7 kB). The ADR's 10 kB covered face shape, pattern and garments; the museum finish (shell shader, frame, decal and ceiling builders; roughly 4 kB, estimated) was not in that budget. Already trimmed: GLSL comments and indentation are stripped (saved 1.5 kB). Easy cuts if the target must hold: drop the finale dado variant and the ceiling strip builder (about 1 kB), or factor the six garment configs (about 1 kB, estimated).
+
+### Open items and not done
+
+- Armpit ambient darkening (the torso ring at the arm joint would band the chest) and the centre placket, zip and coat vent (need geometry, and would break the v1.0 vertex proof): not done.
+- Region trim and separation rule: done as colours. The dark-sleeve trim uses 10% toward white in linear light (a straight 25% multiply of navy is invisible).
+- Real phone, Safari and Firefox are unchecked; WebGL 1 fallback not shipped.
+- Performance walk on Low and High with the worst pair: not run (performance optimiser).
+
+### Requests for other agents (CR-4)
+
+- **scene-developer:**
+  1. Face shape and pattern: pass the whole avatar config to `rig.setAppearance` (it reads `faceShape` and `outfitPattern` through the accessors). In the builder preview, for a face-shape or gender change call `rig.beginFaceShapeMorph(to)` (or `beginGenderMorph`) before `setAppearance`, then drive `rig.setMorphProgress(t)` each frame for `--duration-gender-morph` (250 ms), before `applyPose`. One morph blends both. Skip under reduced motion. Optional: animate `rig.patternMix` 0 to 1 over `--duration-fast`.
+  2. Ceiling roses and the finale oculus: `createCeilingRoseGeometry({ radius })` now faces down (origin at the ceiling surface, place at y = ceiling height; oculus: a larger radius). Draw with `materials.ceilingDressing` (from `createLookMaterials`) and each frame call `materials.setCeilingDressingOpacity(runtime.ceilingOpacity)`, the same value as the ceiling. It sets opacity, transparency, depth write and hides it under 0.02.
+  3. Ceiling strips: `createCeilingStripGeometry()` (0.06 by 1.2 m, along local Z, faces down, origin at the ceiling), one per room along the route, with `ceilingDressing`. The lit part is `--look-ceiling-strip` and glows.
+  4. Wall cap: the shell material already colours flat wall tops in the rail colour. For the real 0.06 m cap, merge `createWallCapGeometry(length, thickness)` (box 0.06 m tall, 1 cm proud each side, origin at the middle of the underside, length along X; rotate 90 degrees for a wall along Z) at y = wall height (3.2 m) along every wall top, one merged mesh with `materials.decor` (vertex colours). It sits above the ceiling plane, so it needs no fade.
+  5. Dado rail: the painted rail is in the wall shader. For the real rail, merge a 0.05 m tall, 0.04 m deep strip (`DADO.railHeight`, `DADO.railDepth`) at y = 0.95 along the walls in `LOOK.dadoRail`, with `decor`: one merged mesh.
+  6. Frames: `createFrameGeometry` now includes the fillet and the mount bevel (96 to 104 triangles); nothing to do. Contact shadow: for each frame place `createFrameContactShadowGeometry(photoW, photoH)` at the photo centre with `materials.contactShadow`, merged into one mesh (skip when `contactShadow` is null: Low). Wash: use `LOOK.washAlpha` (the `wallWash` material already does) and `createWallWashGeometry` as before; the geometry changed (taller, behind the frame).
+  7. Finale: the podium side is now `--look-plinth-side`. Add a contact shadow under it with `createPlinthContactShadowGeometry(PODIUM.radius)` and `contactShadow` (not on Low). The builder plinth is `createPodiumGeometry({ radius })` with the `podium` material (ring glow through `uGlow`, active character brighter), and the stage backdrop is `PREVIEW_STAGE_CSS` on the canvas wrapper with a transparent canvas, or the flat `PREVIEW_BACKGROUND`.
+  8. Lighting is already 2.5 and 1.15 in `MUSEUM_LIGHTING`. Walls, floor edge shadow, runner border and planks need nothing.
+- **frontend-developer:** the list is empty, so the "Outfit style" group now shows 12 tiles in `optionIds('outfitStyle')`. The "More styles" split in design spec 12.5.3 needs your layout decision (the ids are in contract order). Face shape and pattern controls, labels and `describeAvatar` words are yours. I edited one architect test (above).
+- **performance-optimiser:** sign off the worst character pair (5,682, not 6,500) on Low and High; the ADR 7.3a provisional ceiling lapses (step 5). Record the per-style table above in `docs/performance.md`.
+- **product-manager and architect:** NFR-27 stays at 6,000 (worst measured 5,682, hard stop 5,950). Record the amendment to ADR 0021 7.3a: the 6,500 ceiling lapsed; A-29's `coat` is the cheapest new style, not the dearest.
+- **qa-engineer:** visual diffs are expected (list in Checks). Re-run edge contrast with the lit museum, doorways, low pitch hair against the ceiling and the runner edge; the failures table is the starting list. The token comment for `--look-rim-px` may want a note that the shader scales the distance by 0.7.
+- **ux-ui-designer:** `--look-*` tokens are mirrored unchanged. The shader factor 0.7 is a tuning, not a token.
+
+### Checks (02/11/2026)
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | Pass |
+| `npm run lint` | Pass |
+| `npm test` | Pass: 69 files, 1,043 tests (kit budget tests have `KIT_TEST_TIMEOUT` 120 s) |
+| `npm run build` | Pass. `NameLabel-*.js` 976.55 kB |
+| `VITE_API_MODE=mock npm run build -- --mode test`, then `PW_REUSE_SERVER=1 npx playwright test gender visual --project=desktop-chromium --workers=2` | 30 passed, 9 failed. Baselines were not re-recorded. Port 4173 untouched |
+
+**Playwright failures, for QA.** None is a rendering error.
+- Flaky, not a regression: `gender.spec.ts` "US-48 AC-1 and AC-3" failed once under load (the card said "Sam, photo 1 of 1: A day at the beach." where the baseline text was "Gallery 1 of 1") and passed when re-run alone.
+- Baselines that changed by design or by other agents' work (CR-4 UI, not the kit): `visual: home screen` (92,984 px, 11%), `welcome screen` (image 512 x 464 to 512 x 520), `the finale card` (21%).
+- Builder preview baselines: `preview-woman-man`, `preview-man-woman`, `preview-woman-man-back`, the restored-draft comparison (the same file) and `brows-woman-deep-skin`. The captured size changed (438 x 449 to 408 x 449) from the CR-4 builder layout, so they fail on size before the character pixels count. The characters also differ by design: bigger eyes with catchlights, thicker brows, a light and dark edge band, hairline and hem trims, deep-skin blush.
+- Passed with the CR-4 kit: the entrance, the Guide presenting, the full-screen viewer, both Woman and Man entrance shots and the pre-v0.3 museum (their character pixels are small and stayed under the screenshot threshold).
+
 ## Summary
 I built the museum look and the avatar kit entirely from code: no downloaded art, no GLB files and no HDR, so the look adds nothing to the first-view download. There are palette mirrors with token-drift tests, procedural textures, vertex-coloured geometry builders, three mobile-safe shaders, a materials factory, lighting, and a skinned "designer toy" avatar rig (three draw calls and at most 5,878 triangles per character). I also supplied two adapters (`buildAvatar` and `createSceneMaterials`) that match the scene-developer's `src/scene/seams.ts` shapes, plus the home and not-found SVG illustrations. My folders pass typecheck, lint and 38 unit tests, and `npm run build` succeeds. I checked renders in headless Chromium (software GL) only. Details are under Checks.
 

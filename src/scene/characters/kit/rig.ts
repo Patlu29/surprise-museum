@@ -16,31 +16,48 @@
 import type { BufferGeometry } from 'three';
 import {
   Bone,
-  DoubleSide,
   Group,
   Mesh,
-  MeshLambertMaterial,
   Object3D,
   Skeleton,
   SkinnedMesh,
+  type MeshLambertMaterial,
 } from 'three';
-import { avatarGender, type AvatarConfig, type AvatarGender } from '@contract';
+import {
+  avatarFaceShape,
+  avatarGender,
+  avatarOutfitPattern,
+  type AvatarConfig,
+  type AvatarFaceShape,
+  type AvatarGender,
+} from '@contract';
+import {
+  PATTERN_INDEX,
+  createAvatarBodyMaterial,
+  createAvatarHairMaterial,
+  createPatternUniforms,
+} from '../../shaders/avatarSurface/AvatarSurfaceMaterial';
 import { GlowDecalMaterial } from '../../shaders/glowDecal/GlowDecalMaterial';
 import { createBlobShadowGeometry } from '../../materials/geometry/decals';
 import { BLOB_SHADOW } from '../../materials/palette';
 import { BONE_NAMES, type BoneName } from './geometry/partBuilder';
 import { buildBodyGeometry, type AvatarRole } from './parts/body';
 import { buildHairGeometry } from './parts/hair';
+import { legScaleFor, outfitColour } from './parts/outfits';
+import { patternInk } from './pattern';
 import { applyPose, NEUTRAL_POSE, type AvatarPose, type PoseBones } from './pose';
 import {
   BODY_SHAPES,
+  FACE_SHAPES,
   GENDER_SHAPES,
   HEIGHT_SCALE,
   NOMINAL_HEIGHT,
+  blendFace,
   blendGender,
   composeShape,
   jointsFor,
   type AvatarShape,
+  type FaceShapeParams,
   type GenderShape,
   type Joints,
 } from './proportions';
@@ -85,6 +102,16 @@ export interface AvatarRig {
    */
   beginGenderMorph(to: AvatarGender, from?: AvatarGender): void;
   /**
+   * The same preview morph for the face shape (design spec 12.8.2 D): `beginFaceShapeMorph(to)`
+   * before the `setAppearance` that carries the new `faceShape`, then drive it with
+   * `setGenderMorphProgress` (alias `setMorphProgress`). One morph blends the gender and the face
+   * shape together, so a gender change and a face shape change can share one run. Pass `from`
+   * only if you already applied the new config.
+   */
+  beginFaceShapeMorph(to: AvatarFaceShape, from?: AvatarFaceShape): void;
+  /** Alias of `setGenderMorphProgress`: it drives whichever morph (gender, face shape or both) is running. */
+  setMorphProgress(t: number): boolean;
+  /**
    * Preview morph, step 2. Shows the blend at `t` (0 start, 1 target, clamped) by rebuilding
    * the bind pose, body and hair in place: the meshes, bones and materials are not recreated.
    * At 1 the morph ends and the shape is vertex-identical to `setAppearance` with that gender.
@@ -92,8 +119,14 @@ export interface AvatarRig {
    * because a rebuild resets the bones to rest. No-op (false) when no morph is running.
    */
   setGenderMorphProgress(t: number): boolean;
-  /** True between `beginGenderMorph` and the end of the morph. */
+  /** True between `beginGenderMorph` or `beginFaceShapeMorph` and the end of the morph. */
   readonly morphing: boolean;
+  /**
+   * Outfit pattern strength, 0 to 1 (default 1): scales the pattern ink. The scene may animate it
+   * for a cross-fade (design spec 12.8.2 E, `--duration-fast`); it is instant by default, and
+   * reduced motion simply never animates it.
+   */
+  patternMix: number;
   /** Set bone rotations for the current frame. Missing fields fall back to the neutral pose. */
   applyPose(pose: Partial<AvatarPose>): void;
   /** The still pose, used for reduced motion. */
@@ -139,8 +172,9 @@ export function createAvatarRig(initial: AvatarConfig, options: AvatarRigOptions
   const bones: PoseBones = boneByName;
   const skeleton = new Skeleton(BONE_NAMES.map((n) => boneByName[n]));
 
-  const bodyMaterial = new MeshLambertMaterial({ vertexColors: true });
-  const hairMaterial = new MeshLambertMaterial({ vertexColors: true, side: DoubleSide });
+  const pattern = createPatternUniforms();
+  const bodyMaterial = createAvatarBodyMaterial(pattern);
+  const hairMaterial = createAvatarHairMaterial();
   const shadowMaterial = new GlowDecalMaterial({
     vertexIntensity: true,
     color: BLOB_SHADOW.hex,
@@ -158,14 +192,42 @@ export function createAvatarRig(initial: AvatarConfig, options: AvatarRigOptions
   let shadowMesh: Mesh | null = null;
   let opacity = 1;
   let hipRestY = 0;
+  /** Gender and face shape together: what a morph blends. */
+  interface MorphShape {
+    gender: GenderShape;
+    face: FaceShapeParams;
+  }
   /** Preview morph state. Null for the visit and whenever no morph is running. */
-  let morph: { from: GenderShape; to: GenderShape; target: AvatarGender; t: number } | null = null;
+  let morph: {
+    from: MorphShape;
+    to: MorphShape;
+    target: { gender: AvatarGender; faceShape: AvatarFaceShape };
+    t: number;
+  } | null = null;
 
-  /** The gender shape on screen: the table entry, or the blend while a morph is running. */
-  const blendOrCurrent = (): GenderShape =>
-    morph ? blendGender(morph.from, morph.to, morph.t) : GENDER_SHAPES[avatarGender(config)];
-  const currentShape = (): AvatarShape =>
-    composeShape(BODY_SHAPES[config.bodyType], blendOrCurrent());
+  /** The shape on screen: the table entries, or the blend while a morph is running. */
+  const blendOrCurrent = (): MorphShape =>
+    morph
+      ? {
+          gender: blendGender(morph.from.gender, morph.to.gender, morph.t),
+          face: blendFace(morph.from.face, morph.to.face, morph.t),
+        }
+      : {
+          gender: GENDER_SHAPES[avatarGender(config)],
+          face: FACE_SHAPES[avatarFaceShape(config)],
+        };
+  const currentShape = (): AvatarShape => {
+    const m = blendOrCurrent();
+    return composeShape(BODY_SHAPES[config.bodyType], m.gender, m.face);
+  };
+
+  /** Pattern index and ink for the current config (a uniform write, no rebuild). */
+  const applyPattern = () => {
+    pattern.uOutfitPattern.value = PATTERN_INDEX[avatarOutfitPattern(config)];
+    const ink = patternInk(outfitColour(config.outfitColor));
+    pattern.uInkTarget.value.copy(ink.target);
+    pattern.uInkAmount.value = ink.amount;
+  };
 
   const stats: AvatarRigStats = { triangles: 0, drawCalls: 0 };
 
@@ -299,6 +361,7 @@ export function createAvatarRig(initial: AvatarConfig, options: AvatarRigOptions
   rebuildHair();
   refreshScale();
   applyOpacity();
+  applyPattern();
   refreshStats();
 
   const rig: AvatarRig = {
@@ -318,10 +381,19 @@ export function createAvatarRig(initial: AvatarConfig, options: AvatarRigOptions
       const prev = config;
       config = { ...next };
       const genderChanged = avatarGender(prev) !== avatarGender(next);
-      if (morph && avatarGender(next) !== morph.target) morph = null;
-      const reshape = genderChanged || morph !== null;
+      const faceChanged = avatarFaceShape(prev) !== avatarFaceShape(next);
+      if (
+        morph &&
+        (avatarGender(next) !== morph.target.gender ||
+          avatarFaceShape(next) !== morph.target.faceShape)
+      ) {
+        morph = null;
+      }
+      const reshape = genderChanged || faceChanged || morph !== null;
       const bodyChanged =
         reshape ||
+        // The hairline darkens the skin under it, so the body follows the hair style.
+        prev.hairStyle !== next.hairStyle ||
         prev.skinTone !== next.skinTone ||
         prev.outfitStyle !== next.outfitStyle ||
         prev.outfitColor !== next.outfitColor ||
@@ -340,13 +412,42 @@ export function createAvatarRig(initial: AvatarConfig, options: AvatarRigOptions
       }
       if (bodyChanged) rebuildBody();
       if (hairChanged) rebuildHair();
+      applyPattern();
       refreshScale();
       refreshStats();
     },
 
     beginGenderMorph(to, from) {
-      const start = from ? GENDER_SHAPES[from] : blendOrCurrent();
-      morph = { from: start, to: GENDER_SHAPES[to], target: to, t: 0 };
+      const now = blendOrCurrent();
+      const faceShape = morph ? morph.target.faceShape : avatarFaceShape(config);
+      morph = {
+        from: { gender: from ? GENDER_SHAPES[from] : now.gender, face: now.face },
+        to: { gender: GENDER_SHAPES[to], face: FACE_SHAPES[faceShape] },
+        target: { gender: to, faceShape },
+        t: 0,
+      };
+    },
+
+    beginFaceShapeMorph(to, from) {
+      const now = blendOrCurrent();
+      const gender = morph ? morph.target.gender : avatarGender(config);
+      morph = {
+        from: { gender: now.gender, face: from ? FACE_SHAPES[from] : now.face },
+        to: { gender: GENDER_SHAPES[gender], face: FACE_SHAPES[to] },
+        target: { gender, faceShape: to },
+        t: 0,
+      };
+    },
+
+    setMorphProgress(t) {
+      return rig.setGenderMorphProgress(t);
+    },
+
+    get patternMix() {
+      return pattern.uPatternMix.value;
+    },
+    set patternMix(value) {
+      pattern.uPatternMix.value = Math.min(1, Math.max(0, value));
     },
 
     setGenderMorphProgress(t) {
@@ -354,7 +455,7 @@ export function createAvatarRig(initial: AvatarConfig, options: AvatarRigOptions
       morph.t = Math.min(1, Math.max(0, t));
       if (morph.t >= 1) {
         // Finish on the exact table values, so the end state equals a plain setAppearance.
-        config = { ...config, gender: morph.target };
+        config = { ...config, gender: morph.target.gender, faceShape: morph.target.faceShape };
         morph = null;
       }
       root.scale.setScalar(1);
@@ -371,11 +472,11 @@ export function createAvatarRig(initial: AvatarConfig, options: AvatarRigOptions
     },
 
     applyPose(pose) {
-      applyPose(bones, hipRestY, pose);
+      applyPose(bones, hipRestY, pose, legScaleFor(config.outfitStyle));
     },
 
     resetPose() {
-      applyPose(bones, hipRestY, NEUTRAL_POSE);
+      applyPose(bones, hipRestY, NEUTRAL_POSE, legScaleFor(config.outfitStyle));
     },
 
     setOpacity(value) {

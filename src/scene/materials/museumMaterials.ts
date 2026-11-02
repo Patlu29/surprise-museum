@@ -11,6 +11,7 @@
 import {
   Color,
   DoubleSide,
+  FrontSide,
   MeshBasicMaterial,
   MeshLambertMaterial,
   MeshStandardMaterial,
@@ -22,6 +23,7 @@ import { DustMotesMaterial } from '../shaders/dustMotes/DustMotesMaterial';
 import { GlowDecalMaterial } from '../shaders/glowDecal/GlowDecalMaterial';
 import { LightConeMaterial } from '../shaders/lightCone/LightConeMaterial';
 import { applyVertexGlow, type GlowHandle } from './glowMaterial';
+import { LOOK } from './look';
 import { BLOB_SHADOW, SCENE_PALETTE } from './palette';
 import {
   createFinaleFloorTexture,
@@ -54,6 +56,20 @@ export interface MuseumMaterials {
   readonly decor: LitMaterial & GlowHandle;
   /** Own instance of the decor material for the podium, so its ring glow animates alone. */
   readonly podium: LitMaterial & GlowHandle;
+  /**
+   * Vertex-coloured, vertex-glow material for what hangs under the ceiling: the roses, the oculus
+   * ring and the ceiling strips. Drive its opacity with `setCeilingDressingOpacity(o)` from the same
+   * `ceilingOpacity` as the ceiling (design spec 6.3): roses and strips fade with the ceiling.
+   */
+  readonly ceilingDressing: LitMaterial & GlowHandle;
+  /** Sets the dressing's opacity (0 to 1). Below about 0.02 it is hidden, like the ceiling. */
+  setCeilingDressingOpacity(opacity: number): void;
+  /**
+   * Normal-blended soft contact shadow under frames and plinths (`--look-contact-shadow`), or null on
+   * Low (design spec 12.8.5). Use with `createFrameContactShadowGeometry` and
+   * `createPlinthContactShadowGeometry`.
+   */
+  readonly contactShadow: GlowDecalMaterial | null;
   /** Additive soft wall wash around each frame (brightest at the top). */
   readonly wallWash: GlowDecalMaterial;
   /** Additive soft standing-spot floor pool. */
@@ -140,12 +156,27 @@ export function createMuseumMaterials(quality: GraphicsQuality = 'high'): Museum
     new GlowDecalMaterial({
       vertexIntensity: true,
       color: SCENE_PALETTE.pool,
-      opacity: 0.17,
+      opacity: LOOK.washAlpha,
       power: 1.5,
       square: 0.45,
       topBias: 0.7,
     }),
   );
+  const contactShadow = features.contactShadows
+    ? own(
+        new GlowDecalMaterial({
+          vertexIntensity: true,
+          color: LOOK.contactShadow.hex,
+          opacity: LOOK.contactShadow.alpha,
+          power: 1.4,
+          square: 0.6,
+          blend: 'normal',
+          polygonOffsetFactor: -1,
+        }),
+      )
+    : null;
+  const ceilingDressing = own(applyVertexGlow(lit({ vertexColors: true, roughness: 0.55 }), 1));
+  ceilingDressing.side = FrontSide;
   const floorPool = own(
     new GlowDecalMaterial({
       vertexIntensity: true,
@@ -210,6 +241,15 @@ export function createMuseumMaterials(quality: GraphicsQuality = 'high'): Museum
   return {
     quality,
     features,
+    ceilingDressing,
+    setCeilingDressingOpacity(opacity) {
+      const o = Math.min(1, Math.max(0, opacity));
+      ceilingDressing.opacity = o;
+      ceilingDressing.transparent = o < 0.999;
+      ceilingDressing.depthWrite = o >= 0.999;
+      ceilingDressing.visible = o > 0.02;
+    },
+    contactShadow,
     wall,
     floor,
     finaleFloor,

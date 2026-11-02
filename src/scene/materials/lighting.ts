@@ -10,6 +10,7 @@
  * the ten skin tones and the cream mounts. Photos opt out of tone mapping entirely.
  */
 import { NeutralToneMapping, type ToneMapping, type WebGLRenderer } from 'three';
+import { LOOK } from './look';
 import { SCENE_PALETTE } from './palette';
 
 export const COLOUR_TEMPERATURE_KELVIN = 3000;
@@ -34,11 +35,12 @@ export const MUSEUM_LIGHTING: LightingConfig = {
   hemisphere: {
     sky: SCENE_PALETTE.lightSky,
     ground: SCENE_PALETTE.lightGround,
-    intensity: 2.7,
+    // CR-4 (design spec 12.8.3): 2.7 to 2.5, so the washes and the darker ceiling carry the contrast.
+    intensity: 2.5,
   },
   key: {
     colour: SCENE_PALETTE.lightWarm,
-    intensity: 1.2,
+    intensity: 1.15,
     position: [3, 4.5, 4],
   },
   environmentIntensity: 0.3,
@@ -56,8 +58,16 @@ export const PREVIEW_LIGHTING: LightingConfig = {
   environmentIntensity: 0,
 };
 
-/** Preview backdrop: the paper token `--color-surface-sunken`, a soft cream. */
+/** Preview backdrop: the paper token `--color-surface-sunken`, a soft cream. The flat fallback. */
 export const PREVIEW_BACKGROUND = '#efe5d6';
+
+/**
+ * Builder preview stage (design spec 12.8.4): a CSS radial gradient behind a transparent canvas.
+ * Put `PREVIEW_STAGE_CSS` on the canvas wrapper and render with `alpha: true`. If a transparent
+ * canvas is not practical, keep the flat `PREVIEW_BACKGROUND`. The edge band is lighting
+ * independent, so the preview shows what the visit shows.
+ */
+export const PREVIEW_STAGE_CSS = `radial-gradient(70% 70% at 50% 40%, ${LOOK.stageCentre}, ${LOOK.stageEdge})`;
 
 /** Applies tone mapping and exposure. Call once from the Canvas `onCreated`. */
 export function applyRendererSettings(

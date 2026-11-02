@@ -7,10 +7,11 @@
  * volume, and optional tails or curtains skinned to the `hairBack` bone so they can swing.
  * Hair colour also colours the brows and facial hair.
  */
-import type { Color } from 'three';
+import type { Color, BufferAttribute } from 'three';
 import { type BufferGeometry } from 'three';
 import type { AvatarConfig } from '@contract';
-import { browColour, hex, mixColour, shade } from '../colour';
+import { browColour, facialHairColour, hex, mixColour, shade } from '../colour';
+import { LOOK } from '../../../materials/look';
 import { PartBuilder, type BoneName } from '../geometry/partBuilder';
 import { ellipsoid, hairline, loft, shell, tube, type Ring } from '../geometry/surface';
 import { HAIR_COLORS, SKIN_TONES } from '../palette';
@@ -23,6 +24,56 @@ export type FacialHair = AvatarConfig['facialHair'];
 const [HX, HY, HZ] = headCentre();
 const C: readonly [number, number, number] = [HX, HY, HZ];
 const R: readonly [number, number, number] = [HEAD.rx, HEAD.ry, HEAD.rz];
+
+/**
+ * Hairlines (latitude in radians at the forehead, above the ears and at the nape) per style. The
+ * hair builders read them, and the body builder uses them to darken the skin just under the
+ * hairline (design spec 12.8.2 B), so the two always agree.
+ */
+export const HAIRLINES: Readonly<Record<HairStyle, readonly [number, number, number]>> = {
+  shaved: [0.62, 0.28, -0.25],
+  buzz: [0.6, 0.26, -0.28],
+  'short-crop': [0.5, 0.3, -0.22],
+  'side-part': [0.45, 0.2, -0.32],
+  'curly-short': [0.5, 0.12, -0.35],
+  bob: [0.5, -0.1, -0.7],
+  'long-straight': [0.5, -0.05, -0.8],
+  'long-wavy': [0.5, -0.05, -0.8],
+  ponytail: [0.5, 0.2, -0.3],
+  bun: [0.5, 0.2, -0.3],
+  afro: [0.2, -0.1, -0.55],
+  braids: [0.5, 0.05, -0.5],
+};
+
+const smoothstep = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+/**
+ * Region separation inside the hair (design spec 12.8.2 B): the crown is 10% lighter (clamped), the
+ * under-surface and the nape 15% darker, so the hair reads as a shape with volume. Vertex colours
+ * only; `geometry` is changed in place and returned.
+ */
+function shadeHair(geometry: BufferGeometry): BufferGeometry {
+  const pos = geometry.getAttribute('position');
+  const nrm = geometry.getAttribute('normal');
+  const col = geometry.getAttribute('color') as BufferAttribute;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    const crown = smoothstep(HY + 0.05, HY + 0.16, y);
+    const down = smoothstep(0.1, -0.5, nrm.getY(i));
+    const nape = smoothstep(HY + 0.02, HY - 0.1, y) * (pos.getZ(i) < 0 ? 1 : 0.5);
+    const k = (1 + 0.1 * crown) * (1 - 0.15 * Math.max(down, nape));
+    col.setXYZ(
+      i,
+      Math.min(1, col.getX(i) * k),
+      Math.min(1, col.getY(i) * k),
+      Math.min(1, col.getZ(i) * k),
+    );
+  }
+  return geometry;
+}
 
 interface Ctx {
   b: PartBuilder;
@@ -39,15 +90,17 @@ function cap(
   options: { colour?: Color; segments?: number; rows?: number } = {},
 ): void {
   ctx.b.add(
-    shell({
-      centre: C,
-      radii: R,
-      thickness,
-      lower: hairline(front, side, back),
-      segments: options.segments ?? 20,
-      rows: options.rows ?? 5,
-      colour: options.colour ?? ctx.hair,
-    }),
+    shadeHair(
+      shell({
+        centre: C,
+        radii: R,
+        thickness,
+        lower: hairline(front, side, back),
+        segments: options.segments ?? 20,
+        rows: options.rows ?? 5,
+        colour: options.colour ?? ctx.hair,
+      }),
+    ),
     'head',
   );
 }
@@ -65,12 +118,14 @@ function blob(
   } = {},
 ): void {
   ctx.b.add(
-    ellipsoid(centre, radii, {
-      colour: options.colour ?? ctx.hair,
-      rotation: options.rotation,
-      segments: options.segments ?? 10,
-      rows: options.rows ?? 6,
-    }),
+    shadeHair(
+      ellipsoid(centre, radii, {
+        colour: options.colour ?? ctx.hair,
+        rotation: options.rotation,
+        segments: options.segments ?? 10,
+        rows: options.rows ?? 6,
+      }),
+    ),
     bone,
   );
 }
@@ -82,21 +137,21 @@ function curtain(ctx: Ctx, rings: readonly Ring[], half: number, segments = 16):
     // The arc is centred on the back of the head (theta = PI).
     { segments, arc: [Math.PI - half, Math.PI + half] },
   );
-  ctx.b.add(geometry, 'hairBack');
+  ctx.b.add(shadeHair(geometry), 'hairBack');
 }
 
 const HAIR_BUILDERS: Record<HairStyle, (ctx: Ctx) => void> = {
   shaved(ctx) {
     // A faint scalp shadow so the style reads as chosen, not missing.
-    cap(ctx, 0.002, 0.62, 0.28, -0.25, { colour: mixColour(ctx.skin, ctx.hair, 0.28) });
+    cap(ctx, 0.002, ...HAIRLINES.shaved, { colour: mixColour(ctx.skin, ctx.hair, 0.28) });
   },
 
   buzz(ctx) {
-    cap(ctx, 0.006, 0.6, 0.26, -0.28);
+    cap(ctx, 0.006, ...HAIRLINES.buzz);
   },
 
   'short-crop'(ctx) {
-    cap(ctx, 0.02, 0.5, 0.3, -0.22);
+    cap(ctx, 0.02, ...HAIRLINES['short-crop']);
     blob(ctx, 'head', [HX, HY + 0.135, HZ + 0.015], [0.115, 0.065, 0.125]);
     blob(ctx, 'head', [HX, HY + 0.095, HZ + 0.125], [0.105, 0.035, 0.045], {
       rotation: [0.25, 0, 0],
@@ -104,7 +159,7 @@ const HAIR_BUILDERS: Record<HairStyle, (ctx: Ctx) => void> = {
   },
 
   'side-part'(ctx) {
-    cap(ctx, 0.025, 0.45, 0.2, -0.32);
+    cap(ctx, 0.025, ...HAIRLINES['side-part']);
     blob(ctx, 'head', [HX + 0.035, HY + 0.13, HZ + 0.025], [0.12, 0.068, 0.13], {
       rotation: [0, 0, -0.12],
     });
@@ -114,7 +169,7 @@ const HAIR_BUILDERS: Record<HairStyle, (ctx: Ctx) => void> = {
   },
 
   'curly-short'(ctx) {
-    cap(ctx, 0.012, 0.5, 0.12, -0.35);
+    cap(ctx, 0.012, ...HAIRLINES['curly-short']);
     // Curls on a golden spiral over the crown, plus a ring round the back and sides.
     const golden = Math.PI * (3 - Math.sqrt(5));
     const crown = 14;
@@ -153,7 +208,7 @@ const HAIR_BUILDERS: Record<HairStyle, (ctx: Ctx) => void> = {
   },
 
   bob(ctx) {
-    cap(ctx, 0.03, 0.5, -0.1, -0.7);
+    cap(ctx, 0.03, ...HAIRLINES.bob);
     curtain(
       ctx,
       [
@@ -168,7 +223,7 @@ const HAIR_BUILDERS: Record<HairStyle, (ctx: Ctx) => void> = {
   },
 
   'long-straight'(ctx) {
-    cap(ctx, 0.03, 0.5, -0.05, -0.8);
+    cap(ctx, 0.03, ...HAIRLINES['long-straight']);
     curtain(
       ctx,
       [
@@ -184,7 +239,7 @@ const HAIR_BUILDERS: Record<HairStyle, (ctx: Ctx) => void> = {
   },
 
   'long-wavy'(ctx) {
-    cap(ctx, 0.035, 0.5, -0.05, -0.8);
+    cap(ctx, 0.035, ...HAIRLINES['long-wavy']);
     const wave = (i: number) => 0.016 * Math.sin(i * 2.1);
     curtain(
       ctx,
@@ -203,31 +258,33 @@ const HAIR_BUILDERS: Record<HairStyle, (ctx: Ctx) => void> = {
   },
 
   ponytail(ctx) {
-    cap(ctx, 0.025, 0.5, 0.2, -0.3);
+    cap(ctx, 0.025, ...HAIRLINES.ponytail);
     blob(ctx, 'head', [HX, HY + 0.11, HZ - 0.07], [0.1, 0.07, 0.1]);
     // Hair tie, then a tapering tail that hangs and swings.
     blob(ctx, 'hairBack', [0, HY + 0.07, -0.158], [0.042, 0.03, 0.036], {
       colour: shade(ctx.hair, 0.62),
     });
     ctx.b.add(
-      tube({
-        from: [0, HY + 0.06, -0.165],
-        to: [0, HY - 0.33, -0.21],
-        radiusFrom: 0.052,
-        radiusTo: 0.026,
-        depthScale: 0.7,
-        bands: [{ until: 1, colour: ctx.hair }],
-        capFrom: true,
-        capTo: true,
-        segments: 10,
-        bulge: 0.25,
-      }),
+      shadeHair(
+        tube({
+          from: [0, HY + 0.06, -0.165],
+          to: [0, HY - 0.33, -0.21],
+          radiusFrom: 0.052,
+          radiusTo: 0.026,
+          depthScale: 0.7,
+          bands: [{ until: 1, colour: ctx.hair }],
+          capFrom: true,
+          capTo: true,
+          segments: 10,
+          bulge: 0.25,
+        }),
+      ),
       'hairBack',
     );
   },
 
   bun(ctx) {
-    cap(ctx, 0.025, 0.5, 0.2, -0.3);
+    cap(ctx, 0.025, ...HAIRLINES.bun);
     blob(ctx, 'head', [HX, HY + 0.15, HZ - 0.075], [0.075, 0.07, 0.075], { segments: 12, rows: 7 });
     blob(ctx, 'head', [HX, HY + 0.1, HZ - 0.05], [0.062, 0.02, 0.062], {
       colour: shade(ctx.hair, 0.62),
@@ -239,21 +296,23 @@ const HAIR_BUILDERS: Record<HairStyle, (ctx: Ctx) => void> = {
     // instead of floating in front of it.
     const smooth = (t: number) => t * t * (3 - 2 * t);
     ctx.b.add(
-      shell({
-        centre: [HX, HY + 0.035, HZ - 0.035],
-        radii: R,
-        thickness: (t) => 0.014 + 0.11 * smooth(Math.min(1, t * 1.7)),
-        lower: hairline(0.2, -0.1, -0.55),
-        segments: 28,
-        rows: 8,
-        colour: ctx.hair,
-      }),
+      shadeHair(
+        shell({
+          centre: [HX, HY + 0.035, HZ - 0.035],
+          radii: R,
+          thickness: (t) => 0.014 + 0.11 * smooth(Math.min(1, t * 1.7)),
+          lower: hairline(...HAIRLINES.afro),
+          segments: 28,
+          rows: 8,
+          colour: ctx.hair,
+        }),
+      ),
       'head',
     );
   },
 
   braids(ctx) {
-    cap(ctx, 0.025, 0.5, 0.05, -0.5);
+    cap(ctx, 0.025, ...HAIRLINES.braids);
     for (const side of [-1, 1]) {
       const x = side * 0.085;
       const links = 7;
@@ -273,24 +332,38 @@ const HAIR_BUILDERS: Record<HairStyle, (ctx: Ctx) => void> = {
   },
 };
 
-/** Thin brows in the hair colour, moved only as needed to keep a minimum contrast with the skin. */
+/** Outward lift of each brow, radians (design spec 12.8.2 C). */
+const BROW_LIFT_RAD = 0.12;
+
+/**
+ * Brows in the hair colour, moved only as needed to keep a 3:1 contrast with the skin (lightened
+ * toward a warm tan on deep skin). Half-height is times `--look-brow-thickness`, on top of the
+ * gender multiplier: Neutral is about 19 mm tall.
+ */
 function addBrows(ctx: Ctx, thickness: number): void {
   const colour = browColour(ctx.hair, ctx.skin);
   for (const s of [-1, 1]) {
     ctx.b.add(
-      featureOnHead(s * 0.38, 0.28, [0.028, 0.0065 * thickness, 0.007], colour, {
-        lift: 0.0005,
-        roll: s * 0.14,
-      }),
+      featureOnHead(
+        s * 0.38,
+        0.28,
+        [0.028, 0.0065 * LOOK.browThickness * thickness, 0.007],
+        colour,
+        { lift: 0.0005, roll: s * BROW_LIFT_RAD },
+      ),
       'head',
+      undefined,
+      undefined,
+      -1, // no silhouette edge on the brows
     );
   }
 }
 
 function moustache(ctx: Ctx, lift: number): void {
+  const colour = facialHairColour(ctx.hair, ctx.skin);
   for (const s of [-1, 1]) {
     ctx.b.add(
-      featureOnHead(s * 0.17, -0.285, [0.032, 0.0115, 0.012], ctx.hair, { lift, roll: s * -0.22 }),
+      featureOnHead(s * 0.17, -0.285, [0.032, 0.0115, 0.012], colour, { lift, roll: s * -0.22 }),
       'head',
     );
   }
@@ -333,7 +406,7 @@ const FACIAL_HAIR_BUILDERS: Record<FacialHair, ((ctx: Ctx) => void) | null> = {
         arc: [-0.5, 0.5],
         segments: 10,
         rows: 4,
-        colour: ctx.hair,
+        colour: facialHairColour(ctx.hair, ctx.skin),
       }),
       'head',
     );
@@ -350,7 +423,7 @@ const FACIAL_HAIR_BUILDERS: Record<FacialHair, ((ctx: Ctx) => void) | null> = {
         arc: [-1.35, 1.35],
         segments: 18,
         rows: 5,
-        colour: ctx.hair,
+        colour: facialHairColour(ctx.hair, ctx.skin),
       }),
       'head',
     );
@@ -363,7 +436,7 @@ export function buildHairGeometry(
   shape: AvatarShape = shapeFor(config),
 ): BufferGeometry | null {
   const ctx: Ctx = {
-    b: new PartBuilder(shape),
+    b: new PartBuilder(shape, { masked: true }),
     hair: hex(HAIR_COLORS[config.hairColor]),
     skin: hex(SKIN_TONES[config.skinTone]),
   };

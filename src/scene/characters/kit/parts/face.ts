@@ -13,8 +13,9 @@ import {
   type BufferGeometry,
 } from 'three';
 import { luminance, mixColour, shade, hex } from '../colour';
-import { AVATAR_FIXED, SKIN_BLUSH } from '../palette';
-import { ellipsoid } from '../geometry/surface';
+import { LOOK } from '../../../materials/look';
+import { AVATAR_FIXED, SKIN_BLUSH, SKIN_BLUSH_DEEP } from '../palette';
+import { ellipsoid, gridSurface } from '../geometry/surface';
 import { HEAD, headCentre } from '../proportions';
 
 export interface SurfacePose {
@@ -66,6 +67,8 @@ export function featureOnHead(
 
 export interface FaceParts {
   eyes: BufferGeometry[];
+  /** One tiny highlight on the upper outer part of each eye (design spec 12.8.2 C). */
+  catchlights: BufferGeometry[];
   /** Pale eye whites, only on deep skin tones where a dark eye would otherwise vanish. */
   sclera: BufferGeometry[];
   nose: BufferGeometry;
@@ -89,32 +92,95 @@ export function mouthLiftFor(facialHair: string): number {
   return 0.0025;
 }
 
+/** Skin luminance below which the face uses eye whites and the deep blush (skin-08 to skin-10). */
+export const DEEP_SKIN_LUMINANCE = 0.1;
+
+/** Catchlight radius (about 4 mm) and segments: a 6-segment, 3-ring disc is 18 triangles. */
+const CATCHLIGHT_RADIUS = 0.004;
+const EYE_THETA = 0.37;
+const EYE_PHI = 0.04;
+const EYE_RADII = [0.0145, 0.021, 0.008] as const;
+
+/** A flat 6-segment disc with a slightly raised centre, facing +Z, 18 triangles. */
+function catchlightDisc(colour: Color): BufferGeometry {
+  const g = gridSurface(
+    3,
+    6,
+    (k, j) => {
+      if (k === 0) return [0, 0, 0.0012];
+      const r = CATCHLIGHT_RADIUS * (k === 1 ? 0.55 : 1);
+      const a = (j / 6) * Math.PI * 2;
+      return [r * Math.sin(a), r * Math.cos(a), k === 1 ? 0.0007 : 0];
+    },
+    () => colour,
+    { closed: true, poleBottom: true },
+  );
+  return g;
+}
+
 export function buildFace(skin: Color, mouthLift = 0.0025, eyeSize = 1): FaceParts {
   const eye = hex(AVATAR_FIXED.eye);
-  const blush = mixColour(skin, hex(SKIN_BLUSH.hex), SKIN_BLUSH.alpha);
+  const deep = luminance(skin) < DEEP_SKIN_LUMINANCE;
+  // Terracotta, not purple-pink, on deep skin (design spec 12.8.2 C).
+  const blushToken = deep ? SKIN_BLUSH_DEEP : SKIN_BLUSH;
+  const blush = mixColour(skin, hex(blushToken.hex), blushToken.alpha);
 
-  const deep = luminance(skin) < 0.1;
+  // Bigger eyes: radii times --look-eye-scale on top of the gender multiplier.
+  const size = eyeSize * LOOK.eyeScale;
+  const eyeLift = deep ? 0.0012 : -0.002;
   const eyes = [-1, 1].map((s) =>
-    featureOnHead(s * 0.37, 0.04, [0.0145 * eyeSize, 0.021 * eyeSize, 0.008], eye, {
-      lift: deep ? 0.0012 : -0.002,
-    }),
+    featureOnHead(
+      s * EYE_THETA,
+      EYE_PHI,
+      [EYE_RADII[0] * size, EYE_RADII[1] * size, EYE_RADII[2]],
+      eye,
+      { lift: eyeLift },
+    ),
   );
   const sclera = deep
     ? [-1, 1].map((s) =>
-        featureOnHead(s * 0.37, 0.04, [0.0215 * eyeSize, 0.028 * eyeSize, 0.007], hex('#efe6dc'), {
-          lift: -0.0015,
-        }),
+        featureOnHead(
+          s * EYE_THETA,
+          EYE_PHI,
+          [0.0215 * size, 0.028 * size, 0.007],
+          hex('#efe6dc'),
+          {
+            lift: -0.0015,
+          },
+        ),
       )
     : [];
+
+  // Catchlights sit on the front of each eye, up and outwards from its centre.
+  const light = hex(LOOK.catchlight);
+  const offX = EYE_RADII[0] * size * 0.32;
+  const offY = EYE_RADII[1] * size * 0.38;
+  const front =
+    eyeLift +
+    EYE_RADII[2] *
+      Math.sqrt(
+        Math.max(0, 1 - (offX / (EYE_RADII[0] * size)) ** 2 - (offY / (EYE_RADII[1] * size)) ** 2),
+      ) +
+    0.0004;
+  const catchlights = [-1, 1].map((s) => {
+    const pose = headSurface(
+      s * (EYE_THETA + offX / (HEAD.rx * Math.cos(EYE_PHI))),
+      EYE_PHI + offY / HEAD.ry,
+      front,
+    );
+    const g = catchlightDisc(light);
+    g.applyMatrix4(new Matrix4().compose(pose.position, pose.quaternion, new Vector3(1, 1, 1)));
+    return g;
+  });
   const nose = featureOnHead(0, -0.13, [0.013, 0.012, 0.014], shade(skin, 0.92), { lift: 0.001 });
   const blushes = [-1, 1].map((s) =>
     featureOnHead(s * 0.66, -0.2, [0.03, 0.02, 0.006], blush, { lift: 0.0005, roll: s * 0.2 }),
   );
 
   // Smile: the lower arc of a thin torus, centred on the face.
-  const arc = Math.PI * 0.68;
+  const arc = Math.PI * 0.7;
   const radius = 0.03;
-  const torus = new TorusGeometry(radius, 0.0045, 5, 10, arc);
+  const torus = new TorusGeometry(radius, 0.0045 * LOOK.mouthThickness, 5, 10, arc);
   torus.rotateZ(-Math.PI / 2 - arc / 2);
   torus.translate(0, radius * 0.78, 0);
   const pose = headSurface(0, MOUTH_PHI, mouthLift);
@@ -138,5 +204,5 @@ export function buildFace(skin: Color, mouthLift = 0.0025, eyeSize = 1): FacePar
     });
   });
 
-  return { eyes, sclera, nose, blush: blushes, mouth: torus, ears };
+  return { eyes, catchlights, sclera, nose, blush: blushes, mouth: torus, ears };
 }

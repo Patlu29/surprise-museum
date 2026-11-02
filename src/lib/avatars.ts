@@ -63,17 +63,10 @@ export const AVATAR_LABELS = {
 /**
  * Outfit styles that are valid in the contract (ADR 0021) but not yet built by the avatar kit,
  * which renders them as the jumpsuit until their garments land. The builder does not offer them
- * until then. The frontend-developer empties this set when the technical-artist's garments land.
- * Stored and restored values are still accepted: this only hides the tiles.
+ * until then. Empty since 02/11/2026: the technical-artist built all six (sweater, overalls, coat,
+ * tracksuit, cardigan, tunic). Stored and restored values were always accepted: this only hides tiles.
  */
-const OUTFIT_STYLES_PENDING_KIT: ReadonlySet<string> = new Set([
-  'sweater',
-  'overalls',
-  'coat',
-  'tracksuit',
-  'cardigan',
-  'tunic',
-]);
+const OUTFIT_STYLES_PENDING_KIT: ReadonlySet<string> = new Set<string>();
 
 /** Option ids offered by the builder for each option, in display order. */
 export function optionIds<K extends AvatarOptionKey>(key: K): ReadonlyArray<AvatarConfig[K]> {

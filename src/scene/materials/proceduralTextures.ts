@@ -106,8 +106,6 @@ export function createWoodTexture(options: WoodTextureOptions): DataTexture {
 
   // Joint positions: each column has two boards per tile, offset so seams never line up.
   const joint = Array.from({ length: boards }, (_, c) => hash2(c, 11, seed));
-  const tileAlongMetres = 1.6;
-  const jointHalfWidth = 0.006 / tileAlongMetres;
 
   for (let py = 0; py < height; py++) {
     const v = py / height;
@@ -123,7 +121,8 @@ export function createWoodTexture(options: WoodTextureOptions): DataTexture {
       const boardId = column * 2 + segment;
       const nearestJoint = Math.min(rel, Math.abs(rel - 0.5), 1 - rel);
 
-      const tint = 1 + (hash2(boardId, 3, seed) - 0.5) * 0.16 * contrast;
+      // Plank-to-plank tone variation of plus or minus 4% (design spec 12.8.3; was 8%).
+      const tint = 1 + (hash2(boardId, 3, seed) - 0.5) * 0.08 * contrast;
       const phase = hash2(boardId, 5, seed) * 9;
 
       // Grain: warped contour lines along the board plus fine streaks.
@@ -136,15 +135,17 @@ export function createWoodTexture(options: WoodTextureOptions): DataTexture {
       let g = mix(bg, gg, grainAmount) * tint;
       let b = mix(bb, gb, grainAmount) * tint;
 
-      // Dark gaps between boards and at end joints.
-      const edge = Math.min(xLocal, 1 - xLocal) * (0.2 / 0.4); // metres to the board edge, ~0.2 m wide boards
-      const gap = edge < 0.004 ? 0.55 : edge < 0.008 ? 0.82 : 1;
-      const jointGap =
-        nearestJoint < jointHalfWidth ? 0.6 : nearestJoint < jointHalfWidth * 2 ? 0.85 : 1;
-      const shade = Math.min(gap, jointGap);
-      r *= shade;
-      g *= shade;
-      b *= shade;
+      // Plank seams every 0.2 m, one pixel wide, in the grain colour (design spec 12.8.3), and a
+      // softer second pixel so the seam survives mip levels. Same at the end joints.
+      const edgePx = Math.min(xLocal, 1 - xLocal) * (width / boards); // pixels to the board edge
+      const jointPx = nearestJoint * height; // pixels to the nearest end joint
+      const seam = Math.max(
+        edgePx < 1 ? 0.9 : edgePx < 2 ? 0.3 : 0,
+        jointPx < 1 ? 0.8 : jointPx < 2 ? 0.25 : 0,
+      );
+      r = mix(r, gr * 0.9, seam);
+      g = mix(g, gg * 0.9, seam);
+      b = mix(b, gb * 0.9, seam);
 
       const o = (py * width + px) * 4;
       data[o] = Math.min(255, Math.round(r));

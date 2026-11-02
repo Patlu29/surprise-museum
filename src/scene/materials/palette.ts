@@ -20,7 +20,7 @@ export const SCENE_PALETTE = {
   floor: '#b88a5f',
   floorGrain: '#8f6643',
   /** Dark, so each room feels lit by its pictures. */
-  ceiling: '#3b2c33',
+  ceiling: '#30232b',
   /** Claret carpet runner. */
   runner: '#7a2e43',
   runnerEdge: '#c9a15b',
@@ -35,7 +35,7 @@ export const SCENE_PALETTE = {
   /** Key light colour, about 3000 K. */
   lightWarm: '#ffe9c9',
   lightSky: '#fff2de',
-  lightGround: '#7a5844',
+  lightGround: '#6a4a3c',
   /** Floor and wall light pools (additive, low alpha). */
   pool: '#ffd9a0',
   /** Deep claret. */

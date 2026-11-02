@@ -10,7 +10,12 @@ import { Group, Matrix4, SkinnedMesh, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { ringsAt, type Ring } from './geometry/surface';
 import { BONE_NAMES } from './geometry/partBuilder';
-import { hashGeometry, neutralSnapshot } from './neutralSnapshot.testutil';
+import {
+  KIT_TEST_TIMEOUT,
+  hashGeometry,
+  neutralSnapshot,
+  v1BodyWithoutHeadSnapshot,
+} from './neutralSnapshot.testutil';
 import { DEFAULT_GUIDE_APPEARANCE } from './options';
 import { buildBodyGeometry, type AvatarRole } from './parts/body';
 import { buildHairGeometry } from './parts/hair';
@@ -28,7 +33,12 @@ import {
 } from './proportions';
 import { createAvatarRig } from './rig';
 
+/** NFR-27: the per-character ceiling. CR-4 holds it at 6,000 (ADR 0021 7.3a: the provisional 6,500 lapses). */
 const TRIANGLE_BUDGET = 6000;
+/** Design spec 12.8: the CR-4 hard stop per character, catchlights included. */
+const CR4_HARD_STOP = 5950;
+/** The measured worst character (curly-short, full-beard, suit), filled in from the budget measurement. */
+const WORST_TOTAL = 5682;
 const DRAW_CALL_BUDGET = 10;
 const BONE = (name: (typeof BONE_NAMES)[number]) => BONE_NAMES.indexOf(name);
 
@@ -37,24 +47,44 @@ function cfg(patch: Partial<AvatarConfig>): AvatarConfig {
 }
 const tris = (g: BufferGeometry | null) => (g?.index ? g.index.count / 3 : 0);
 
-/** v1.0 fingerprints, taken from the kit before CR-1 (see neutralSnapshot.testutil.ts). */
-const V1_GOLDEN: Record<string, string> = {
-  'body:slim': '5af56628',
-  'body:regular': '1b2931b0',
-  'body:curvy': '85a3a108',
-  'body:broad': 'aa5bbd48',
-  'hair:shaved': 'bca885ed',
-  'hair:buzz': 'ce8f15d5',
-  'hair:short-crop': '1dfb0975',
-  'hair:side-part': '90989455',
-  'hair:curly-short': '739bd7cd',
-  'hair:bob': '157c6975',
-  'hair:long-straight': '744301d5',
-  'hair:long-wavy': '4f69de85',
-  'hair:ponytail': '962dca4d',
-  'hair:bun': 'a4598bad',
-  'hair:afro': '7fc70a6d',
-  'hair:braids': 'a766272d',
+/**
+ * v1.0 fingerprints of the vertices CR-4 did not touch, taken from the kit before CR-4 (the six
+ * v1.0 outfit styles): everything except the head and the arm, forearm and shin tubes (see
+ * `CR4_CHANGED_BONES`). The values were computed from the committed pre-CR-4 kit and from this
+ * kit and are equal. They prove the torso, pelvis, thighs, garments, extras, badge and neck did
+ * not move.
+ */
+const V1_NO_HEAD_GOLDEN: Record<string, string> = {
+  'body-no-head:slim': '2fc939bd',
+  'body-no-head:regular': '891a5aa1',
+  'body-no-head:curvy': '5e1112d',
+  'body-no-head:broad': '73730301',
+};
+
+/**
+ * CR-4 fingerprints (NFR-29), re-baselined once on 02/11/2026 for the deliberate face changes: bigger
+ * eyes, catchlights, thicker brows and mouth, the hairline shading, and arms and shins with 8 sides
+ * instead of 10 (so the screen-space edge finds a silhouette vertex). The new outfit-mask attribute
+ * is not hashed. The v1.0 values were body 5af56628 1b2931b0 85a3a108 aa5bbd48, and every hair hash
+ * changed (each hair mesh carries the brows). A Neutral, Oval, Plain character must keep matching.
+ */
+const CR4_GOLDEN: Record<string, string> = {
+  'body:slim': 'a3663f0e',
+  'body:regular': '3725789a',
+  'body:curvy': 'd1d8b486',
+  'body:broad': '1e040752',
+  'hair:shaved': 'b4f6d895',
+  'hair:buzz': '150654a5',
+  'hair:short-crop': 'c84d0e75',
+  'hair:side-part': 'baf7706d',
+  'hair:curly-short': '4fda284d',
+  'hair:bob': '9a57340d',
+  'hair:long-straight': '1f32fcf5',
+  'hair:long-wavy': '170ed1ad',
+  'hair:ponytail': '3a5b2a75',
+  'hair:bun': '6beefe5',
+  'hair:afro': 'fa17f155',
+  'hair:braids': '42464b65',
 };
 
 describe('Neutral is the v1.0 character', () => {
@@ -69,9 +99,37 @@ describe('Neutral is the v1.0 character', () => {
     }
   });
 
-  it('is vertex-identical to the v1.0 output with no gender and with neutral', () => {
-    expect(neutralSnapshot()).toEqual(V1_GOLDEN);
-    expect(neutralSnapshot('neutral')).toEqual(V1_GOLDEN);
+  it(
+    'is the CR-4 baseline with no gender and with neutral (re-baselined once for the face)',
+    () => {
+      expect(neutralSnapshot()).toEqual(CR4_GOLDEN);
+      expect(neutralSnapshot('neutral')).toEqual(CR4_GOLDEN);
+    },
+    KIT_TEST_TIMEOUT,
+  );
+
+  it(
+    'keeps every v1.0 vertex outside the head and the limb tubes bit for bit (the six v1.0 styles)',
+    () => {
+      expect(v1BodyWithoutHeadSnapshot()).toEqual(V1_NO_HEAD_GOLDEN);
+    },
+    KIT_TEST_TIMEOUT,
+  );
+
+  it('a character with no face shape and no pattern equals Oval and Plain', () => {
+    const bare = { ...DEFAULT_GUIDE_APPEARANCE } as Partial<AvatarConfig>;
+    delete bare.gender;
+    delete bare.faceShape;
+    delete bare.outfitPattern;
+    const explicit = cfg({ gender: 'neutral', faceShape: 'oval', outfitPattern: 'plain' });
+    for (const role of ['guide', 'visitor'] as const) {
+      expect(hashGeometry(buildBodyGeometry(bare as AvatarConfig, role))).toBe(
+        hashGeometry(buildBodyGeometry(explicit, role)),
+      );
+    }
+    expect(hashGeometry(buildHairGeometry(bare as AvatarConfig))).toBe(
+      hashGeometry(buildHairGeometry(explicit)),
+    );
   });
 
   it('treats an unknown stored gender as Neutral', () => {
@@ -238,118 +296,128 @@ describe('silhouette from behind (design spec 9.6)', () => {
   });
 });
 
-describe('budgets: every gender, body type, hair style, outfit, facial hair, skin and role', () => {
-  // Body and hair are separate meshes, so the character total is their sum and the worst
-  // character is the worst body plus the worst hair for the same skin, facial hair and gender.
-  // Checking the two lists exhaustively is therefore an exhaustive check of every character.
-  const skins = ['skin-01', 'skin-10'] as const;
-  const roles: AvatarRole[] = ['guide', 'visitor'];
-  const SHADOW = 2;
+describe(
+  'budgets: every gender, body type, hair style, outfit, facial hair, skin and role',
+  { timeout: KIT_TEST_TIMEOUT },
+  () => {
+    // Body and hair are separate meshes, so the character total is their sum and the worst
+    // character is the worst body plus the worst hair for the same skin, facial hair and gender.
+    // Checking the two lists exhaustively is therefore an exhaustive check of every character.
+    const skins = ['skin-01', 'skin-10'] as const;
+    const roles: AvatarRole[] = ['guide', 'visitor'];
+    const SHADOW = 2;
 
-  it('stays within 6,000 triangles and 10 draw calls, with identical counts across genders', () => {
-    let worst = 0;
-    let combos = 0;
-    for (const skinTone of skins) {
-      for (const facialHair of AVATAR_OPTIONS.facialHair) {
-        const worstBody = new Map<AvatarGender, number>();
-        const worstHair = new Map<AvatarGender, number>();
-        const bodyCounts = new Map<string, number>();
-        const hairCounts = new Map<string, number>();
-        for (const gender of ['neutral', 'feminine', 'masculine'] as const) {
-          let maxBody = 0;
-          let maxHair = 0;
-          for (const bodyType of AVATAR_OPTIONS.bodyType) {
-            for (const outfitStyle of AVATAR_OPTIONS.outfitStyle) {
-              for (const role of roles) {
-                const g = buildBodyGeometry(
-                  cfg({ gender, bodyType, outfitStyle, skinTone, facialHair }),
-                  role,
-                );
+    it(
+      'stays within 6,000 triangles and 10 draw calls, with identical counts across genders',
+      () => {
+        let worst = 0;
+        let combos = 0;
+        for (const skinTone of skins) {
+          for (const facialHair of AVATAR_OPTIONS.facialHair) {
+            const worstBody = new Map<AvatarGender, number>();
+            const worstHair = new Map<AvatarGender, number>();
+            const bodyCounts = new Map<string, number>();
+            const hairCounts = new Map<string, number>();
+            for (const gender of ['neutral', 'feminine', 'masculine'] as const) {
+              let maxBody = 0;
+              let maxHair = 0;
+              for (const bodyType of AVATAR_OPTIONS.bodyType) {
+                for (const outfitStyle of AVATAR_OPTIONS.outfitStyle) {
+                  for (const role of roles) {
+                    const g = buildBodyGeometry(
+                      cfg({ gender, bodyType, outfitStyle, skinTone, facialHair }),
+                      role,
+                    );
+                    const n = tris(g);
+                    g.dispose();
+                    maxBody = Math.max(maxBody, n);
+                    const key = `${bodyType}/${outfitStyle}/${role}`;
+                    if (gender === 'neutral') bodyCounts.set(key, n);
+                    else
+                      expect(n, `body ${gender} ${key} ${skinTone} ${facialHair}`).toBe(
+                        bodyCounts.get(key),
+                      );
+                    combos++;
+                  }
+                }
+              }
+              for (const hairStyle of AVATAR_OPTIONS.hairStyle) {
+                const g = buildHairGeometry(cfg({ gender, hairStyle, skinTone, facialHair }));
                 const n = tris(g);
-                g.dispose();
-                maxBody = Math.max(maxBody, n);
-                const key = `${bodyType}/${outfitStyle}/${role}`;
-                if (gender === 'neutral') bodyCounts.set(key, n);
+                g?.dispose();
+                maxHair = Math.max(maxHair, n);
+                if (gender === 'neutral') hairCounts.set(hairStyle, n);
                 else
-                  expect(n, `body ${gender} ${key} ${skinTone} ${facialHair}`).toBe(
-                    bodyCounts.get(key),
+                  expect(n, `hair ${gender} ${hairStyle} ${skinTone} ${facialHair}`).toBe(
+                    hairCounts.get(hairStyle),
                   );
                 combos++;
               }
+              worstBody.set(gender, maxBody);
+              worstHair.set(gender, maxHair);
+              worst = Math.max(worst, maxBody + maxHair + SHADOW);
             }
           }
-          for (const hairStyle of AVATAR_OPTIONS.hairStyle) {
-            const g = buildHairGeometry(cfg({ gender, hairStyle, skinTone, facialHair }));
-            const n = tris(g);
-            g?.dispose();
-            maxHair = Math.max(maxHair, n);
-            if (gender === 'neutral') hairCounts.set(hairStyle, n);
-            else
-              expect(n, `hair ${gender} ${hairStyle} ${skinTone} ${facialHair}`).toBe(
-                hairCounts.get(hairStyle),
-              );
-            combos++;
-          }
-          worstBody.set(gender, maxBody);
-          worstHair.set(gender, maxHair);
-          worst = Math.max(worst, maxBody + maxHair + SHADOW);
         }
-      }
-    }
-    expect(combos).toBeGreaterThan(1000);
-    expect(worst).toBeLessThanOrEqual(TRIANGLE_BUDGET);
-    // ADR 0020 measured 5,878 with the v1.0 kit. Gender adds nothing.
-    expect(worst).toBe(5878);
-  });
+        expect(combos).toBeGreaterThan(1000);
+        expect(worst).toBeLessThanOrEqual(TRIANGLE_BUDGET);
+        // ADR 0020 measured 5,878 with the v1.0 kit. CR-4 adds the two catchlights (+36) and takes
+        // 232 off by cutting arms and shins from 10 to 8 sides: 5,682. The hard stop is 5,950.
+        expect(worst).toBeLessThanOrEqual(CR4_HARD_STOP);
+        expect(worst).toBe(WORST_TOTAL);
+      },
+      KIT_TEST_TIMEOUT,
+    );
 
-  it('matches rig.stats on the worst character and on a sample of full rigs', () => {
-    for (const gender of AVATAR_GENDERS) {
-      for (const role of roles) {
-        const rig = createAvatarRig(
-          cfg({
-            gender,
-            bodyType: 'slim',
-            hairStyle: 'curly-short',
-            outfitStyle: 'suit',
-            facialHair: 'full-beard',
-            skinTone: 'skin-10',
-          }),
-          { role },
-        );
-        expect(rig.stats.triangles).toBeLessThanOrEqual(TRIANGLE_BUDGET);
-        expect(rig.stats.drawCalls).toBeLessThanOrEqual(DRAW_CALL_BUDGET);
-        expect(rig.stats.drawCalls).toBe(3);
-        if (role === 'guide') expect(rig.stats.triangles).toBe(5878);
-        rig.dispose();
-      }
-    }
-  });
-
-  it('is exhaustive over full rigs for the cheap axes (every gender, hair style and outfit)', () => {
-    for (const gender of AVATAR_GENDERS) {
-      for (const hairStyle of AVATAR_OPTIONS.hairStyle) {
-        for (const outfitStyle of AVATAR_OPTIONS.outfitStyle) {
+    it('matches rig.stats on the worst character and on a sample of full rigs', () => {
+      for (const gender of AVATAR_GENDERS) {
+        for (const role of roles) {
           const rig = createAvatarRig(
             cfg({
               gender,
-              hairStyle,
-              outfitStyle,
+              bodyType: 'slim',
+              hairStyle: 'curly-short',
+              outfitStyle: 'suit',
               facialHair: 'full-beard',
-              bodyType: 'broad',
               skinTone: 'skin-10',
             }),
-            { role: 'visitor' },
+            { role },
           );
           expect(rig.stats.triangles).toBeLessThanOrEqual(TRIANGLE_BUDGET);
           expect(rig.stats.drawCalls).toBeLessThanOrEqual(DRAW_CALL_BUDGET);
+          expect(rig.stats.drawCalls).toBe(3);
+          if (role === 'guide') expect(rig.stats.triangles).toBe(WORST_TOTAL);
           rig.dispose();
         }
       }
-    }
-  });
-});
+    });
 
-describe('same body, three shapes', () => {
+    it('is exhaustive over full rigs for the cheap axes (every gender, hair style and outfit)', () => {
+      for (const gender of AVATAR_GENDERS) {
+        for (const hairStyle of AVATAR_OPTIONS.hairStyle) {
+          for (const outfitStyle of AVATAR_OPTIONS.outfitStyle) {
+            const rig = createAvatarRig(
+              cfg({
+                gender,
+                hairStyle,
+                outfitStyle,
+                facialHair: 'full-beard',
+                bodyType: 'broad',
+                skinTone: 'skin-10',
+              }),
+              { role: 'visitor' },
+            );
+            expect(rig.stats.triangles).toBeLessThanOrEqual(TRIANGLE_BUDGET);
+            expect(rig.stats.drawCalls).toBeLessThanOrEqual(DRAW_CALL_BUDGET);
+            rig.dispose();
+          }
+        }
+      }
+    });
+  },
+);
+
+describe('same body, three shapes', { timeout: KIT_TEST_TIMEOUT }, () => {
   it('keeps height, head size and the label anchor identical', () => {
     const tops = AVATAR_GENDERS.map((gender) => {
       const rig = createAvatarRig(cfg({ gender, hairStyle: 'shaved' }), { role: 'visitor' });
@@ -443,7 +511,7 @@ describe('same body, three shapes', () => {
   });
 });
 
-describe('clipping and fit (design spec 9.7)', () => {
+describe('clipping and fit (design spec 9.7)', { timeout: KIT_TEST_TIMEOUT }, () => {
   const shapes = AVATAR_GENDERS.flatMap((gender) =>
     AVATAR_OPTIONS.bodyType.map((bodyType) => ({ gender, bodyType })),
   );
@@ -608,7 +676,7 @@ describe('clipping and fit (design spec 9.7)', () => {
   });
 });
 
-describe('rig rebuilds on a gender change', () => {
+describe('rig rebuilds on a gender change', { timeout: KIT_TEST_TIMEOUT }, () => {
   const meshes = (rig: ReturnType<typeof createAvatarRig>) => ({
     body: rig.root.getObjectByName('body') as SkinnedMesh,
     hair: rig.root.getObjectByName('hair') as SkinnedMesh,
@@ -683,7 +751,7 @@ describe('rig rebuilds on a gender change', () => {
   });
 });
 
-describe('preview gender morph API (design spec 9.5)', () => {
+describe('preview gender morph API (design spec 9.5)', { timeout: KIT_TEST_TIMEOUT }, () => {
   const hashes = (rig: ReturnType<typeof createAvatarRig>) => [
     hashGeometry((rig.root.getObjectByName('body') as SkinnedMesh).geometry),
     hashGeometry((rig.root.getObjectByName('hair') as SkinnedMesh).geometry),

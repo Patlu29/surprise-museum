@@ -284,15 +284,10 @@ describe('outfit styles added in v0.5 (FR-97, Q-30)', () => {
     ]);
   });
 
-  it('the builder hides the new styles until the kit builds them, but drafts keep them', () => {
-    expect(optionIds('outfitStyle')).toEqual([
-      'tee-jeans',
-      'hoodie',
-      'shirt-trousers',
-      'dress',
-      'suit',
-      'jumpsuit',
-    ]);
+  it('the builder offers all twelve styles now that the kit builds them (02/11/2026)', () => {
+    // The gate (OUTFIT_STYLES_PENDING_KIT) is empty: the technical-artist built the six garments.
+    expect(optionIds('outfitStyle')).toEqual([...AVATAR_OPTIONS.outfitStyle]);
+    expect(optionIds('outfitStyle')).toHaveLength(12);
   });
 });
 

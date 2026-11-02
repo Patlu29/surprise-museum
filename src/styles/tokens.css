@@ -13,9 +13,19 @@
  *
  * Breakpoints cannot be custom properties inside @media. Use these literals everywhere:
  *   phone portrait   360px to 639px wide        (design floor: 360px; content must still reflow at 320px)
+ *     small phone    up to 479px wide            (HUD button labels hidden, one-column everything)
+ *     large phone    480px to 639px wide         (HUD button labels shown)
  *   tablet           640px to 1023px wide
  *   desktop          1024px and wider
  *   phone landscape  (orientation: landscape) and (max-height: 500px)
+ *
+ * CR-4 (design spec v2.0, 02/11/2026): tokens were ADDED, none renamed or removed. Value changes:
+ *   --text-xs            0.8125rem -> 0.875rem   (FR-83: secondary text is never under 14px)
+ *   --scene-ceiling      #3b2c33   -> #30232b    (technical-artist: mirror in src/scene/materials/palette.ts)
+ *   --scene-light-ground #7a5844   -> #6a4a3c    (same)
+ * New --look-* tokens are the CR-4 scene and character finish values (spec 12.8). They are
+ * deliberately outside the --scene-* and --avatar-* patterns that the drift tests parse; the
+ * technical-artist mirrors them in src/scene/materials/look.ts with a test of their own.
  */
 
 :root {
@@ -40,6 +50,14 @@
   --color-brass-hover: #d8b471;
   --color-brass-deep: #9c7637; /* decorative lines, frame art */
 
+  /* CR-4 paper finish. Same family, one more step of depth. Ratios are in design spec 12.9. */
+  --color-surface-raised: #fffaf3; /* hover and selected cards, one step above --color-surface. Ink 15.2:1, muted 6.2:1 */
+  --color-bg-glow: #fbf3e6; /* lightest point of the page gradient. Ink 14.4:1, muted 5.9:1 */
+  --color-accent-top: #96304c; /* top of the primary button gradient. --color-on-accent on it 6.9:1 */
+  --color-accent-wash: rgba(138, 43, 69, 0.06); /* faint claret tint behind the required section. Decoration only */
+  --gradient-page: radial-gradient(120% 70% at 50% 0%, var(--color-bg-glow) 0%, var(--color-bg) 70%);
+  --gradient-accent: linear-gradient(180deg, var(--color-accent-top) 0%, var(--color-accent) 100%);
+
   /* States (text on surface: danger 6.1:1, success 5.9:1, warning 6.9:1) */
   --color-danger: #b3261e;
   --color-danger-hover: #8f1d17;
@@ -63,6 +81,8 @@
   --color-danger-on-night: #ff9c92; /* 8.7:1 */
   --color-scrim: rgba(31, 22, 32, 0.6); /* behind modal dialogs and sheets */
   --color-viewer-bg: #120c14; /* full-screen photo viewer */
+  --color-divider-night: rgba(246, 238, 228, 0.18); /* CR-4: divider inside a HUD tray. Decoration only */
+  --color-track-night: rgba(246, 238, 228, 0.4); /* CR-4: empty part of the HUD progress ring. 3.5:1 on --color-hud-solid */
 
   /* Focus: a two-tone ring that is visible on paper and on night. See base.css :focus-visible. */
   --color-focus: #ffd166; /* inner ring, 12:1 on night */
@@ -87,7 +107,7 @@
   --scene-skirting: #f3eadc;
   --scene-floor: #b88a5f; /* oak boards */
   --scene-floor-grain: #8f6643;
-  --scene-ceiling: #3b2c33; /* dark, so rooms feel lit by the pictures */
+  --scene-ceiling: #30232b; /* dark, so rooms feel lit by the pictures. CR-4: deeper (was #3b2c33) so the wall washes read stronger */
   --scene-runner: #7a2e43; /* claret carpet runner along the route */
   --scene-runner-edge: #c9a15b;
   --scene-frame: #4a3226; /* walnut */
@@ -98,7 +118,7 @@
   --scene-plaque-ink: #2a1f26;
   --scene-light-warm: #ffe9c9; /* key light colour, about 3000 K */
   --scene-light-sky: #fff2de; /* hemisphere sky */
-  --scene-light-ground: #7a5844; /* hemisphere ground */
+  --scene-light-ground: #6a4a3c; /* hemisphere ground. CR-4: less bounce (was #7a5844) so forms and frames have more shape */
   --scene-pool: #ffd9a0; /* floor and wall light pools (additive, low alpha) */
   --scene-finale-wall: #5a2236; /* deep claret */
   --scene-finale-floor: #2e2229;
@@ -120,6 +140,7 @@
   --avatar-skin-09: #52301f;
   --avatar-skin-10: #3a2218;
   --avatar-skin-blush: rgba(229, 143, 176, 0.32); /* cheek discs */
+  --avatar-skin-blush-deep: rgba(214, 112, 98, 0.38); /* CR-4: skin-08 to skin-10 only; warm terracotta, not the purple-pink of the standard blush */
 
   --avatar-hair-black: #1c1618;
   --avatar-hair-dark-brown: #3b2820;
@@ -157,6 +178,44 @@
   --avatar-badge-visitor: #fbf6ee; /* cream sticker with a rose heart on the Visitor */
   --avatar-badge-heart: #e0607e;
 
+  /* ------------------------------------------------------------------ CR-4 finish values (design spec 12.8)
+     Scene and character look. three.js cannot read these; the technical-artist mirrors them in
+     src/scene/materials/look.ts (with a drift test of its own). Unitless numbers are shader or
+     geometry parameters, not CSS values. */
+
+  /* Character edge treatment: a dual-band screen-space edge. A light rim on the outermost ~0.6px and a dark
+     contour inside it (to ~1.5px), so one treatment holds against light walls, oak, the claret runner and the
+     dark finale room, whichever way the camera looks. Spec 12.8.2. */
+  --look-contour: #2a1620; /* ink-aubergine contour colour */
+  --look-rim: #ffe3bd; /* warm cream rim colour */
+  --look-rim-px: 0.6; /* rim band width in CSS pixels (multiply by the pixel ratio in the shader) */
+  --look-contour-px: 1.5; /* outer limit of the contour band, CSS pixels from the silhouette */
+  --look-contour-max: 0.95; /* contour strength, 0 to 1 (0.95 reaches 3:1 on oak for every region colour) */
+  --look-rim-max: 0.6; /* rim strength, 0 to 1 */
+  --look-separation-threshold: 1.3; /* adjacent regions below this contrast ratio get a seam trim */
+  /* Face definition. */
+  --look-eye-scale: 1.1; /* multiplies the eye radii, on top of the gender eye multiplier */
+  --look-catchlight: #fffaf0; /* tiny highlight on each eye; 20 triangles or fewer each */
+  --look-brow-thickness: 1.45; /* multiplies the brow half-height, on top of the gender brow multiplier */
+  --look-brow-contrast: 3; /* minimum brow-to-skin contrast ratio (was 2) */
+  --look-brow-lift: #b88a6a; /* warm tan the brow is lightened toward on deep skin, instead of white */
+  --look-mouth-thickness: 1.22; /* multiplies the smile tube radius */
+
+  /* Museum finish. */
+  --look-dado: #d9c3a6; /* lower wall band, 0 to 0.95 m */
+  --look-dado-rail: #f3eadc; /* the slim rail on top of the dado */
+  --look-ao: #2a1620; /* tint for baked contact darkening (wall base, ceiling corners, floor edges) */
+  --look-ao-wall-base: 0.12; /* wall darkening at the floor line, fading out over 0.5 m */
+  --look-ao-ceiling: 0.18; /* wall darkening at the ceiling line, fading out over 0.4 m */
+  --look-wash-alpha: 0.18; /* picture-light wall wash peak (was 0.10 to 0.14) */
+  --look-frame-fillet: #c9a15b; /* 3 mm brass line between the walnut and the mount */
+  --look-runner-border: #5e2234; /* darker claret band on the runner's edge, inside the brass line */
+  --look-ceiling-strip: #ffe2b0; /* recessed brass-lit strip, emissive, one per room */
+  --look-plinth-side: #d8ccb8; /* podium and preview plinth side, darker than --scene-podium */
+  --look-contact-shadow: rgba(30, 20, 25, 0.28); /* soft shadow under frames and plinths (decal, normal blend) */
+  --look-stage-centre: #f7f0e4; /* builder preview backdrop, centre */
+  --look-stage-edge: #e8dcc9; /* builder preview backdrop, edge */
+
   /* ------------------------------------------------------------------ Typography */
   /* Display serif: Fraunces (SIL Open Font Licence), self-hosted, Latin subset, weights 400 and 600.
      The fallback stack is metrically close enough that nothing reflows badly if the font is late. */
@@ -169,7 +228,8 @@
     'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   --font-body: var(--font-sans); /* alias kept from the scaffold */
 
-  --text-xs: 0.8125rem; /* 13px: counters, legal */
+  --text-micro: 0.75rem; /* 12px: CR-4, the floor (FR-83). Decorative or repeated text only, such as joystick compass letters */
+  --text-xs: 0.875rem; /* 14px: counters, eyebrows, file names, step labels. CR-4: was 13px; secondary text is never under 14px (FR-83) */
   --text-sm: 0.875rem; /* 14px: helper text, tertiary buttons */
   --text-md: 1rem; /* 16px: body, inputs (16px stops iOS zooming into fields) */
   --text-lg: 1.125rem; /* 18px: captions, lead text */
@@ -177,7 +237,11 @@
   --text-2xl: 1.75rem; /* 28px: screen headings */
   --text-3xl: 2.25rem; /* 36px: home heading */
   --text-display: clamp(1.875rem, 1.2rem + 3.4vw, 3.25rem); /* welcome title */
+  --text-hero: clamp(2rem, 1.25rem + 3.6vw, 3.5rem); /* CR-4: landing heading. 33px at 360, 56px from about 1000px */
+  --text-lead: 1.125rem; /* CR-4: step purpose lines and landing sentence (18px) */
 
+  --leading-snug: 1.3; /* CR-4: card titles and lead lines */
+  --tracking-display: -0.01em; /* CR-4: display serif at 28px and above */
   --leading-tight: 1.2;
   --leading-normal: 1.5;
   --leading-reading: 1.6; /* captions and the closing message */
@@ -202,9 +266,17 @@
   --space-10: 40px;
   --space-12: 48px;
   --space-16: 64px;
+  /* CR-4 additions: the 4px scale continues, plus fluid rhythm for large screens. */
+  --space-7: 28px;
+  --space-14: 56px;
+  --space-20: 80px;
+  --target-gap: var(--space-2); /* FR-81: at least 8px between adjacent touch targets (relaxed to 4px only at 359px and narrower) */
+  --page-gutter: clamp(var(--space-4), 4vw, var(--space-8)); /* side padding of pages */
+  --section-gap: clamp(var(--space-8), 6vw, var(--space-16)); /* vertical rhythm between landing sections */
 
   /* ------------------------------------------------------------------ Sizes */
   --touch-target: 44px; /* minimum for every interactive element (NFR-10) */
+  --touch-target-md: 48px; /* CR-4: builder action bar buttons and tiles (thumb ergonomics, spec 12.4) */
   --touch-target-lg: 56px; /* primary calls to action */
   --icon-sm: 20px;
   --icon-md: 24px;
@@ -218,6 +290,12 @@
   --joystick-hit: 176px; /* invisible enlarged touch area around the base */
   --joystick-travel: 48px; /* knob travel radius */
   --joystick-dead-zone: 0.12; /* fraction of travel ignored */
+  /* CR-4: phone landscape only ((orientation: landscape) and (max-height: 500px)). The screen is 390px tall, so
+     the 176px hit area would take 45% of it. The frontend reads these instead of the values above there. */
+  --joystick-size-compact: 112px;
+  --joystick-knob-compact: 48px;
+  --joystick-hit-compact: 152px;
+  --joystick-travel-compact: 40px;
   --hud-margin: var(--space-3); /* gap from screen edge, added to the safe-area inset */
 
   --panel-max-width: 26rem; /* caption card width on tablet and desktop */
@@ -227,7 +305,17 @@
   --card-min-width: 16rem; /* no caption dock is narrower than this (MIN_CARD_WIDTH) */
   --card-width-landscape: clamp(16rem, 30vw, 22rem); /* phone landscape card */
   --card-width-wide: clamp(18rem, 28vw, var(--panel-max-width)); /* tablet and desktop card */
-  --sheet-max-height: 70dvh; /* picture list and settings sheets */
+  --sheet-max-height: 70dvh; /* picture list and settings sheets (tablet and desktop) */
+  --sheet-max-height-phone: 60dvh; /* CR-4: phone portrait. The sheet's Close sits at or below 40% of the viewport (FR-82) */
+  --bar-min-height: 4.5rem; /* CR-4: builder action bar, minimum (grows with text size, never a fixed height) */
+  --bar-min-height-compact: 3.5rem; /* CR-4: the same bar on phone landscape */
+  --progress-bar-height: 8px; /* CR-4: stepper segments and progress bars (was 6px via --ui-bar-height) */
+  --photo-thumb-size: 4.5rem; /* CR-4: builder photo thumbnail (72px) */
+  --tile-height: 48px; /* CR-4: option tiles and swatch cells */
+  --option-thumb-size: 32px; /* CR-4: pictogram in a face shape or outfit tile (spec 12.5.3) */
+  --option-tile-tall: 72px; /* CR-4: minimum height of a tile that carries a pictogram above its label */
+  --accent-bar-width: 4px; /* CR-4: left bar on alerts and the required section */
+  --preview-sticky-height: clamp(11rem, 32dvh, 16rem); /* CR-4: sticky customiser preview on phones and tablets */
   --content-max-width: 44rem; /* builder text steps */
   --content-wide-max-width: 72rem; /* builder grid and home */
   --preview-bar-height: 44px; /* "Preview" strip above the HUD */
@@ -252,9 +340,17 @@
   --shadow-label: 0 2px 6px rgba(0, 0, 0, 0.35);
   --shadow-inset-frame: inset 0 0 0 1px rgba(201, 161, 91, 0.55); /* brass hairline, the "picture frame" motif */
   --blur-panel: 14px;
+  /* CR-4 elevation scale: flat (none) < card < raised < panel (existing) < glass (HUD). One scale for every surface (FR-77). */
+  --shadow-raised: 0 1px 1px rgba(42, 31, 38, 0.06), 0 6px 18px rgba(42, 31, 38, 0.12);
+  --shadow-button: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 6px rgba(90, 26, 45, 0.28);
+  --shadow-button-pressed: inset 0 2px 4px rgba(42, 31, 38, 0.3);
+  --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 14px rgba(0, 0, 0, 0.28);
+  --shadow-bar: 0 -6px 16px rgba(42, 31, 38, 0.08); /* sticky builder action bar */
+  --shadow-art: 0 10px 30px rgba(42, 31, 38, 0.18); /* the framed illustration on the landing page */
 
   /* ------------------------------------------------------------------ Layers */
   --z-canvas: 0;
+  --z-sticky: 4; /* CR-4: sticky builder stepper rail and customiser preview (below name labels, above content) */
   --z-labels: 5; /* name labels (drei Html zIndexRange={[5, 0]}), below every panel (ADR 0011) */
   --z-hud: 10; /* joystick, top bar, hint chips */
   --z-preview-bar: 14;
@@ -276,6 +372,11 @@
   --duration-gender-morph: 250ms; /* customiser preview shape change (design spec 9.5); scene mirrors this */
   --duration-presentation-camera-in: 800ms; /* design spec 6.12.3; scene mirrors this (longer swings take up to 1300 ms) */
   --duration-presentation-camera-out: 600ms; /* design spec 6.12.3; scene mirrors this */
+  /* CR-4 (FR-79): every dialog, sheet and card opens and closes in 250ms or less. Hero entrances and list staggers
+     use the same token. All three are 0 under reduced motion. */
+  --duration-overlay: 220ms;
+  --duration-stagger: 60ms; /* delay step between siblings that enter together (landing steps, welcome lines) */
+  --rise-distance: 12px; /* how far an entering element rises; 0 under reduced motion */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-camera: cubic-bezier(0.37, 0, 0.63, 1); /* v1.3: ease-in-out sine, peak speed about 1.6 x average (was 0.45, 0, 0.25, 1 at about 2.6 x); no overshoot; presentation camera (6.12.3) */
   --ease-emphasised: cubic-bezier(0.3, 0, 0, 1.2);
@@ -301,6 +402,9 @@
     --duration-gender-morph: 0ms;
     --duration-presentation-camera-in: 0ms;
     --duration-presentation-camera-out: 0ms;
+    --duration-overlay: 0ms;
+    --duration-stagger: 0ms;
+    --rise-distance: 0px;
     --press-scale: 1;
   }
 }
@@ -315,6 +419,9 @@
   --duration-gender-morph: 0ms;
   --duration-presentation-camera-in: 0ms;
   --duration-presentation-camera-out: 0ms;
+  --duration-overlay: 0ms;
+  --duration-stagger: 0ms;
+  --rise-distance: 0px;
   --press-scale: 1;
 }
 

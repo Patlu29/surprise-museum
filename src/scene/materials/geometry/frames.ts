@@ -8,7 +8,13 @@
  * material that is never tone mapped, so a photo is always evenly lit (FR-40).
  */
 import type { BufferGeometry } from 'three';
-import { CylinderGeometry, PlaneGeometry } from 'three';
+import {
+  BufferAttribute,
+  BufferGeometry as Geometry,
+  CylinderGeometry,
+  PlaneGeometry,
+} from 'three';
+import { LOOK } from '../look';
 import { SCENE_PALETTE } from '../palette';
 import {
   boxPart,
@@ -29,6 +35,64 @@ export const FRAME = {
   /** The photo plane sits here, recessed behind the mount. */
   photoZ: 0.02,
 } as const;
+
+/** Brass fillet between the walnut and the mount (design spec 12.8.3): 3 mm wide, 8 triangles. */
+export const FILLET = { width: 0.003 } as const;
+/** The mount's inner edge is shaded this much darker (a fake bevel), vertex colour only. */
+export const MOUNT_BEVEL = 0.06;
+
+/** A flat rectangular ring (four quads, 8 triangles) in the plane z, facing +Z. */
+function flatRing(outerW: number, outerH: number, inset: number, z: number, colour: string) {
+  const ow = outerW / 2;
+  const oh = outerH / 2;
+  const iw = ow - inset;
+  const ih = oh - inset;
+  // Outer then inner corners, counter-clockwise from the lower left.
+  const o = [
+    [-ow, -oh],
+    [ow, -oh],
+    [ow, oh],
+    [-ow, oh],
+  ] as const;
+  const i = [
+    [-iw, -ih],
+    [iw, -ih],
+    [iw, ih],
+    [-iw, ih],
+  ] as const;
+  const positions: number[] = [];
+  const indices: number[] = [];
+  for (const [x, y] of [...o, ...i]) positions.push(x, y, z);
+  for (let k = 0; k < 4; k++) {
+    const n = (k + 1) % 4;
+    // Quad between outer k, outer n, inner n, inner k.
+    indices.push(k, n, 4 + n, k, 4 + n, 4 + k);
+  }
+  const g = new Geometry();
+  g.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3));
+  const normals = new Float32Array(8 * 3);
+  for (let k = 0; k < 8; k++) normals[k * 3 + 2] = 1;
+  g.setAttribute('normal', new BufferAttribute(normals, 3));
+  g.setIndex(indices);
+  setVertexColour(g, colour);
+  setConstantAttribute(g, 'aGlow', 0);
+  return normaliseAttributes(g);
+}
+
+/** Darkens the vertices of `part` for which `inner` is true by `MOUNT_BEVEL` (vertex colours only). */
+function shadeVertices(
+  part: BufferGeometry,
+  inner: (x: number, y: number) => boolean,
+): BufferGeometry {
+  const pos = part.getAttribute('position');
+  const col = part.getAttribute('color');
+  for (let v = 0; v < pos.count; v++) {
+    if (!inner(pos.getX(v), pos.getY(v))) continue;
+    const k = 1 - MOUNT_BEVEL;
+    col.setXYZ(v, col.getX(v) * k, col.getY(v) * k, col.getZ(v) * k);
+  }
+  return part;
+}
 
 /** The photo plane, sized to the photo, positioned inside the frame. UVs are the default 0 to 1. */
 export function createPhotoGeometry(photoWidth: number, photoHeight: number): BufferGeometry {
@@ -58,27 +122,48 @@ export function createFrameGeometry(photoWidth: number, photoHeight: number): Bu
       z: depth / 2,
       colour: walnut,
     }),
-    // Cream mount, inside the rim, a little lower than the rim's front face.
-    boxPart(outerW - rim * 2, mount, mountDepth, {
-      y: photoHeight / 2 + mount / 2,
-      z: mountDepth / 2,
-      colour: cream,
-    }),
-    boxPart(outerW - rim * 2, mount, mountDepth, {
-      y: -photoHeight / 2 - mount / 2,
-      z: mountDepth / 2,
-      colour: cream,
-    }),
-    boxPart(mount, photoHeight, mountDepth, {
-      x: -photoWidth / 2 - mount / 2,
-      z: mountDepth / 2,
-      colour: cream,
-    }),
-    boxPart(mount, photoHeight, mountDepth, {
-      x: photoWidth / 2 + mount / 2,
-      z: mountDepth / 2,
-      colour: cream,
-    }),
+    // Cream mount, inside the rim, a little lower than the rim's front face. The vertices on the
+    // photo side are 6% darker, so the mount reads as bevelled (a fake bevel, vertex colour only).
+    shadeVertices(
+      boxPart(outerW - rim * 2, mount, mountDepth, {
+        y: photoHeight / 2 + mount / 2,
+        z: mountDepth / 2,
+        colour: cream,
+      }),
+      (_x, y) => y < photoHeight / 2 + 1e-6,
+    ),
+    shadeVertices(
+      boxPart(outerW - rim * 2, mount, mountDepth, {
+        y: -photoHeight / 2 - mount / 2,
+        z: mountDepth / 2,
+        colour: cream,
+      }),
+      (_x, y) => y > -photoHeight / 2 - 1e-6,
+    ),
+    shadeVertices(
+      boxPart(mount, photoHeight, mountDepth, {
+        x: -photoWidth / 2 - mount / 2,
+        z: mountDepth / 2,
+        colour: cream,
+      }),
+      (x) => x > -photoWidth / 2 - 1e-6,
+    ),
+    shadeVertices(
+      boxPart(mount, photoHeight, mountDepth, {
+        x: photoWidth / 2 + mount / 2,
+        z: mountDepth / 2,
+        colour: cream,
+      }),
+      (x) => x < photoWidth / 2 + 1e-6,
+    ),
+    // Brass fillet where the mount meets the walnut: a 3 mm flat ring just proud of the mount face.
+    flatRing(
+      outerW - rim * 2,
+      outerH - rim * 2,
+      FILLET.width,
+      mountDepth + 0.0006,
+      LOOK.frameFillet,
+    ),
   ];
   return normaliseAttributes(mergeParts(parts));
 }

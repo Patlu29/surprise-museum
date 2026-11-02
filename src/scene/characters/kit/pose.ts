@@ -3,9 +3,11 @@
  * (advancing the walk phase by speed / stride, easing the gesture); this module only turns
  * numbers into bone rotations, so the look of the motion lives with the rig.
  *
- * Numbers follow architecture 6.7: legs swing about 25 degrees, arms counter-swing about 20,
- * hips bob 3 cm peak to peak. Reduced motion: do not call `applyPose` with moving values; call
- * `rig.resetPose()` for the still pose.
+ * Numbers follow design spec 12.8.2 F (CR-4): legs swing 28 degrees, arms counter-swing 23,
+ * hips bob 3.7 cm peak to peak, cycle frequency unchanged. Idle: the spine breathes (scale 1.000
+ * to 1.008 at 0.3 Hz), the head turns plus or minus 2 degrees at 0.12 Hz and the arms sway 1.5
+ * degrees at 0.3 Hz. Reduced motion: do not call `applyPose` with moving values; call
+ * `rig.resetPose()` for the still pose (no breathing: the spine scale is exactly 1).
  */
 import type { Bone } from 'three';
 import { BASE } from './proportions';
@@ -50,12 +52,32 @@ export type PoseBones = Readonly<
   >
 >;
 
-const LEG_SWING = (25 * Math.PI) / 180;
-const ARM_SWING = (20 * Math.PI) / 180;
+const DEG = Math.PI / 180;
+/** Leg swing amplitude. Spec range 25 to 32 degrees; the lower-middle keeps skirts clear of the legs. */
+export const LEG_SWING = 28 * DEG;
+/** Arm counter-swing amplitude. Spec range 20 to 26 degrees. */
+export const ARM_SWING = 23 * DEG;
 const KNEE_BEND = 0.65;
-const BOB = 0.015; // peak to peak 3 cm
+const BOB = 0.0185; // amplitude, so 3.7 cm peak to peak (spec 3 to 4 cm)
 
-export function applyPose(bones: PoseBones, hipRestY: number, input: Partial<AvatarPose>): void {
+const TAU = Math.PI * 2;
+/** Idle breathing: spine scale 1.000 to 1.008 at 0.3 Hz. */
+const BREATH_AMOUNT = 0.008;
+const BREATH_HZ = 0.3;
+/** Idle head turn: plus or minus 2 degrees at 0.12 Hz. */
+const HEAD_YAW_IDLE = 2 * DEG;
+const HEAD_YAW_HZ = 0.12;
+/** Idle arm sway: 1.5 degrees at 0.3 Hz. */
+const ARM_SWAY = 1.5 * DEG;
+const ARM_SWAY_HZ = 0.3;
+
+export function applyPose(
+  bones: PoseBones,
+  hipRestY: number,
+  input: Partial<AvatarPose>,
+  /** Scales the leg swing (1 for trousers). Skirted garments use less so the legs stay inside the hem. */
+  legScale = 1,
+): void {
   const p = { ...NEUTRAL_POSE, ...input };
   const w = Math.min(1, Math.max(0, p.walkAmount));
   const idle = 1 - w;
@@ -75,23 +97,28 @@ export function applyPose(bones: PoseBones, hipRestY: number, input: Partial<Ava
   bones.spine.rotation.y = -sinP * 0.04 * w;
   bones.spine.rotation.x = 0.04 * w + Math.sin(p.idleTime * 1.7) * 0.012 * idle;
   bones.neck.rotation.x = -0.02 * w;
+  // Breathing: a slight swell of the whole upper body, only while standing still. Exactly 1 at
+  // idleTime 0 and at rest, so `resetPose` is the still pose.
+  const swell = 1 + BREATH_AMOUNT * (0.5 - 0.5 * Math.cos(TAU * BREATH_HZ * p.idleTime)) * idle;
+  bones.spine.scale.set(swell, swell, swell);
 
   // Head: counters the body's turn so the gaze stays steady, plus the look target.
   const yaw = Math.max(-0.9, Math.min(0.9, p.lookYaw));
-  bones.head.rotation.y = yaw + sinP * 0.04 * w + Math.sin(p.idleTime * 0.6) * 0.025 * idle;
+  bones.head.rotation.y =
+    yaw + sinP * 0.04 * w + Math.sin(TAU * HEAD_YAW_HZ * p.idleTime) * HEAD_YAW_IDLE * idle;
   bones.head.rotation.x = -0.02 * w + Math.sin(p.idleTime * 1.1) * 0.01 * idle;
 
   // Legs. +X rotation moves a hanging foot backwards, so a forward swing is negative.
   const leg = (thigh: Bone, shin: Bone, ph: number) => {
     const s = Math.sin(ph);
-    thigh.rotation.x = -s * LEG_SWING * w;
+    thigh.rotation.x = -s * LEG_SWING * legScale * w;
     shin.rotation.x = Math.max(0, Math.cos(ph)) * KNEE_BEND * w;
   };
   leg(bones.legL, bones.shinL, phase);
   leg(bones.legR, bones.shinR, phase + Math.PI);
 
   // Arms counter-swing the legs; a slight constant elbow bend; idle sway.
-  const sway = Math.sin(p.idleTime * 1.3) * 0.015 * idle;
+  const sway = Math.sin(TAU * ARM_SWAY_HZ * p.idleTime) * ARM_SWAY * idle;
   bones.armL.rotation.x = sinP * ARM_SWING * w + sway;
   bones.forearmL.rotation.x = -(0.12 + 0.18 * Math.max(0, -sinP) * w);
   bones.armL.rotation.z = 0;

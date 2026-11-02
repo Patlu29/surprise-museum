@@ -3,6 +3,7 @@ import type { AvatarConfig } from '@contract';
 import { Box3, SkinnedMesh, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_GUIDE_APPEARANCE, DEFAULT_VISITOR_APPEARANCE, describeAvatar } from './options';
+import { KIT_TEST_TIMEOUT } from './neutralSnapshot.testutil';
 import { createAvatarRig } from './rig';
 
 const TRIANGLE_BUDGET = 6000;
@@ -30,7 +31,7 @@ function boundsOf(rig: ReturnType<typeof createAvatarRig>): Box3 {
   return box;
 }
 
-describe('avatar rig', () => {
+describe('avatar rig', { timeout: KIT_TEST_TIMEOUT }, () => {
   it('stays within the triangle and draw-call budgets for every hair style and outfit', () => {
     let worst = 0;
     for (const hairStyle of AVATAR_OPTIONS.hairStyle) {
@@ -110,13 +111,18 @@ describe('avatar rig', () => {
     const bodyGeometry = body.geometry;
     const hair = rig.root.getObjectByName('hair') as SkinnedMesh;
     const hairGeometry = hair.geometry;
-    rig.setAppearance({
-      ...DEFAULT_VISITOR_APPEARANCE,
-      hairStyle: 'ponytail',
-      hairColor: 'blonde',
-    });
+    rig.setAppearance({ ...DEFAULT_VISITOR_APPEARANCE, hairColor: 'blonde' });
+    // A hair colour change touches only the hair mesh (the body does not depend on it)...
     expect((rig.root.getObjectByName('body') as SkinnedMesh).geometry).toBe(bodyGeometry);
     expect((rig.root.getObjectByName('hair') as SkinnedMesh).geometry).not.toBe(hairGeometry);
+    rig.dispose();
+  });
+
+  it('follows the hair style on the body too, for the hairline shading under it', () => {
+    const rig = createAvatarRig(DEFAULT_VISITOR_APPEARANCE, { role: 'visitor' });
+    const bodyGeometry = (rig.root.getObjectByName('body') as SkinnedMesh).geometry;
+    rig.setAppearance({ ...DEFAULT_VISITOR_APPEARANCE, hairStyle: 'ponytail' });
+    expect((rig.root.getObjectByName('body') as SkinnedMesh).geometry).not.toBe(bodyGeometry);
     rig.dispose();
   });
 

@@ -8,7 +8,13 @@
  * uniformly (0.91, 1.00, 1.09). All numbers are metres in model space: feet at y = 0, facing +Z,
  * the character's left on +X.
  */
-import { avatarGender, type AvatarConfig, type AvatarGender } from '@contract';
+import {
+  avatarFaceShape,
+  avatarGender,
+  type AvatarConfig,
+  type AvatarFaceShape,
+  type AvatarGender,
+} from '@contract';
 
 export type BodyType = AvatarConfig['bodyType'];
 export type HeightId = AvatarConfig['height'];
@@ -113,6 +119,50 @@ export function blendGender(from: GenderShape, to: GenderShape, t: number): Gend
   return out;
 }
 
+/**
+ * Face shape parameters (design spec 12.8.2 D, ADR 0021 7.1). All 1.00 is today's head (Oval).
+ * They warp the existing head vertices only, so a face shape adds no triangles.
+ *   width   whole head, x only
+ *   height  whole head, about the head centre (the crown and chin move together)
+ *   jaw     lower width, easing to the full value at the chin, multiplied by the gender jaw
+ *   upper   width above the equator, reached about 60% of the way to the crown
+ *   chin    extra length of the lower face, growing towards the chin
+ */
+export interface FaceShapeParams {
+  width: number;
+  height: number;
+  jaw: number;
+  upper: number;
+  chin: number;
+}
+
+/**
+ * Spec values, tuned inside the 0.03 allowance where noted: Long height 1.06 to 1.05 and chin
+ * 1.06 to 1.04 (the chin must stay clear of the collar rings, see `chinBottomY`), Heart chin 1.08
+ * to 1.06 for the same reason.
+ */
+export const FACE_SHAPES: Readonly<Record<AvatarFaceShape, FaceShapeParams>> = {
+  oval: { width: 1, height: 1, jaw: 1, upper: 1, chin: 1 },
+  round: { width: 1.05, height: 0.97, jaw: 1.04, upper: 1, chin: 0.94 },
+  square: { width: 1.02, height: 0.99, jaw: 1.12, upper: 1, chin: 0.97 },
+  heart: { width: 1, height: 1, jaw: 0.84, upper: 1.05, chin: 1.06 },
+  long: { width: 0.95, height: 1.05, jaw: 0.96, upper: 1, chin: 1.04 },
+};
+
+const FACE_KEYS = Object.keys(FACE_SHAPES.oval) as (keyof FaceShapeParams)[];
+
+/** True when every parameter is exactly 1 (the Oval, which takes today's code path). */
+export function isIdentityFace(f: FaceShapeParams): boolean {
+  return FACE_KEYS.every((k) => f[k] === 1);
+}
+
+/** Linear blend of two face shapes, for the preview morph. `t` is 0 (from) to 1 (to). */
+export function blendFace(from: FaceShapeParams, to: FaceShapeParams, t: number): FaceShapeParams {
+  const out = { ...to };
+  for (const k of FACE_KEYS) out[k] = from[k] + (to[k] - from[k]) * t;
+  return out;
+}
+
 /** Everything the builders need: body type and gender combined, plus the face parameters. */
 export interface AvatarShape extends BodyShape {
   depth: number;
@@ -124,10 +174,16 @@ export interface AvatarShape extends BodyShape {
   jaw: number;
   brow: number;
   eye: number;
+  /** Face shape (Oval is all 1). */
+  face: FaceShapeParams;
 }
 
 /** Gender first, body type multiplied on top. Neutral multiplies by exactly 1. */
-export function composeShape(body: BodyShape, g: GenderShape): AvatarShape {
+export function composeShape(
+  body: BodyShape,
+  g: GenderShape,
+  face: FaceShapeParams = FACE_SHAPES.oval,
+): AvatarShape {
   return {
     shoulder: g.shoulder * body.shoulder,
     chest: body.chest,
@@ -142,12 +198,20 @@ export function composeShape(body: BodyShape, g: GenderShape): AvatarShape {
     jaw: g.jaw,
     brow: g.brow,
     eye: g.eye,
+    face,
   };
 }
 
-/** The shape for a config, reading gender through `avatarGender` (missing means Neutral). */
+/**
+ * The shape for a config, reading gender and face shape through their accessors (missing or
+ * unknown means Neutral and Oval).
+ */
 export function shapeFor(config: AvatarConfig): AvatarShape {
-  return composeShape(BODY_SHAPES[config.bodyType], GENDER_SHAPES[avatarGender(config)]);
+  return composeShape(
+    BODY_SHAPES[config.bodyType],
+    GENDER_SHAPES[avatarGender(config)],
+    FACE_SHAPES[avatarFaceShape(config)],
+  );
 }
 
 /**
@@ -170,6 +234,41 @@ export function jawScale(jaw: number, dy: number): number {
   if (dy >= 0) return 1;
   const t = Math.min(1, -Math.asin(Math.max(-1, dy / HEAD.ry)) / 1.1);
   return 1 + (jaw - 1) * t * t;
+}
+
+/**
+ * Head warp for a face shape on top of the gender jaw: returns the new x and y for a head vertex
+ * (model space). Null for Oval, so the caller keeps today's jaw-only code path bit for bit.
+ * Features are placed on the unwarped head and carried by this warp, so the hair, ears, brows
+ * and facial hair follow the outline.
+ */
+export function faceWarp(shape: AvatarShape): ((x: number, y: number) => [number, number]) | null {
+  const f = shape.face;
+  if (isIdentityFace(f)) return null;
+  const cx = 0;
+  const cy = headCentre()[1];
+  const jaw = shape.jaw * f.jaw;
+  const smooth = (t: number) => t * t * (3 - 2 * t);
+  return (x, y) => {
+    const dy = y - cy;
+    let wx: number;
+    let hy: number;
+    if (dy >= 0) {
+      const t = Math.min(1, dy / HEAD.ry);
+      wx = f.width * (1 + (f.upper - 1) * smooth(Math.min(1, t / 0.6)));
+      hy = f.height;
+    } else {
+      wx = f.width * jawScale(jaw, dy);
+      const e = Math.min(1, -dy / HEAD.ry);
+      hy = f.height * (1 + (f.chin - 1) * e);
+    }
+    return [cx + (x - cx) * wx, cy + dy * hy];
+  };
+}
+
+/** Lowest point of the head's chin for a face shape, in metres (the bare ellipsoid at Oval). */
+export function chinBottomY(face: FaceShapeParams): number {
+  return headCentre()[1] - HEAD.ry * face.height * face.chin;
 }
 
 export const HEAD = {

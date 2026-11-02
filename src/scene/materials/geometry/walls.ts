@@ -8,6 +8,7 @@
  */
 import type { BufferGeometry } from 'three';
 import { CircleGeometry, Color, RingGeometry } from 'three';
+import { LOOK } from '../look';
 import { SCENE_PALETTE } from '../palette';
 import {
   applyMetreUv,
@@ -201,7 +202,8 @@ export interface CeilingRoseOptions {
 export function createCeilingRoseGeometry(options: CeilingRoseOptions = {}): BufferGeometry {
   const radius = options.radius ?? 0.4;
   const segments = 32;
-  const down = -Math.PI / 2;
+  // rotateX(+90 degrees) turns +Z (the ring's normal) to -Y: the rose faces down, into the room.
+  const down = Math.PI / 2;
 
   const outer = new RingGeometry(radius * 0.72, radius, segments);
   outer.rotateX(down);
@@ -224,14 +226,44 @@ export function createCeilingRoseGeometry(options: CeilingRoseOptions = {}): Buf
   return normaliseAttributes(mergeParts([outer, inner, lamp]));
 }
 
-/** A recessed brass-edged light strip for long rooms. Faces down, origin at the ceiling. */
-export function createCeilingStripGeometry(length: number, width = 0.3): BufferGeometry {
+/** The recessed ceiling strip (design spec 12.8.3): 0.06 m wide and 1.2 m long, one per room. */
+export const CEILING_STRIP = { width: 0.06, length: 1.2 } as const;
+
+/**
+ * A recessed brass-edged light strip. Faces down, origin at the ceiling, the strip along local Z.
+ * Defaults to the CR-4 size (0.06 by 1.2 m); the lit part is `--look-ceiling-strip` and glows.
+ * Draw it with `createCeilingDressingMaterial` so it fades with the ceiling.
+ */
+export function createCeilingStripGeometry(
+  length: number = CEILING_STRIP.length,
+  width: number = CEILING_STRIP.width,
+): BufferGeometry {
   const parts = [
-    boxPart(width + 0.08, 0.016, length + 0.08, {
+    boxPart(width + 0.04, 0.016, length + 0.04, {
       y: -0.008,
       colour: SCENE_PALETTE.brass,
     }),
-    boxPart(width, 0.012, length, { y: -0.016, colour: '#fff0d2', glow: 1 }),
+    boxPart(width, 0.012, length, { y: -0.016, colour: LOOK.ceilingStrip, glow: 1 }),
   ];
   return normaliseAttributes(mergeParts(parts));
+}
+
+/** The wall cap (design spec 12.8.3): a flat 0.06 m cap on every wall top, a little proud of the wall. */
+export const WALL_CAP = { height: 0.06, overhang: 0.01 } as const;
+
+/**
+ * A wall cap in `--look-dado-rail`, for the ceiling cutaway where the wall tops are otherwise bare
+ * boxes. Origin at the middle of the cap's underside, so place it at y = wall height. `length` runs
+ * along local X (rotate by 90 degrees for a wall along Z); `thickness` is the wall's thickness.
+ * Draw it with the `decor` material (it has vertex colours); it needs no fade.
+ */
+export function createWallCapGeometry(length: number, thickness: number): BufferGeometry {
+  return normaliseAttributes(
+    mergeParts([
+      boxPart(length, WALL_CAP.height, thickness + WALL_CAP.overhang * 2, {
+        y: WALL_CAP.height / 2,
+        colour: LOOK.dadoRail,
+      }),
+    ]),
+  );
 }

@@ -18,6 +18,11 @@ export interface GridOptions {
   poleTop?: boolean;
   /** The first row collapses to one vertex. */
   poleBottom?: boolean;
+  /**
+   * Outfit pattern cells per row (0 or undefined off the garment). When any row has cells, the
+   * geometry gets a float `outfitMask` attribute (ADR 0021 7.2).
+   */
+  cells?: (row: number) => number;
 }
 
 /**
@@ -37,6 +42,8 @@ export function gridSurface(
   const colours: number[] = [];
   const rowStart: number[] = [];
   const rowCount: number[] = [];
+  const mask: number[] = [];
+  let anyCells = false;
 
   for (let k = 0; k < rows; k++) {
     const isPole = (k === rows - 1 && options.poleTop) || (k === 0 && options.poleBottom);
@@ -44,10 +51,13 @@ export function gridSurface(
     rowStart.push(positions.length / 3);
     rowCount.push(n);
     const c = colour(k);
+    const cells = options.cells?.(k) ?? 0;
+    if (cells > 0) anyCells = true;
     for (let j = 0; j < n; j++) {
       const p = point(k, j);
       positions.push(p[0], p[1], p[2]);
       colours.push(c.r, c.g, c.b);
+      mask.push(cells);
     }
   }
 
@@ -80,6 +90,7 @@ export function gridSurface(
   g.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3));
   g.setAttribute('color', new BufferAttribute(new Float32Array(colours), 3));
   g.setIndex(indices);
+  if (anyCells) g.setAttribute('outfitMask', new BufferAttribute(new Float32Array(mask), 1));
   g.computeVertexNormals();
   return g;
 }
@@ -96,6 +107,8 @@ export interface Ring {
   cx?: number;
   cz?: number;
   colour?: Color;
+  /** Outfit pattern cells round this ring (even number; 0 or undefined for none). */
+  cells?: number;
   /** The ring collapses to a single point (a dome tip). Only valid first or last. */
   pole?: boolean;
 }
@@ -127,7 +140,12 @@ export function loft(ringsIn: readonly Ring[], options: LoftOptions = {}): Buffe
       return [(r.cx ?? 0) + r.rx * Math.sin(theta), r.y, (r.cz ?? 0) + r.rz * Math.cos(theta)];
     },
     (k) => rings[k]?.colour ?? fallback,
-    { closed: !arc, poleBottom: first?.pole === true, poleTop: last?.pole === true },
+    {
+      closed: !arc,
+      poleBottom: first?.pole === true,
+      poleTop: last?.pole === true,
+      cells: (k) => rings[k]?.cells ?? 0,
+    },
   );
 }
 
@@ -168,6 +186,8 @@ export interface EllipsoidOptions {
   colour: Color;
   /** Rotation applied about the centre (Euler XYZ, radians). */
   rotation?: Vec3Tuple;
+  /** Outfit pattern cells (see `Ring.cells`). */
+  cells?: number;
 }
 
 /** A low-poly ellipsoid centred at `c` with radii `r`. */
@@ -184,7 +204,7 @@ export function ellipsoid(c: Vec3Tuple, r: Vec3Tuple, options: EllipsoidOptions)
       return [r[0] * cp * Math.sin(theta), r[1] * Math.sin(phi), r[2] * cp * Math.cos(theta)];
     },
     () => options.colour,
-    { closed: true, poleBottom: true, poleTop: true },
+    { closed: true, poleBottom: true, poleTop: true, cells: () => options.cells ?? 0 },
   );
   return placeLocal(g, c, options.rotation);
 }
@@ -214,6 +234,15 @@ export interface TubeBand {
   colour: Color;
   /** Extra radius, so a sleeve or trouser leg stands proud of the skin (metres). */
   extra?: number;
+  /** Outfit pattern cells round this band (see `Ring.cells`). */
+  cells?: number;
+  /** Marks a band that carries the outfit pattern; the body builder turns it into `cells`. */
+  patterned?: boolean;
+  /**
+   * Colour of the band's last ring, so a sleeve end can grade into its cuff trim without adding a
+   * ring (zero triangles).
+   */
+  endColour?: Color;
 }
 
 export interface TubeOptions {
@@ -229,6 +258,9 @@ export interface TubeOptions {
   segments?: number;
   /** Extra mid rings for a gentle bulge, 0 for none. */
   bulge?: number;
+  /** Multiplies the colour of the first or last end (rings and cap) for ambient darkening, 1 for none. */
+  shadeFrom?: number;
+  shadeTo?: number;
 }
 
 const up = new Vector3(0, 1, 0);
@@ -252,6 +284,11 @@ export function tube(o: TubeOptions): BufferGeometry {
 
   const eps = Math.min(0.0006 / Math.max(length, 1e-6), 0.01);
   const rings: Ring[] = [];
+  const shadeRing = (r: Ring, k: number): Ring => {
+    if (!r.colour || k === 1) return r;
+    const c = r.colour.clone().multiplyScalar(k);
+    return { ...r, colour: c };
+  };
   let start = 0;
   o.bands.forEach((band, i) => {
     const end = Math.min(1, band.until);
@@ -261,7 +298,13 @@ export function tube(o: TubeOptions): BufferGeometry {
     for (let s = 0; s < samples; s++) {
       const t = a + ((b - a) * s) / (samples - 1);
       const r = radiusAt(t) + (band.extra ?? 0);
-      rings.push({ y: t * length, rx: r, rz: r * depth, colour: band.colour });
+      rings.push({
+        y: t * length,
+        rx: r,
+        rz: r * depth,
+        colour: s === samples - 1 && band.endColour ? band.endColour : band.colour,
+        cells: band.cells,
+      });
     }
     start = end;
   });
@@ -277,6 +320,7 @@ export function tube(o: TubeOptions): BufferGeometry {
         rx: r * Math.cos(a),
         rz: r * depth * Math.cos(a),
         colour: b.colour,
+        cells: b.cells,
         pole: s === capSteps,
       });
     }
@@ -291,9 +335,22 @@ export function tube(o: TubeOptions): BufferGeometry {
         rx: r * Math.cos(a),
         rz: r * depth * Math.cos(a),
         colour: b.colour,
+        cells: b.cells,
         pole: s === capSteps,
       });
     }
+  }
+
+  // Ambient darkening at an end: the end sample ring and its cap.
+  if (o.shadeFrom !== undefined) {
+    rings.forEach((r, i) => {
+      if (r.y <= 1e-9) rings[i] = shadeRing(r, o.shadeFrom ?? 1);
+    });
+  }
+  if (o.shadeTo !== undefined) {
+    rings.forEach((r, i) => {
+      if (r.y >= length - 1e-9) rings[i] = shadeRing(r, o.shadeTo ?? 1);
+    });
   }
 
   const g = loft(rings, { segments: segs });

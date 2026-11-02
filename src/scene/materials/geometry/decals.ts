@@ -3,6 +3,7 @@
  * hint glow. Every quad has UVs 0 to 1 and a per-vertex `aIntensity` attribute.
  */
 import { BufferAttribute, BufferGeometry } from 'three';
+import { LOOK } from '../look';
 import { FRAME } from './frames';
 
 /** A unit quad with UVs and intensity. `plane` picks the orientation. */
@@ -109,6 +110,9 @@ export class DecalBatch {
   }
 }
 
+/** Wall wash (design spec 12.8.3): peak alpha `--look-wash-alpha`, 1.6 times the frame height tall. */
+export const WASH = { alpha: LOOK.washAlpha, heightFactor: 1.6 } as const;
+
 export const POOL = {
   /** Standing-spot pool: about 1.6 m wide, 1.2 m deep, centred 1.6 m from the wall. */
   width: 1.6,
@@ -126,16 +130,45 @@ export function createFloorPoolGeometry(
   return new DecalBatch([{ position: [0, POOL.lift, 0], width, depth }], 'floor').geometry;
 }
 
+/** Contact shadow behind a frame: wider by 0.04 m and shifted 0.02 m down (design spec 12.8.3). */
+export const CONTACT_SHADOW = { grow: 0.04, drop: 0.02 } as const;
+
+/**
+ * The soft contact shadow behind a frame: a decal wider than the frame by 0.04 m and shifted
+ * 0.02 m down, behind the frame and never over the photo or the mount. Draw it with the
+ * `contactShadow` material (normal blend), or not at all when
+ * `QUALITY_FEATURES[quality].contactShadows` is false. Origin at the photo centre, like the frame.
+ */
+export function createFrameContactShadowGeometry(
+  photoWidth: number,
+  photoHeight: number,
+): BufferGeometry {
+  const w = photoWidth + FRAME.border * 2 + CONTACT_SHADOW.grow;
+  const h = photoHeight + FRAME.border * 2 + CONTACT_SHADOW.grow;
+  // z = 3 mm: just off the wall, behind the frame's front faces (the frame occupies z 0 to 0.05).
+  return new DecalBatch(
+    [{ position: [0, -CONTACT_SHADOW.drop, 0.003], width: w, depth: h }],
+    'wall',
+  ).geometry;
+}
+
+/** A round contact shadow on the floor under a plinth or podium of the given radius. */
+export function createPlinthContactShadowGeometry(radius: number): BufferGeometry {
+  const d = (radius + 0.25) * 2;
+  return new DecalBatch([{ position: [0, 0.004, 0], width: d, depth: d }], 'floor').geometry;
+}
+
 /**
  * The soft warm wash around a frame from its picture light: a rectangle larger than the frame,
  * brightest at the top (use `topBias` on the material). Origin at the photo centre.
  */
 export function createWallWashGeometry(photoWidth: number, photoHeight: number): BufferGeometry {
   const w = photoWidth + 1.3;
-  const h = photoHeight + 1.5;
-  // Offset upwards a little: the light is above the frame.
-  return new DecalBatch([{ position: [0, 0.18, FRAME.depth + 0.004], width: w, depth: h }], 'wall')
-    .geometry;
+  // Design spec 12.8.3: 1.6 times the frame height tall (frame = photo plus the 0.06 m border).
+  const h = (photoHeight + FRAME.border * 2) * WASH.heightFactor;
+  // Offset upwards a little: the light is above the frame. Drawn BEHIND the frame, 4 mm off the
+  // wall, so it never covers the mount or the photo (FR-40: nothing overlays a photo).
+  return new DecalBatch([{ position: [0, 0.18, 0.004], width: w, depth: h }], 'wall').geometry;
 }
 
 /** The soft elliptical blob shadow under a character (0.62 by 0.5 m at height scale 1). */

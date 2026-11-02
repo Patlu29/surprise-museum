@@ -70,5 +70,11 @@ export const AVATAR_FIXED = {
 /** `--avatar-skin-blush: rgba(229, 143, 176, 0.32)`: cheek discs. */
 export const SKIN_BLUSH = { hex: '#e58fb0', rgb: [229, 143, 176], alpha: 0.32 } as const;
 
+/**
+ * `--avatar-skin-blush-deep: rgba(214, 112, 98, 0.38)`: cheek discs on skin-08 to skin-10, a warm
+ * terracotta instead of the purple-pink of the standard blush (design spec 12.8.2 C).
+ */
+export const SKIN_BLUSH_DEEP = { hex: '#d67062', rgb: [214, 112, 98], alpha: 0.38 } as const;
+
 /** Brass used for the Guide badge's outer ring; `--color-brass-deep`. */
 export const BADGE_RING_BRASS = '#9c7637';

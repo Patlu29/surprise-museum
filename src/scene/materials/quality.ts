@@ -19,6 +19,12 @@ export interface QualityFeatures {
   dustMotes: boolean;
   /** Texture resolution multiplier. */
   textureScale: number;
+  /**
+   * Contact shadow decals under frames and plinths (design spec 12.8.5). Off on Low, where the baked
+   * edge darkening and the mat shading carry it. The character edge, face changes, trims, face
+   * shape and pattern are on in both tiers, and so are the dado, rail, cap, fillet and ceiling strips.
+   */
+  contactShadows: boolean;
 }
 
 export const QUALITY_FEATURES: Readonly<Record<GraphicsQuality, QualityFeatures>> = {
@@ -28,6 +34,7 @@ export const QUALITY_FEATURES: Readonly<Record<GraphicsQuality, QualityFeatures>
     finaleCone: true,
     dustMotes: true,
     textureScale: 1,
+    contactShadows: true,
   },
   low: {
     standardMaterials: false,
@@ -35,5 +42,6 @@ export const QUALITY_FEATURES: Readonly<Record<GraphicsQuality, QualityFeatures>
     finaleCone: false,
     dustMotes: false,
     textureScale: 0.5,
+    contactShadows: false,
   },
 };

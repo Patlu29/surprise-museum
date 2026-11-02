@@ -13,31 +13,71 @@ import {
   type BufferGeometry,
 } from 'three';
 import type { AvatarConfig } from '@contract';
-import { hex, shade } from '../colour';
+import { darker, hex, shade } from '../colour';
 import { PartBuilder, type BoneName } from '../geometry/partBuilder';
 import { ellipsoid, loft, ringsAt, tube, type Ring, type TubeBand } from '../geometry/surface';
 import { AVATAR_FIXED, BADGE_RING_BRASS, SKIN_TONES } from '../palette';
-import { BASE, HEAD, headCentre, jointsFor, shapeFor, type AvatarShape } from '../proportions';
+import {
+  BASE,
+  HEAD,
+  chinBottomY,
+  headCentre,
+  jointsFor,
+  shapeFor,
+  type AvatarShape,
+} from '../proportions';
 import { buildFace, mouthLiftFor } from './face';
-import { garmentFor, outfitColour, type Garment, type GarmentExtra } from './outfits';
-import { NECK_Y, WAIST_Y, paint, torsoRings } from './torso';
+import { clampCollars, garmentFor, outfitColour, type Garment, type GarmentExtra } from './outfits';
+import { HAIRLINES, type HairStyle } from './hair';
+import { hairline } from '../geometry/surface';
+import { NECK_Y, WAIST_Y, torsoRings } from './torso';
 
 export type AvatarRole = 'guide' | 'visitor';
 
+/**
+ * Outfit pattern cells (40 mm each) round each kind of part. Always even, so checks and dots close
+ * seamlessly round the part: torso 18 (about 0.115 m of radius), skirt 22, arms 8, legs 10.
+ */
+const CELLS = { torso: 18, skirt: 22, arm: 8, leg: 10 } as const;
+
 /** Remaps colour bands defined over a whole limb onto the segment between t0 and t1. */
-function sliceBands(bands: readonly TubeBand[], t0: number, t1: number): TubeBand[] {
+function sliceBands(bands: readonly TubeBand[], t0: number, t1: number, cells: number): TubeBand[] {
   const out: TubeBand[] = [];
   let previous = 0;
   for (const band of bands) {
     const lo = Math.max(previous, t0);
     const hi = Math.min(band.until, t1);
-    if (hi > lo + 1e-6) out.push({ ...band, until: (hi - t0) / (t1 - t0) });
+    if (hi > lo + 1e-6) {
+      // A band's end colour only applies where the band really ends, not where a slice cuts it.
+      const ends = band.until <= t1 + 1e-9;
+      out.push({
+        ...band,
+        until: (hi - t0) / (t1 - t0),
+        cells: band.patterned ? cells : 0,
+        endColour: ends ? band.endColour : undefined,
+      });
+    }
     previous = band.until;
   }
   const last = out[out.length - 1];
   if (last) last.until = 1;
   return out;
 }
+
+/** Ambient darkening behind the knee (design spec 12.8.2 B), 10%. */
+const KNEE_SHADE = 0.9;
+
+/**
+ * Sides round an arm, forearm or shin. A multiple of four puts a vertex exactly on the left, right,
+ * front and back of the tube, so in the usual views the polygon's silhouette vertex has a normal
+ * square to the view and the screen-space edge band (design spec 12.8.2 A) finds it. The old 10 had
+ * a flat facet there, which left every arm and shin without the light rim on a dark backdrop. 8 also
+ * costs fewer triangles than 10.
+ */
+const LIMB_SEGMENTS = 8;
+
+/** `outfitMask` value for a part that gets no silhouette edge. */
+const NO_EDGE = -1;
 
 const ARM_SPLIT = BASE.upperArm / (BASE.upperArm + BASE.foreArm);
 const LEG_SPLIT = BASE.thigh / (BASE.thigh + BASE.shin);
@@ -46,47 +86,65 @@ function addTorso(b: PartBuilder, shape: AvatarShape, garment: Garment): void {
   const g = garment;
   const skirtOnly = g.pelvis === null;
 
-  // Pelvis shell (trousers, jeans, joggers). Dresses use a skirt instead.
+  // Pelvis shell (trousers, jeans, joggers). Dresses, coats and tunics use a skirt instead.
   if (g.pelvis) {
     const { pelvis } = torsoRings(shape, g.pelvis.ofs);
-    b.add(loft(paint(pelvis, g.pelvis.colour), { segments: 16 }), 'hips');
+    const cells = g.pelvis.patterned ? CELLS.torso : 0;
+    // Ambient darkening 10% at the crotch ring, and the waist rings in the separation colour.
+    const rings = pelvis.map((r, i) => {
+      const colour =
+        i === 1
+          ? darker(g.pelvis?.colour as Color, 0.1)
+          : r.y >= WAIST_Y - 0.001 && g.pelvis?.topColour
+            ? g.pelvis.topColour
+            : (g.pelvis?.colour as Color);
+      return { ...r, colour, cells };
+    });
+    b.add(loft(rings, { segments: 16 }), 'hips');
   }
   if (g.skirt) {
     const hip = shape.hip;
     const waistRx = 0.128 * shape.waist + 0.011;
     const hemRx = (0.255 + 0.02 * (hip - 1)) * g.skirt.flare;
-    const hemRz = hemRx * 0.88;
+    const hemRz = hemRx * (g.skirt.depth ?? 0.88);
     const top = WAIST_Y;
     const hem = g.skirt.hemY;
+    const cells = g.skirt.patterned ? CELLS.skirt : 0;
     const rings: Ring[] = [
-      { y: top, rx: waistRx, rz: 0.111, colour: g.skirt.colour },
-      { y: top - 0.1, rx: 0.17 * hip + 0.016, rz: 0.13, colour: g.skirt.colour },
+      { y: top, rx: waistRx, rz: 0.111, colour: g.skirt.colour, cells },
+      { y: top - 0.1, rx: 0.17 * hip + 0.016, rz: 0.13, colour: g.skirt.colour, cells },
       {
         y: (top + hem) / 2,
         rx: (waistRx + hemRx) * 0.5 + 0.02,
-        rz: ((waistRx + hemRx) * 0.5 + 0.02) * 0.88,
+        rz: ((waistRx + hemRx) * 0.5 + 0.02) * (g.skirt.depth ?? 0.88),
         colour: g.skirt.colour,
+        cells,
       },
-      { y: hem + 0.032, rx: hemRx - 0.004, rz: hemRz - 0.004, colour: g.skirt.colour },
+      { y: hem + 0.032, rx: hemRx - 0.004, rz: hemRz - 0.004, colour: g.skirt.colour, cells },
       { y: hem + 0.028, rx: hemRx, rz: hemRz, colour: g.skirt.hemColour },
       { y: hem, rx: hemRx + 0.002, rz: hemRz + 0.002, colour: g.skirt.hemColour },
     ];
-    b.add(loft(rings, { segments: 18 }), 'hips');
+    b.add(loft(rings, { segments: g.skirt.segments ?? 18 }), 'hips');
   }
 
   // Chest shell, extended below the waist as the hem.
   const outer = torsoRings(shape, g.chest.ofs);
   const hemY = skirtOnly ? WAIST_Y : g.chest.hemY;
+  const cells = g.chest.patterned ? CELLS.torso : 0;
   const rings: Ring[] = [];
   if (hemY < WAIST_Y) {
     const lowerRings = outer.pelvis.filter((r) => !r.pole && r.y >= hemY - 0.0001 && r.y < WAIST_Y);
     const at = ringsAt(outer.pelvis, hemY);
     const hemColour = g.chest.hemColour ?? g.chest.colour;
+    // The trim is the lowest ring only, so it grades into the body over 18 mm and reads as a hem
+    // band, not a long fade. The hem ring is plain; the pattern starts above it.
     rings.push({ y: hemY, rx: at.rx, rz: at.rz, colour: hemColour });
-    rings.push({ y: hemY + 0.018, rx: at.rx, rz: at.rz, colour: hemColour });
-    for (const r of lowerRings) if (r.y > hemY + 0.02) rings.push({ ...r, colour: g.chest.colour });
+    rings.push({ y: hemY + 0.018, rx: at.rx, rz: at.rz, colour: g.chest.colour, cells });
+    for (const r of lowerRings) {
+      if (r.y > hemY + 0.02) rings.push({ ...r, colour: g.chest.colour, cells });
+    }
   }
-  for (const r of outer.chest) rings.push({ ...r, colour: g.chest.colour });
+  for (const r of outer.chest) rings.push({ ...r, colour: g.chest.colour, cells });
   b.add(loft(rings, { segments: 16 }), 'spine');
 }
 
@@ -112,20 +170,32 @@ function addExtras(
         { y: mid, rx: rx + 0.004, rz: rz + 0.004, colour: e.colour },
         { y: e.y1, rx, rz, colour: e.colour },
       ];
-      b.add(loft(rings, { segments: 18 }), e.bone);
+      const cells = e.patterned ? CELLS.torso : 0;
+      b.add(
+        loft(
+          rings.map((r) => ({ ...r, cells })),
+          { segments: 18 },
+        ),
+        e.bone,
+      );
     } else {
       let centre: [number, number, number] = [...e.centre];
       if (e.onChest) {
         const chest = torsoRings(shape, 0).chest;
         const at = ringsAt(chest, centre[1]);
-        centre = [centre[0], centre[1], at.cz + at.rz + ofs + e.radii[2] * 0.4];
+        const z =
+          e.side === 'back'
+            ? at.cz - at.rz - ofs - e.radii[2] * 0.4
+            : at.cz + at.rz + ofs + e.radii[2] * 0.4;
+        centre = [centre[0], centre[1], z];
       }
       b.add(
         ellipsoid(centre, e.radii, {
           colour: e.colour,
           rotation: e.rotation,
-          segments: 10,
-          rows: 6,
+          segments: e.segments ?? 10,
+          rows: e.rows ?? 6,
+          cells: e.patterned ? CELLS.torso : 0,
         }),
         e.bone,
       );
@@ -137,10 +207,10 @@ function addLimbs(b: PartBuilder, shape: AvatarShape, garment: Garment, skin: Co
   const j = jointsFor(shape);
   const arm = shape.arm;
   const leg = shape.leg;
-  const upperArmBands = sliceBands(garment.armBands, 0, ARM_SPLIT);
-  const foreArmBands = sliceBands(garment.armBands, ARM_SPLIT, 1);
-  const thighBands = sliceBands(garment.legBands, 0, LEG_SPLIT);
-  const shinBands = sliceBands(garment.legBands, LEG_SPLIT, 1);
+  const upperArmBands = sliceBands(garment.armBands, 0, ARM_SPLIT, CELLS.arm);
+  const foreArmBands = sliceBands(garment.armBands, ARM_SPLIT, 1, CELLS.arm);
+  const thighBands = sliceBands(garment.legBands, 0, LEG_SPLIT, CELLS.leg);
+  const shinBands = sliceBands(garment.legBands, LEG_SPLIT, 1, CELLS.leg);
 
   for (const side of [1, -1] as const) {
     const s = side === 1 ? 'L' : 'R';
@@ -156,7 +226,7 @@ function addLimbs(b: PartBuilder, shape: AvatarShape, garment: Garment, skin: Co
         bands: upperArmBands,
         capFrom: true,
         capTo: true,
-        segments: 10,
+        segments: LIMB_SEGMENTS,
       }),
       `arm${s}` as BoneName,
     );
@@ -169,7 +239,7 @@ function addLimbs(b: PartBuilder, shape: AvatarShape, garment: Garment, skin: Co
         bands: foreArmBands,
         capFrom: true,
         capTo: true,
-        segments: 10,
+        segments: LIMB_SEGMENTS,
       }),
       `forearm${s}` as BoneName,
     );
@@ -214,6 +284,7 @@ function addLimbs(b: PartBuilder, shape: AvatarShape, garment: Garment, skin: Co
         capFrom: true,
         capTo: true,
         segments: 12,
+        shadeTo: KNEE_SHADE,
       }),
       `leg${s}` as BoneName,
     );
@@ -226,8 +297,9 @@ function addLimbs(b: PartBuilder, shape: AvatarShape, garment: Garment, skin: Co
         bands: shinBands,
         capFrom: true,
         capTo: true,
-        segments: 10,
+        segments: LIMB_SEGMENTS,
         bulge: 0.08,
+        shadeFrom: KNEE_SHADE,
       }),
       `shin${s}` as BoneName,
     );
@@ -280,11 +352,29 @@ function addBadge(b: PartBuilder, shape: AvatarShape, garment: Garment, role: Av
   };
 
   if (role === 'guide') {
-    b.add(place(disc(0.037, 0.008), 0.0), 'spine', hex(BADGE_RING_BRASS));
-    b.add(place(disc(0.03, 0.01), 0.001), 'spine', hex(AVATAR_FIXED.badgeGuide));
-    b.add(place(disc(0.012, 0.012), 0.002), 'spine', shade(hex(AVATAR_FIXED.badgeGuide), 1.12));
+    b.add(place(disc(0.037, 0.008), 0.0), 'spine', hex(BADGE_RING_BRASS), undefined, NO_EDGE);
+    b.add(
+      place(disc(0.03, 0.01), 0.001),
+      'spine',
+      hex(AVATAR_FIXED.badgeGuide),
+      undefined,
+      NO_EDGE,
+    );
+    b.add(
+      place(disc(0.012, 0.012), 0.002),
+      'spine',
+      shade(hex(AVATAR_FIXED.badgeGuide), 1.12),
+      undefined,
+      NO_EDGE,
+    );
   } else {
-    b.add(place(disc(0.04, 0.005), 0.0), 'spine', hex(AVATAR_FIXED.badgeVisitor));
+    b.add(
+      place(disc(0.04, 0.005), 0.0),
+      'spine',
+      hex(AVATAR_FIXED.badgeVisitor),
+      undefined,
+      NO_EDGE,
+    );
     const heart = new Shape();
     heart.moveTo(0, -0.45);
     heart.bezierCurveTo(-0.62, -0.05, -0.56, 0.46, -0.26, 0.46);
@@ -294,8 +384,36 @@ function addBadge(b: PartBuilder, shape: AvatarShape, garment: Garment, role: Av
     const g = new ShapeGeometry(heart, 6);
     g.scale(0.052, 0.052, 1);
     g.translate(0, -0.002, 0);
-    b.add(place(g, 0.0032), 'spine', hex(AVATAR_FIXED.badgeHeart));
+    b.add(place(g, 0.0032), 'spine', hex(AVATAR_FIXED.badgeHeart), undefined, NO_EDGE);
   }
+}
+
+const smoothstep = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+/**
+ * Region separation on the head ellipsoid (design spec 12.8.2 B), vertex colours only: the skin is
+ * 8% darker under the hairline and the fringe, easing out over the next row, and up to 10% darker
+ * under the jaw (a soft chin shadow). Done on the unwarped head, so it follows the face shape.
+ */
+function shadeHead(head: BufferGeometry, hairStyle: HairStyle): BufferGeometry {
+  const lower = hairline(...HAIRLINES[hairStyle]);
+  const [cx, cy, cz] = headCentre();
+  const pos = head.getAttribute('position');
+  const col = head.getAttribute('color');
+  for (let i = 0; i < pos.count; i++) {
+    const phi = Math.asin(Math.max(-1, Math.min(1, (pos.getY(i) - cy) / HEAD.ry)));
+    const theta = Math.atan2(pos.getX(i) - cx, pos.getZ(i) - cz);
+    // Metres below the hairline along the head (negative under the hair).
+    const below = (lower(theta) - phi) * HEAD.ry;
+    const hairShadow = 0.08 * (1 - smoothstep(0, 0.045, below));
+    const chin = 0.1 * smoothstep(-0.7, -1.2, phi);
+    const k = (1 - hairShadow) * (1 - chin);
+    col.setXYZ(i, col.getX(i) * k, col.getY(i) * k, col.getZ(i) * k);
+  }
+  return head;
 }
 
 export function buildBodyGeometry(
@@ -304,17 +422,27 @@ export function buildBodyGeometry(
   shape: AvatarShape = shapeFor(config),
 ): BufferGeometry {
   const skin = hex(SKIN_TONES[config.skinTone]);
-  const garment = garmentFor({
-    style: config.outfitStyle,
-    outfit: outfitColour(config.outfitColor),
-    skin,
-  });
-  const b = new PartBuilder(shape);
+  const garment = clampCollars(
+    garmentFor({
+      style: config.outfitStyle,
+      outfit: outfitColour(config.outfitColor),
+      skin,
+    }),
+    chinBottomY(shape.face),
+  );
+  const b = new PartBuilder(shape, { masked: true });
 
   // Head, neck and face.
   const [cx, cy, cz] = headCentre();
   b.add(
-    ellipsoid([cx, cy, cz], [HEAD.rx, HEAD.ry, HEAD.rz], { colour: skin, segments: 22, rows: 12 }),
+    shadeHead(
+      ellipsoid([cx, cy, cz], [HEAD.rx, HEAD.ry, HEAD.rz], {
+        colour: skin,
+        segments: 22,
+        rows: 12,
+      }),
+      config.hairStyle,
+    ),
     'head',
   );
   b.add(
@@ -323,21 +451,24 @@ export function buildBodyGeometry(
       to: [0, NECK_Y + 0.07, 0],
       radiusFrom: 0.04 * shape.neck,
       radiusTo: 0.036 * shape.neck,
-      bands: [{ until: 1, colour: skin }],
+      // The neck sits in the chin shadow: 10% darker than the face.
+      bands: [{ until: 1, colour: darker(skin, 0.1) }],
       segments: 10,
     }),
     'neck',
   );
   const face = buildFace(skin, mouthLiftFor(config.facialHair), shape.eye);
+  // Small face features get no silhouette edge (mask -1), so the face is not outlined feature by feature.
   for (const g of [
     ...face.sclera,
     ...face.eyes,
+    ...face.catchlights,
     face.nose,
     ...face.blush,
     face.mouth,
-    ...face.ears,
   ])
-    b.add(g, 'head');
+    b.add(g, 'head', undefined, undefined, NO_EDGE);
+  for (const g of face.ears) b.add(g, 'head');
 
   addTorso(b, shape, garment);
   addExtras(b, garment.extras, shape, garment.chest.ofs);

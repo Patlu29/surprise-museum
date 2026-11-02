@@ -2,7 +2,14 @@
 import { readFileSync } from 'node:fs';
 import { AVATAR_OPTIONS } from '@contract';
 import { describe, expect, it } from 'vitest';
-import { AVATAR_FIXED, HAIR_COLORS, OUTFIT_COLORS, SKIN_BLUSH, SKIN_TONES } from './palette';
+import {
+  AVATAR_FIXED,
+  HAIR_COLORS,
+  OUTFIT_COLORS,
+  SKIN_BLUSH,
+  SKIN_BLUSH_DEEP,
+  SKIN_TONES,
+} from './palette';
 
 /** Vitest blanks CSS imports, so read the token file directly. */
 const tokensCss = readFileSync(new URL('../../../styles/tokens.css', import.meta.url), 'utf8');
@@ -60,5 +67,16 @@ describe('avatar palette', () => {
     const m = /--avatar-skin-blush:\s*rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/.exec(tokensCss);
     expect([Number(m?.[1]), Number(m?.[2]), Number(m?.[3])]).toEqual([...SKIN_BLUSH.rgb]);
     expect(Number(m?.[4])).toBeCloseTo(SKIN_BLUSH.alpha, 5);
+  });
+
+  it('mirrors the deep-skin blush token, and its hex matches the rgb parts', () => {
+    const m = /--avatar-skin-blush-deep:\s*rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/.exec(
+      tokensCss,
+    );
+    expect([Number(m?.[1]), Number(m?.[2]), Number(m?.[3])]).toEqual([...SKIN_BLUSH_DEEP.rgb]);
+    expect(Number(m?.[4])).toBeCloseTo(SKIN_BLUSH_DEEP.alpha, 5);
+    const [r, g, b] = SKIN_BLUSH_DEEP.rgb;
+    const toHex = (n: number) => n.toString(16).padStart(2, '0');
+    expect(SKIN_BLUSH_DEEP.hex).toBe(`#${toHex(r)}${toHex(g)}${toHex(b)}`);
   });
 });

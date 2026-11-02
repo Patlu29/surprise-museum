@@ -10,6 +10,7 @@ import {
   CylinderGeometry,
   RingGeometry,
 } from 'three';
+import { LOOK } from '../look';
 import { SCENE_PALETTE } from '../palette';
 import {
   boxPart,
@@ -30,14 +31,20 @@ export const PODIUM = {
  * A low cream stone disc with a thin brass inlay ring. The ring has aGlow = 1: raise the podium
  * material's glow to brighten it on enter (300 ms) and for the R2 "all viewed" pulse.
  */
-export function createPodiumGeometry(): BufferGeometry {
-  const { radius, height, ringInner, ringOuter } = PODIUM;
+export function createPodiumGeometry(options: { radius?: number } = {}): BufferGeometry {
+  // The preview plinth (design spec 12.8.4) is the same piece at another radius.
+  const k = (options.radius ?? PODIUM.radius) / PODIUM.radius;
+  const radius = PODIUM.radius * k;
+  const { height } = PODIUM;
+  const ringInner = PODIUM.ringInner * k;
+  const ringOuter = PODIUM.ringOuter * k;
   const segments = 56;
   const cream = SCENE_PALETTE.podium;
 
+  // The side is `--look-plinth-side`, darker than the top, so the podium reads as a solid form.
   const side = new CylinderGeometry(radius, radius * 1.015, height, segments, 1, true);
   side.translate(0, height / 2, 0);
-  setVertexColour(side, cream);
+  setVertexColour(side, LOOK.plinthSide);
   setConstantAttribute(side, 'aGlow', 0);
 
   const top = (inner: number, outer: number, colour: string, glow: number) => {

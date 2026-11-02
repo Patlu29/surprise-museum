@@ -3,12 +3,14 @@
  * Documentation and usage examples: docs/handoffs/technical-artist.md.
  */
 export { BLOB_SHADOW, SCENE_PALETTE, scene, type SceneColourKey } from './palette';
+export { LOOK, type LookKey } from './look';
 export { QUALITY_FEATURES, type GraphicsQuality, type QualityFeatures } from './quality';
 export {
   CANVAS_GL_DEFAULTS,
   COLOUR_TEMPERATURE_KELVIN,
   MUSEUM_LIGHTING,
   PREVIEW_BACKGROUND,
+  PREVIEW_STAGE_CSS,
   PREVIEW_LIGHTING,
   applyRendererSettings,
   type LightingConfig,
@@ -46,10 +48,13 @@ export {
   type Placement,
 } from './geometry/builders';
 export {
+  CEILING_STRIP,
   WALL,
+  WALL_CAP,
   createCeilingGeometry,
   createCeilingRoseGeometry,
   createCeilingStripGeometry,
+  createWallCapGeometry,
   createWallRunGeometry,
   type Doorway,
   type WallRunOptions,
@@ -64,7 +69,9 @@ export {
   type RunnerOptions,
 } from './geometry/floor';
 export {
+  FILLET,
   FRAME,
+  MOUNT_BEVEL,
   createFrameGeometry,
   createPhotoGeometry,
   createPictureLightGeometry,
@@ -78,11 +85,16 @@ export {
   createPodiumGeometry,
 } from './geometry/finale';
 export {
+  CONTACT_SHADOW,
   POOL,
+  WASH,
   DecalBatch,
+  createFrameContactShadowGeometry,
+  createPlinthContactShadowGeometry,
   createBlobShadowGeometry,
   createFloorPoolGeometry,
   createFloorRingGeometry,
   createWallWashGeometry,
   type DecalPlacement,
 } from './geometry/decals';
+export { DADO, FLOOR_EDGE, RUNNER_BORDER, WALL_AO } from './worldMapping';
