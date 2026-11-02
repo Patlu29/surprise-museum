@@ -66,6 +66,14 @@ export function stripHeightFor(scale: number): number {
   return 104;
 }
 
+/** The strip's top edge in CSS px on portrait (the card's dock under the top bar). Mirror. */
+const PORTRAIT_STRIP_TOP = 68;
+
+/** Bottom edge of the portrait strip in CSS px (192 at caption scale 1.5). */
+export function portraitStripBottom(scale: number): number {
+  return PORTRAIT_STRIP_TOP + stripHeightFor(scale);
+}
+
 /** Top bar plus margin above the portrait card (design spec 3.5, about 64 px). Mirror. */
 const PORTRAIT_TOP_INSET = 64;
 

@@ -45,12 +45,19 @@ function write(el: HTMLElement, dx: number, dy: number): void {
   }
 }
 
+/** How far a label box must move down to keep its top at or below `minTop` (0 when it already is). */
+export function clampDown(box: { top: number }, minTop: number): number {
+  return Math.max(0, minTop - box.top);
+}
+
 /** Returns the final label rectangles (with their offsets), or null for a hidden label. */
 export function layoutLabels(
   actors: readonly LabelActor[],
   camera: Camera,
   area: { left: number; top: number; width: number; height: number },
   picture: ScreenRect | null,
+  /** Portrait strip (BUG-10): a label may not sit above this y (CSS px, viewport); it slides down. */
+  minTop: number | null = null,
 ): Record<'visitor' | 'guide', ScreenRect | null> {
   const out: Record<'visitor' | 'guide', ScreenRect | null> = { visitor: null, guide: null };
   const items: Array<{
@@ -116,6 +123,8 @@ export function layoutLabels(
       far.dy = -(far.h + 4);
     }
   }
+
+  if (minTop !== null) for (const it of items) it.dy = Math.max(it.dy, clampDown(it.box, minTop));
 
   for (const it of items) {
     write(it.el, it.dx, it.dy);

@@ -34,8 +34,6 @@ const CAPTIONS = [words(30, 'Short'), words(140, 'Medium'), words(280, 'Long')];
 const LABELS = ['short (30)', 'medium (140)', 'long (280)'];
 const LONG_GUIDE_NAME = 'Alexandra Montgomery-Ray'; // 24 characters
 
-const BUG_10 =
-  'BUG-10 (scene-developer): at 360x640 with caption size 1.5 the 124 px strip (y 68 to 192) still overlaps the Guide rectangle (top y 183.9) by about 8 px. The framing reserve (196) is applied to the picture, not to the Guide rectangle with her label. Remove this line when fixed.';
 
 const PRONOUNS = /\b(she|her|hers|herself|he|him|his|himself|girlfriend|boyfriend)\b/i;
 
@@ -181,7 +179,6 @@ test.describe('caption card, spec 3.5 v1.4', () => {
     });
 
     test(`S1 S2 S4 at ${vp.width}x${vp.height}: scale 1.5 and a 24-character Guide name`, async ({ page }) => {
-      test.fail(vp.width === 360, BUG_10);
       const m = await museumWith(page, LONG_GUIDE_NAME);
       expect(LONG_GUIDE_NAME).toHaveLength(24);
       await enterVisit(page, m.shareToken, vp);

@@ -1,5 +1,13 @@
 # Handoff: scene-developer
 
+## Update (fix round 2, extra attempt): BUG-10, labels slide clear of the strip
+
+- **Real cause (instrumented at 360x640, scale 1.5, 24-character name):** the solver picked its only valid candidate (-35 deg, pitch 12) with the Guide dropped from the fit set (`guideDropped`, `relaxed`). Her body was fine (top 259) but her label, wrapped to two lines (158 x 68 px), sat at y 183.9 to 251.9, under the strip (bottom 192). No other candidate was valid (picture minimum width against the Visitor and the safe height), so a framing-only fix cannot work; my first attempt (a strip band test in the solver) therefore changed nothing and is reverted.
+- **Fix:** the strip is a reserved band, so on portrait during a photo presentation a name label that would sit above the strip's bottom edge slides down to it. `layoutLabels` takes a `minTop` (new `clampDown`, applied last, so after the picture shift and the collision rule); `SceneDriver.publishRects` computes it as `portraitStripBottom(caption scale)` (new export in `presentationFraming.ts`: 68 + 104/112/124, so 192 at 1.5) and applies the same shift to the Guide's label in the published Guide rectangle at her presentation spot (that branch ignored label offsets). The framing solver, tolerances and camera timing are unchanged. The label overlaps her head by a few pixels at worst, never the picture.
+- **Tests:** `labelLayout.test.ts` (`clampDown`), `portraitStripBottom` in `presentationFraming.test.ts`. The e2e `test.fail(BUG_10)` marker and constant are removed from `tests/e2e/caption-card.spec.ts` (QA file, edited at the coordinator's request).
+- **Results:** typecheck, lint, 870 unit tests pass; caption-card e2e 20 of 20 on desktop-chromium, mobile-chromium and mobile-webkit; presentation-camera e2e see report.
+- **Request, ux-ui-designer:** add to 5.5 "Framed view": on portrait a label never sits under the caption strip; it slides down to the strip's bottom edge.
+
 ## Update 30/10/2026 (N-6): `surprise-museum:guide-presenting` event
 
 `window` event `surprise-museum:guide-presenting`, `detail: { photoId, arrived }`, from `src/scene/cameras/guidePresentingTracker.ts` (pure, tested in `guidePresentingTracker.test.ts`) and dispatched by `PresentationCameraController.tick` once per frame at most per change:

@@ -1,11 +1,13 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import { Vector3, type PerspectiveCamera } from 'three';
-import { labelAnchorHeight } from '@/domain/camera/presentationFraming';
+import { classifyViewport } from '@/domain/camera/composition';
+import { labelAnchorHeight, portraitStripBottom } from '@/domain/camera/presentationFraming';
 import { dist2, normalize2, type Vec2 } from '@/domain/math/vec2';
 import type { Room } from '@/domain/layout/types';
 import { consumeOrbitDelta, consumeZoomDelta, inputState } from '@/state/inputState';
 import { clearScreenRects, publishScreenRects, type ScreenRect } from '@/state/screenRects';
+import { useSettingsStore } from '@/state/settingsStore';
 import { useSessionStore } from '@/state/sessionStore';
 import { avatarHeight } from '../characters/avatarRig';
 import type { FollowCameraRig } from '../cameras/FollowCameraRig';
@@ -16,7 +18,7 @@ import {
 import { isReducedMotion } from '../runtime/motion';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { FRAME_COMMANDS } from './frameQueue';
-import { layoutLabels, resetLabels } from './labelLayout';
+import { clampDown, layoutLabels, resetLabels } from './labelLayout';
 import { characterCorners, frameCorners, projectPoints } from './projection';
 
 /**
@@ -329,6 +331,15 @@ function publishRects(
     if (slot) picture = projectPoints(frameCorners(slot), camera, area);
   }
 
+  // Portrait: the caption strip reserves the top of the screen (3.5), so a label that would sit
+  // under it slides down to its bottom edge (BUG-10).
+  const size = useSettingsStore.getState().captionSize;
+  const stripMinTop =
+    presentation.kind === 'photo' &&
+    classifyViewport(area.width, area.height) === 'phone-portrait'
+      ? area.top + portraitStripBottom(size === 'xlarge' ? 1.5 : size === 'large' ? 1.25 : 1)
+      : null;
+
   // Labels slide off the picture while framed, then the overlap rule runs (design spec 5.5).
   const labels = layoutLabels(
     [
@@ -350,6 +361,7 @@ function publishRects(
     camera,
     area,
     framed ? picture : null,
+    stripMinTop,
   );
   const actor = (role: 'visitor' | 'guide', pos: { x: number; z: number }): ScreenRect | null => {
     const body = projectPoints(characterCorners(pos.x, pos.z, heights[role], camera), camera, area);
@@ -381,6 +393,7 @@ function publishRects(
         height: h,
       };
     }
+    if (label && stripMinTop !== null) label.y += clampDown({ top: label.y }, stripMinTop);
     guideRect = unionScreenRects(body, label) ?? guideRect;
   }
   publishScreenRects({

@@ -15,6 +15,7 @@ import {
   unionArea,
   type FramingInput,
   type Rect,
+  portraitStripBottom,
 } from './presentationFraming';
 
 const VIEWPORTS = [
@@ -372,5 +373,13 @@ describe('caption scale reserves the strip (BUG-10)', () => {
     const a = solveFraming(inputFor(layout, slot, 360, 640))!;
     const b = solveFraming(inputFor(layout, slot, 360, 640, 1, { captionScale: 1 }))!;
     expect(b.boom).toBe(a.boom);
+  });
+});
+
+describe('portraitStripBottom (BUG-10)', () => {
+  it('is the top inset plus the strip for each caption scale', () => {
+    expect(portraitStripBottom(1)).toBe(172);
+    expect(portraitStripBottom(1.25)).toBe(180);
+    expect(portraitStripBottom(1.5)).toBe(192);
   });
 });
