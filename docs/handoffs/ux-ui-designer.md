@@ -17,7 +17,7 @@ Spec is now v2.0.1. The font fallback is in the token, the ceiling build is reco
 ### Ceiling (FR-95)
 - Spec matches the build: opacity formula, 0.02 hide threshold, reduced-motion 2.85 m off and 2.65 m on (= H - 0.35 and H - 0.55 with H = 3.2). The one thing the build adds is the 2 m-above-ceiling height cap (5.2 m), which the spec did not have; I recorded it as an accepted design decision.
 - Consequence for QA: at pitch 55 degrees the cap shortens a 6 m boom to about 5.25 m (pivot 0.9 m), so the 6.3 QA line now reads "the longest boom the cap allows". Pitch and the zoom setting are untouched.
-- **Strip position: the spec never fixed it.** 12.8.3 said "a leading line along the route", which I meant as a line ahead of the Visitor leading to the next doorway. The build puts it at the room centre plus min(0.3 x depth, 2.4 m) toward +Z, which is the entrance side (route runs to -Z), so it sits behind her. The offset itself is right (it keeps the strip clear of the 0.4 m rose at the centre) and the direction along the route is right. My answer: intended toward the exit, but the entrance side is acceptable and not a defect, because the ceiling is mostly a thin band at the top of the default view and either side is seen at some point of the walk. I wrote the intent and the acceptance into 12.8.3. Optional scene-developer change: flip the sign at `src/scene/objects/museumDressing.ts` line 175 (`cz - Math.min(...)`); no other change, same triangle count.
+- **Strip position: the spec never fixed it.** 12.8.3 said "a leading line along the route", which I meant as a line ahead of the Visitor leading to the next doorway. The first build put it at the room centre plus min(0.3 x depth, 2.4 m) toward +Z, the entrance side (route runs to -Z), behind her. I answered that I intended the exit side; the scene-developer then flipped the sign. As built, the strip is offset toward -Z (the exit): `cz - min(0.3 x depth, 2.4 m)`, so it sits ahead of the Visitor, clear of the 0.4 m rose at the centre, and leads to the next doorway. 12.8.3 states this as built.
 
 ### Decisions on the four deviations (all agreed, none disputed)
 - One Preview visible at a time (on step 4 from 640 px beside Publish): agreed. It fixes a real duplicate and keeps one control per view. 12.4.1, 12.4.4 and 12.5.4 now say so.
@@ -30,7 +30,7 @@ Spec is now v2.0.1. The font fallback is in the token, the ceiling build is reco
 
 ### Requests for other agents
 - frontend-developer: drop the `--font-display` override block from `src/ui/styles/fonts.css` (token now has the fallback). Keep the `@font-face` rules
-- scene-developer (optional, low priority): ceiling strip toward the exit (sign flip, above). Update the QA wording for the 5.25 m effective boom if you keep a note of it
+- scene-developer: ceiling strip sign flip is done (now `cz - min(0.3 x depth, 2.4 m)`, toward the exit; 12.8.3 states the as-built exit side). Update the QA wording for the 5.25 m effective boom if you keep a note of it
 - qa-engineer: run `npx vitest run src/scene/materials` once; check the finale footer at 320 px with large caption text, and the 6.3 criterion at the capped boom
 
 ---
