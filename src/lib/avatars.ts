@@ -1,6 +1,5 @@
 import type { AvatarConfig, AvatarGender, AvatarOptionalKey } from '@contract';
 import {
-  AVATAR_GENDERS,
   AVATAR_OPTIONAL_DEFAULTS,
   AVATAR_OPTIONAL_OPTIONS,
   AVATAR_OPTIONS,
@@ -9,12 +8,14 @@ import {
 } from '@contract';
 import {
   BODY_TYPE_LABELS,
+  FACE_SHAPE_LABELS,
   FACIAL_HAIR_LABELS,
   GENDER_LABELS,
   HAIR_COLOR_LABELS,
   HAIR_STYLE_LABELS,
   HEIGHT_LABELS,
   OUTFIT_COLOR_LABELS,
+  OUTFIT_PATTERN_LABELS,
   OUTFIT_STYLE_LABELS,
   SKIN_LABELS,
 } from '@/domain/characters/avatarOptions';
@@ -29,6 +30,8 @@ export {
   describeAvatar,
   DEFAULT_GUIDE_APPEARANCE as DEFAULT_GUIDE_AVATAR,
   DEFAULT_VISITOR_APPEARANCE as DEFAULT_VISITOR_AVATAR,
+  FACE_SHAPE_LABELS,
+  OUTFIT_PATTERN_LABELS,
 } from '@/domain/characters/avatarOptions';
 
 /** The role a character plays. The Guide resembles the Creator; the Visitor resembles the recipient. */
@@ -36,16 +39,12 @@ export type AvatarRole = 'guide' | 'visitor';
 
 /**
  * The options the builder lets the Creator change (accessories are Release 2).
- * `gender` is one of them, but it is optional in the contract and its ids live in
- * `AVATAR_GENDERS`, not `AVATAR_OPTIONS` (ADR 0020).
- * `faceShape` and `outfitPattern` (ADR 0021) are in the data model but have no builder control
- * yet; the frontend-developer removes them from this exclusion when adding the controls, with
- * their labels in AVATAR_LABELS and their ids in `optionIds`.
+ * `gender` (ADR 0020), `faceShape` and `outfitPattern` (ADR 0021) are among them, but they are
+ * optional in the contract and their ids live in `AVATAR_OPTIONAL_OPTIONS`, not `AVATAR_OPTIONS`.
+ * So `AvatarConfig[K]` includes `undefined` for those three keys: read the shown value with
+ * `selectedOptionValue`, never `config[key]` directly.
  */
-export type AvatarOptionKey = Exclude<
-  keyof AvatarConfig,
-  'v' | 'glasses' | 'hat' | 'faceShape' | 'outfitPattern'
->;
+export type AvatarOptionKey = Exclude<keyof AvatarConfig, 'v' | 'glasses' | 'hat'>;
 
 /** Display text and accessible names (design spec 9.2), keyed by option. */
 export const AVATAR_LABELS = {
@@ -58,6 +57,8 @@ export const AVATAR_LABELS = {
   bodyType: BODY_TYPE_LABELS,
   height: HEIGHT_LABELS,
   facialHair: FACIAL_HAIR_LABELS,
+  faceShape: FACE_SHAPE_LABELS,
+  outfitPattern: OUTFIT_PATTERN_LABELS,
 } as const satisfies { [K in AvatarOptionKey]: Readonly<Record<string, string>> };
 
 /**
@@ -68,20 +69,32 @@ export const AVATAR_LABELS = {
  */
 const OUTFIT_STYLES_PENDING_KIT: ReadonlySet<string> = new Set<string>();
 
-/** Option ids offered by the builder for each option, in display order. */
-export function optionIds<K extends AvatarOptionKey>(key: K): ReadonlyArray<AvatarConfig[K]> {
-  if (key === 'gender') return AVATAR_GENDERS as unknown as ReadonlyArray<AvatarConfig[K]>;
+function isOptionalKey(key: string): key is AvatarOptionalKey {
+  return Object.prototype.hasOwnProperty.call(AVATAR_OPTIONAL_OPTIONS, key);
+}
+
+/**
+ * Option ids offered by the builder for each option, in display order. The optional keys
+ * (`gender`, `faceShape`, `outfitPattern`) come from `AVATAR_OPTIONAL_OPTIONS`, the rest from
+ * `AVATAR_OPTIONS`. The result never contains `undefined`.
+ */
+export function optionIds<K extends AvatarOptionKey>(
+  key: K,
+): ReadonlyArray<NonNullable<AvatarConfig[K]>> {
+  type Ids = ReadonlyArray<NonNullable<AvatarConfig[K]>>;
+  if (isOptionalKey(key)) return AVATAR_OPTIONAL_OPTIONS[key] as unknown as Ids;
   if (key === 'outfitStyle') {
     return AVATAR_OPTIONS.outfitStyle.filter(
       (id) => !OUTFIT_STYLES_PENDING_KIT.has(id),
-    ) as unknown as ReadonlyArray<AvatarConfig[K]>;
+    ) as unknown as Ids;
   }
-  return (AVATAR_OPTIONS as Record<string, ReadonlyArray<unknown>>)[
-    key
-  ] as unknown as ReadonlyArray<AvatarConfig[K]>;
+  return (AVATAR_OPTIONS as Record<string, ReadonlyArray<unknown>>)[key] as unknown as Ids;
 }
 
-export function avatarOptionLabel<K extends AvatarOptionKey>(key: K, id: AvatarConfig[K]): string {
+export function avatarOptionLabel<K extends AvatarOptionKey>(
+  key: K,
+  id: NonNullable<AvatarConfig[K]>,
+): string {
   const table = AVATAR_LABELS[key] as Readonly<Record<string, string>>;
   return table[id as string] ?? String(id);
 }
@@ -95,6 +108,19 @@ export function selectedGender(config: AvatarConfig): AvatarGender {
 function optionalValue(config: AvatarConfig, key: AvatarOptionalKey): string {
   const value = config[key];
   return isAvatarOptionalValue(key, value) ? (value as string) : AVATAR_OPTIONAL_DEFAULTS[key];
+}
+
+/**
+ * The selected id shown in the builder for any option. For the optional keys (`gender`,
+ * `faceShape`, `outfitPattern`) a missing or unknown value reads as its default (Neutral, Oval,
+ * Plain), as ADR 0020 and ADR 0021 require; the required keys are returned as stored.
+ */
+export function selectedOptionValue<K extends AvatarOptionKey>(
+  config: AvatarConfig,
+  key: K,
+): NonNullable<AvatarConfig[K]> {
+  if (isOptionalKey(key)) return optionalValue(config, key) as NonNullable<AvatarConfig[K]>;
+  return config[key] as NonNullable<AvatarConfig[K]>;
 }
 
 const OPTIONAL_KEYS = Object.keys(AVATAR_OPTIONAL_OPTIONS) as AvatarOptionalKey[];

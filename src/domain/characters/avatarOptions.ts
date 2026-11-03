@@ -5,7 +5,15 @@
  *
  * Labels are from docs/design-spec.md, section 9.2. Ids come from the contract.
  */
-import { avatarGender, type AvatarConfig, type AvatarGender } from '@contract';
+import {
+  avatarFaceShape,
+  avatarGender,
+  avatarOutfitPattern,
+  type AvatarConfig,
+  type AvatarFaceShape,
+  type AvatarGender,
+  type AvatarOutfitPattern,
+} from '@contract';
 
 export const SKIN_LABELS: Readonly<Record<AvatarConfig['skinTone'], string>> = {
   'skin-01': 'Very light',
@@ -111,6 +119,31 @@ export const FACIAL_HAIR_LABELS: Readonly<Record<AvatarConfig['facialHair'], str
   'full-beard': 'Full beard',
 };
 
+/**
+ * Face shape (FR-96, ADR 0021, design spec 9.2), in display order. Optional in the contract: a
+ * missing or unknown value reads as Oval through `avatarFaceShape`. Labels name the shape, never
+ * a person (FR-99).
+ */
+export const FACE_SHAPE_LABELS: Readonly<Record<AvatarFaceShape, string>> = {
+  oval: 'Oval',
+  round: 'Round',
+  square: 'Square',
+  heart: 'Heart',
+  long: 'Long',
+};
+
+/**
+ * Clothing pattern (FR-98, ADR 0021, design spec 9.2), in display order. Drawn in tints of the
+ * outfit colour (Q-31). Optional in the contract: missing or unknown reads as Plain through
+ * `avatarOutfitPattern`.
+ */
+export const OUTFIT_PATTERN_LABELS: Readonly<Record<AvatarOutfitPattern, string>> = {
+  plain: 'Plain',
+  stripes: 'Stripes',
+  checks: 'Checks',
+  dots: 'Dots',
+};
+
 /** Design spec 9.3. Defaults avoid assuming anyone's gender and keep the pair visibly different. */
 export const DEFAULT_GUIDE_APPEARANCE: AvatarConfig = {
   v: 1,
@@ -189,6 +222,17 @@ const BODY_PHRASE: Record<AvatarConfig['bodyType'], string> = {
   broad: 'wider shoulders',
 };
 
+/**
+ * Design spec 9.4 (v2.0): the pattern word sits between the colour and the garment, only when the
+ * pattern is not Plain ("navy striped shirt and trousers", "coral spotted jumpsuit").
+ */
+const PATTERN_PHRASE: Record<AvatarOutfitPattern, string> = {
+  plain: '',
+  stripes: 'striped',
+  checks: 'checked',
+  dots: 'spotted',
+};
+
 /** The gender word appears only in the description of a non-Neutral choice (A-20). */
 const GENDER_PHRASE: Record<Exclude<AvatarGender, 'neutral'>, string> = {
   feminine: 'woman',
@@ -197,21 +241,30 @@ const GENDER_PHRASE: Record<Exclude<AvatarGender, 'neutral'>, string> = {
 
 /**
  * The live description for the customiser preview (design spec 9.4), for example
- * "Tom: medium height, regular build, short crop dark brown hair, navy shirt and trousers."
+ * "Tom: man, medium height, regular build, square face, short crop dark brown hair, goatee,
+ * navy striped shirt and trousers."
+ * Face shape and pattern add words only when they are not the default (Oval, Plain), so a
+ * character with today's look, or one saved before ADR 0021, reads exactly as before. Both are
+ * read through the contract accessors, so a missing or unknown value reads as the default.
  * Pass an empty name to omit the prefix.
  */
 export function describeAvatar(config: AvatarConfig, name = ''): string {
   const height = { short: 'shorter', medium: 'medium', tall: 'taller' }[config.height];
   const gender = avatarGender(config);
+  const faceShape = avatarFaceShape(config);
+  const pattern = PATTERN_PHRASE[avatarOutfitPattern(config)];
   const parts = [
     ...(gender === 'neutral' ? [] : [GENDER_PHRASE[gender]]),
     `${height} height`,
     BODY_PHRASE[config.bodyType],
+    // Design spec 9.4 (v2.0): "{face shape} face" after the build, only when not Oval.
+    ...(faceShape === 'oval' ? [] : [`${lower(FACE_SHAPE_LABELS[faceShape])} face`]),
     HAIR_PHRASE[config.hairStyle](lower(HAIR_COLOR_LABELS[config.hairColor])),
   ];
   // Template order (design spec 9.4): hair, then facial hair, then the outfit.
   if (config.facialHair !== 'none') parts.push(lower(FACIAL_HAIR_LABELS[config.facialHair]));
-  parts.push(OUTFIT_PHRASE[config.outfitStyle](lower(OUTFIT_COLOR_LABELS[config.outfitColor])));
+  const colour = lower(OUTFIT_COLOR_LABELS[config.outfitColor]);
+  parts.push(OUTFIT_PHRASE[config.outfitStyle](pattern ? `${colour} ${pattern}` : colour));
   const body = parts.join(', ');
   return name ? `${name}: ${body}.` : `${body.charAt(0).toUpperCase()}${body.slice(1)}.`;
 }

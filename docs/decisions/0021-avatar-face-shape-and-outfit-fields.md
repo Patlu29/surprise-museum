@@ -218,3 +218,7 @@ The budget test must cover every face shape. Patterns and face shapes must give 
 - The neutral-snapshot test helper is pinned to the six v1.0 styles, because its golden hashes are a v1.0 fingerprint.
 - The body material becomes a patched Lambert. Any future change to the body material must keep the patch and the constant cache key.
 - `describeAvatar` does not yet mention face shape or pattern. The design spec (9.4) decides the wording.
+
+## Amendment (03/11/2026): builder keys and description words
+- `AvatarOptionKey` in `src/lib/avatars.ts` now includes `faceShape` and `outfitPattern`. `AVATAR_LABELS` carries their labels (`FACE_SHAPE_LABELS` and `OUTFIT_PATTERN_LABELS`, defined in `src/domain/characters/avatarOptions.ts`). `optionIds` reads every optional key from `AVATAR_OPTIONAL_OPTIONS`. `selectedOptionValue(config, key)` reads a control's value with the defaults applied. This supersedes the Consequences bullet about the exclusion.
+- `describeAvatar` follows design spec 9.4 v2.0. It adds `{shape} face` after the build when the shape is not Oval, and a pattern word between the colour and the garment when the pattern is not Plain: Stripes "striped", Checks "checked", Dots "spotted". Defaults add no words, so existing descriptions are unchanged. This supersedes the last Consequences bullet.

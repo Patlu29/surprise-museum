@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { AVATAR_GENDERS, AVATAR_OPTIONS } from '@contract';
+import {
+  AVATAR_FACE_SHAPES,
+  AVATAR_GENDERS,
+  AVATAR_OPTIONAL_OPTIONS,
+  AVATAR_OPTIONS,
+  AVATAR_OUTFIT_PATTERNS,
+} from '@contract';
 import {
   areaAnnouncement,
   directionPhrase,
@@ -18,12 +24,17 @@ import {
   DEFAULT_GUIDE_AVATAR,
   DEFAULT_VISITOR_AVATAR,
   describeAvatar,
+  FACE_SHAPE_LABELS,
   optionIds,
+  OUTFIT_PATTERN_LABELS,
   selectedGender,
+  selectedOptionValue,
 } from './avatars';
 import {
   DEFAULT_GUIDE_APPEARANCE,
   DEFAULT_VISITOR_APPEARANCE,
+  FACE_SHAPE_LABELS as DOMAIN_FACE_SHAPE_LABELS,
+  OUTFIT_PATTERN_LABELS as DOMAIN_OUTFIT_PATTERN_LABELS,
   SKIN_LABELS,
 } from '@/domain/characters/avatarOptions';
 import { contrastRatio, parseHexColor, pickReadableInk } from './contrast';
@@ -164,6 +175,56 @@ describe('avatars', () => {
     expect(selectedGender({ ...DEFAULT_GUIDE_AVATAR, gender: 'nonsense' as never })).toBe(
       'neutral',
     );
+  });
+
+  it('has a label for every optional option id (gender, face shape, pattern)', () => {
+    for (const [key, ids] of Object.entries(AVATAR_OPTIONAL_OPTIONS)) {
+      const labels = AVATAR_LABELS[key as keyof typeof AVATAR_LABELS] as Record<string, string>;
+      for (const id of ids) expect(labels[id], `${key}:${id}`).toBeTruthy();
+    }
+  });
+
+  it('offers face shape and pattern through the builder helpers (ADR 0021)', () => {
+    expect(optionIds('faceShape')).toEqual([...AVATAR_FACE_SHAPES]);
+    expect(optionIds('outfitPattern')).toEqual([...AVATAR_OUTFIT_PATTERNS]);
+    // Same wording as the Characters step's More options (src/ui/builder/extraOptions.ts).
+    expect(optionIds('faceShape').map((id) => avatarOptionLabel('faceShape', id))).toEqual([
+      'Oval',
+      'Round',
+      'Square',
+      'Heart',
+      'Long',
+    ]);
+    expect(optionIds('outfitPattern').map((id) => avatarOptionLabel('outfitPattern', id))).toEqual([
+      'Plain',
+      'Stripes',
+      'Checks',
+      'Dots',
+    ]);
+    expect(AVATAR_LABELS.faceShape).toBe(FACE_SHAPE_LABELS);
+    expect(AVATAR_LABELS.outfitPattern).toBe(OUTFIT_PATTERN_LABELS);
+    expect(FACE_SHAPE_LABELS).toBe(DOMAIN_FACE_SHAPE_LABELS);
+    expect(OUTFIT_PATTERN_LABELS).toBe(DOMAIN_OUTFIT_PATTERN_LABELS);
+  });
+
+  it('reads the selected value, with missing or unknown optional values as their default', () => {
+    const { gender: _g, faceShape: _f, outfitPattern: _p, ...legacy } = DEFAULT_GUIDE_AVATAR;
+    expect(selectedOptionValue(legacy, 'gender')).toBe('neutral');
+    expect(selectedOptionValue(legacy, 'faceShape')).toBe('oval');
+    expect(selectedOptionValue(legacy, 'outfitPattern')).toBe('plain');
+    expect(selectedOptionValue({ ...legacy, faceShape: 'Round' as never }, 'faceShape')).toBe(
+      'oval',
+    );
+    expect(selectedOptionValue({ ...legacy, faceShape: 'heart' }, 'faceShape')).toBe('heart');
+    expect(selectedOptionValue({ ...legacy, outfitPattern: 'dots' }, 'outfitPattern')).toBe('dots');
+    expect(selectedOptionValue(legacy, 'outfitStyle')).toBe('shirt-trousers');
+  });
+
+  it('treats a missing face shape or pattern as its default when comparing (ADR 0021)', () => {
+    const { faceShape: _f, outfitPattern: _p, ...legacy } = DEFAULT_GUIDE_AVATAR;
+    expect(avatarsEqual(legacy, DEFAULT_GUIDE_AVATAR)).toBe(true);
+    expect(avatarsEqual(legacy, { ...legacy, faceShape: 'round' })).toBe(false);
+    expect(avatarsEqual(legacy, { ...legacy, outfitPattern: 'checks' })).toBe(false);
   });
 
   it('shows the body type labels Wider hips and Wider shoulders without changing ids', () => {
