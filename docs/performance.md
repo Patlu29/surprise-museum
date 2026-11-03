@@ -1,6 +1,228 @@
 # Performance report
 
-Version 1.1 | 30/10/2026 (1.1: section 5 Clock warning wording corrected per ADR 0018; originally 1.0, 28/10/2026) | Owner: performance-optimiser | Build measured: `VITE_API_MODE=mock` production build of the working tree (before = HEAD `5c44153` plus read-only test-hook counters)
+Version 2.0 | 03/11/2026 (2.0: CR-4 audit added as part A; parts 1 to 8 are the original v1.1 audit of 30/10/2026, kept for reference, with the chunk figures superseded by A.3) | Owner: performance-optimiser | Build measured: working tree on top of `19a1dcb` (CR-4 complete), `VITE_API_MODE=mock` production build for the browser runs, live build for the bundle figures
+
+# Part A. CR-4 audit (03/11/2026)
+
+## A.1 Verdicts
+
+| Requirement | Budget | Result | Status |
+|---|---|---|---|
+| NFR-27 three.js chunk | under 1,000 kB minified; team guard 985 kB for the chunk | The chunk was 988.70 kB (`finale-*.js`, gzip 269.41). It is now two named chunks: `three-*.js` **921.40 kB** (gzip 244.79, three.js, react-three-fiber and drei only) and `scene-shared-*.js` 66.17 kB (gzip 24.53, our avatar kit, look materials and shaders). **The split moves code, it does not remove it**: the two together are 987.57 kB, the same bytes as before (+0.3 kB of chunk wrapper) | Per-chunk guard **met** (63.6 kB under 985). Combined 3D code 987.6 of 1,000 kB: **12.4 kB of headroom, not 63**. See A.3 |
+| NFR-27 triangles | at most 6,000 per character (hard stop 5,950) | Worst character **5,862** (curly-short hair, full beard, suit, Guide, skin-10), 138 under 6,000 and 88 under the hard stop. Identical on Low and High (the kit has no tier input). 18,720 geometry builds plus 1,500 random full configurations, none over 5,862 | **Signed off.** No raise is needed, so ADR 0021 7.3a's provisional 6,500 lapses |
+| NFR-27 draw calls per character | at most 10 | **3** (body, hair, blob shadow) in every one of the 1,500 random configurations and every per-style worst case | Met |
+| Scene draw calls and triangles | under 50 draw calls on mobile (skill), 120 (architecture); 150,000 triangles on mobile | Entrance pose, 20 photos: Low **46** calls, High **49** (pre-CR-4: 45 and 47). 60 s walk, median: Low 32 to 33, High 40; samples up to 43 to 53 (Low) and 46 to 57 (High) while a photo cross-fades (the same peaks as the original audit). Triangles 15,500 to 15,900 (worst-case characters 18,100 to 18,400) | Met. The steady figure is under 50; the cross-fade peaks touch 53 on Low for a few frames, as before |
+| NFR-28 frame rate | 60 FPS laptop, 30 FPS phone, Low tier holds 30 | M4 GPU, 20 photos, 60 s walk, CPU throttled 4x and 6x: **30 FPS** phone Low (p99 35.5 and 36.5 ms), **60 FPS** laptop High (p99 18.4 and 18.9 ms), **30 FPS** phone High and laptop Low. Same as the pre-CR-4 build on the same machine | Met **on proxy**. **Not verified on the reference phone or laptop** (A.6) |
+| NFR-28 load | NFR-2 5 s, NFR-3 8 s, 4G | Phone, 4G, 4x CPU, M4: welcome **1.14 s**, scene ready **2.34 s** (before the chunk split: 1.14 s and 2.34 s) | Met on proxy |
+
+## A.2 Test setup
+
+| Item | Value |
+|---|---|
+| Machine and browser | Apple M4, 10 cores, macOS, Playwright Chromium 156. **M4 GPU** (ANGLE Metal) for frame rate; **SwiftShader** (software GL) for relative fill cost. Both as in part 2 |
+| Machine load | Other agents were running builds and tests on the same machine during this audit (load average 10 to 19 on 10 cores). Software-GL figures therefore carry about 10% run-to-run noise (the same configuration measured 82 and 95 ms per frame minutes apart). Comparisons below use interleaved runs and medians where it matters |
+| Builds | Mock-API production builds served by `scripts/perf/server.mjs` (base path, gzip, like Pages) on ports 4195 to 4204. Port 4173 and the other agents' servers were not touched. The live build (`npm run build`) was used for the chunk and route byte figures |
+| Pre-CR-4 baseline | `90204a8` (the commit before the CR-4 kit work), built in a throw-away worktree, same harness, same session |
+| Museums | The 20-photo museum from the original audit, seeded through the real builder (it still works with the CR-4 builder). Two worst-case variants made by editing the stored museum document: both characters curly-short platinum hair, full beard, slim Woman, skin-10, suit in cream, heart face, with the **checks** pattern (museum 21) or **plain** (museum 22) |
+| Walk, viewport, throttle, tier forcing | Unchanged from part 2 (390 x 844 at pixel ratio 3 for the phone, 1280 x 720 for the laptop, CDP CPU throttle, tier forced with `__SURPRISE_QUALITY__`) |
+| Triangles | A Vitest run through the real kit (`createAvatarRig`, `buildBodyGeometry`, `buildHairGeometry`) in Node, not a browser. See A.4 |
+| Shader A/B | Four builds of the same tree with the edge call and/or the pattern call removed from `AvatarSurfaceMaterial.ts` (in a throw-away worktree; nothing in the repository was changed) |
+
+## A.3 Bundle
+
+### Cause and fix
+
+`finale-*.js` was the shared chunk Rolldown makes for everything that both lazy entry points (`scene/Experience` and `scene/preview/AvatarPreview`) import: three.js, react-three-fiber and drei (about 920 kB) plus our avatar kit, look materials and shaders (about 67 kB). Its name is only the name of one module in it (`NameLabel-*`, then `finale-*`), and it grew past 985 kB when CR-4 put the finish and the kit work into it (commit `0cf9877` moved 8.4 kB of code out of the Experience chunk into it).
+
+`vite.config.ts` now names two groups (`build.rolldownOptions.output.codeSplitting.groups`):
+
+| Chunk | Contents | Why |
+|---|---|---|
+| `three-*.js` | `node_modules` only: three, `@react-three/fiber`, `@react-three/drei`, `its-fine`, `react-use-measure`, `suspend-react` | The three.js chunk the NFR means. Its hash changes only on a dependency upgrade, so returning visitors keep it cached across deploys. Both routes that use it fetch it in parallel with `scene-shared` |
+| `scene-shared-*.js` | Our `src/scene/` modules imported by both entry points (`minShareCount: 2`) | Code only the visit scene uses stays in the Experience chunk, as before |
+
+A new tiny `extends-*.js` (1.4 kB, a Babel helper) appears as a result. Nothing else moved: every other chunk is unchanged within 0.1 kB.
+
+### Chunks over 100 kB (live build, minified kB, gzip as Vite reports it)
+
+| Chunk | Before | After |
+|---|---|---|
+| `heic-to-*.js` (lazy, accepted, unchanged) | 3,150.90 (gzip 791.62) | 3,150.90 (791.62) |
+| `finale-*.js` (three.js plus kit, materials, shaders) | **988.70** (269.41) | gone |
+| `three-*.js` | | **921.40** (244.79) |
+| `scene-shared-*.js` (66.17 kB, under 100 kB, listed for the sum) | | 66.17 (24.53) |
+| **three.js plus shared scene code** | **988.70** (269.41) | **987.57** (269.32), plus 1.4 kB `extends` |
+| `index-*.js` (first view) | 238.24 (76.11) | 238.24 (76.10) |
+| `Experience-*.js` | 110.95 (38.57) | 110.96 (38.57) |
+
+### What this does and does not do
+
+- It meets the request: the largest regular chunk is 921.4 kB, and the three.js chunk name is now fixed, so a guard keyed on it no longer moves.
+- It does **not** reduce the JavaScript the visit route downloads (next table). **The real NFR-27 headroom is the combined 987.6 kB against 1,000 kB (12.4 kB).** The vendor chunk's 63.6 kB of apparent headroom is not available to our code without the combined figure rising. To stop the split hiding growth, both guards now exist (below), and the combined one fails the CI check.
+- Cuts that would give real headroom, none taken (no feature is to be cut): the builder preview calls `createLookMaterials`, which builds the finale cone and dust motes, the procedural floor textures and the glow-decal shader that the preview never shows (`scene-shared`, roughly 8 to 12 kB minified); a slimmer factory for the preview would remove them from the builder's download (not from the visit's). Owner: scene-developer and technical-artist.
+
+### Guards (files changed)
+
+- `vite.config.ts`: `THREE_CHUNK_GROUPS`, plus warnings when `three-*` is over 985 kB, when `three-*` plus `scene-shared-*` is over 1,000 kB, and when no `three-*` chunk exists.
+- `.github/scripts/check-bundle-size.mjs` (devops-owned; edited at the coordinator's request to keep it consistent): `three-*` has a 985 kB limit, `three-*` plus `scene-shared-*` must be at most 1,000 kB, and the script exits 2 if either chunk is missing, so a rename cannot turn the guard off silently. Every other chunk is still checked at 1,000 kB (heic-to 3,500). Run on the live build: all pass.
+
+### Initial-load totals (kB gzipped; static closure of the live build, level 9, so Vite's own figures read about 1 to 2% higher)
+
+| Route | What loads | Before | After |
+|---|---|---|---|
+| Home (`#/`) | `index` and its eight preloaded chunks | JS 89.8; CSS 14.5; one font 18.1 (Fraunces 400) | JS 89.8; CSS 14.5; font 18.1. About 123 kB with the HTML |
+| Visit, welcome screen interactive | Home chunks plus `VisitScreen` | JS **97.8** | JS **97.9** (welcome budget 120 kB: met) |
+| Visit, scene ready (after the lazy `Experience`, `VisitExperience` and the three chunks) | | JS **402.4** | JS **403.1** (+0.7: chunk wrappers and one more request) |
+| Visit, after Start (adds the HUD chunk `RoamingLayer`) | | JS 415.0 | JS 415.7 |
+| Builder with the character preview (adds `CreateScreen`, `AvatarPreview` and the 3D chunks; not `heic-to`) | | JS 439.7 | JS 440.5 |
+| Measured on the wire, mock build, phone, 4G, 4x CPU, median of 3 | JS before welcome / JS total / all bytes except photos | 105.9 / 423.9 / 474.8 kB; welcome 1,144 ms; ready 2,337 ms | 106.7 / 424.7 / 475.5 kB; welcome 1,143 ms; ready 2,343 ms |
+
+The visit route's 3D download is about 269 kB gzipped; it is fetched after the welcome screen starts to render and in parallel with the museum request, as in part 4.
+
+## A.4 Triangles (NFR-27 sign-off)
+
+### Method
+
+A Vitest run in Node against the real kit (the same code the browser runs; the kit has no graphics-tier input, so Low and High build identical meshes).
+
+1. **Body**: 12 styles x 4 body types x 3 genders x 2 roles (Guide has a badge, Visitor does not) x 2 skins (`skin-01`, and `skin-10`, which adds the deep-skin blush) x 5 face shapes x 4 patterns = **11,520 builds**.
+2. **Hair**: 12 hair styles x 5 facial hairs x 3 genders x 2 skins x 4 body types x 5 face shapes = **7,200 builds**.
+3. **Invariance**: for each of the 576 body and 1,440 hair groups, the triangle count is the same across every face shape and pattern (0 exceptions), and across the three genders (counts are identical, as the topology is shared). Height scales the root only.
+4. **Whole characters**: the worst combination for each style built through `createAvatarRig`, and **1,500 random full configurations** (every field, both roles, all heights and colours): `rig.stats.triangles` equals body + hair + 2 (shadow) from the tables in every case (0 mismatches), the maximum was 5,670 in the random sample, and every one had 3 draw calls.
+5. **Browser corroboration** (scene totals from `renderer.info`, 20-photo museum, 60 s walk): replacing both default characters by the worst-case pair adds **2,546** triangles on Low and **2,546 to 2,548** on High. The Node tables predict 2,548 (Guide 5,862 against 4,602; Visitor 5,724 against 4,436). So the Low and High tiers draw the same character meshes.
+
+### Per style (worst body over body types, genders, roles, skins, face shapes and patterns; worst hair 1,660; shadow 2)
+
+| Style | Body, worst | Body, least | Worst character | Under 6,000 | Under 5,950 |
+|---|---|---|---|---|---|
+| tee-jeans | 3,896 | 3,630 | 5,558 | 442 | 392 |
+| hoodie | 3,996 | 3,730 | 5,658 | 342 | 292 |
+| shirt-trousers | 4,040 | 3,774 | 5,702 | 298 | 248 |
+| dress | 3,940 | 3,674 | 5,602 | 398 | 348 |
+| **suit** | **4,200** | 3,934 | **5,862** | **138** | **88** |
+| jumpsuit | 3,968 | 3,702 | 5,630 | 370 | 320 |
+| sweater | 4,008 | 3,742 | 5,670 | 330 | 280 |
+| overalls | 4,056 | 3,790 | 5,718 | 282 | 232 |
+| coat | 3,920 | 3,654 | 5,582 | 418 | 368 |
+| tracksuit | 4,088 | 3,822 | 5,750 | 250 | 200 |
+| cardigan | 3,976 | 3,710 | 5,638 | 362 | 312 |
+| tunic | 3,952 | 3,686 | 5,614 | 386 | 336 |
+
+Body worst case is the Guide with `skin-10`; the Visitor is 138 fewer (no badge), and skin-01 to skin-09 are 128 fewer (no deep blush). Body type, gender, face shape and pattern change no count. These figures match the technical-artist's handoff exactly. The default Guide is 4,602 and the default Visitor 4,436.
+
+### Per hair style (hair mesh, with and without the worst facial hair, full beard)
+
+| Hair | None | Full beard | | Hair | None | Full beard |
+|---|---|---|---|---|---|---|
+| shaved | 488 | 796 | | long-straight | 812 | 1,120 |
+| buzz | 488 | 796 | | long-wavy | 838 | 1,146 |
+| short-crop | 688 | 996 | | ponytail | 868 | 1,176 |
+| side-part | 688 | 996 | | bun | 732 | 1,040 |
+| **curly-short** | 1,352 | **1,660** | | afro | 548 | 856 |
+| bob | 732 | 1,040 | | braids | 1,260 | 1,568 |
+
+Facial hair adds 112 (stubble), 128 (moustache), 208 (goatee) or 308 (full beard).
+
+### Sign-off
+
+NFR-27's 6,000 triangles per character **holds for every option combination: 5,862 worst, on Low and High**. It is 138 under the requirement and 88 under the technical-artist's 5,950 hard stop, so any further character change has to fit in 88 triangles. The condition in Q-28 (verify a raised figure on the reference phone) does not arise because the figure was not raised. The cost of a triangle on a real phone GPU is not measured (A.6).
+
+## A.5 Draw calls
+
+| Check | Low | High |
+|---|---|---|
+| Per character | 3 | 3 |
+| Scene, entrance pose, 20 photos, 1280 x 720 (Visitor at 0, -3.5 facing the route) | **46** (pre-CR-4 `90204a8`: 45) | **49** (pre-CR-4: 47) |
+| Scene, camera above the ceiling (dressing hidden) | 33 | 29 |
+| Scene, 60 s walk, 20 photos, phone profile, median / highest sample | 33 / 43 (4x CPU); 32 / 53 (6x CPU) | 36 / 46 (phone); 40 / 57 (laptop) |
+| Worst-case characters, same walk | 33 / 43 to 51 | 40 / 50 to 51 |
+| Triangles, 60 s walk, median | 15,550 | 15,650 to 15,700 |
+| CR-4 added (entrance pose) | +1 call, +1,824 triangles | +2 calls, +1,866 triangles |
+
+- The CR-4 increase is the ceiling dressing (roses, oculus and strips, one mesh, plus one call on High for the contact shadows). Wall caps and the dado rail are merged into the existing `decor` mesh and add nothing. This matches the scene-developer's handoff (+1 Low, +2 High; their default-pose figures of 26 and 29 are for a museum without photos).
+- The worst-case-character museum draws the same number of calls as the default one, so option choice does not change draw calls.
+- Peaks over 50 (53 on Low, 57 on High) happen only during the 400 ms cross-fade when a photo arrives (placeholder and photo both drawn). They are sampled once a second, so they are lower bounds on the peak. Same finding as part 5, nothing new from CR-4.
+
+## A.6 Frame time and shader cost
+
+### Walk (60 s, 20 photos, 11 Guide presentations, M4 GPU unless stated)
+
+| Case | Pre-CR-4 (`90204a8`) | CR-4, default characters | CR-4, worst-case characters (checks / plain) |
+|---|---|---|---|
+| Phone, Low, 4x CPU: FPS, p99 | 30, 35.1 ms | 30, 35.6 ms | 30, 35.5 / 30, 35.2 |
+| Phone, Low, 6x CPU | n/a | 30, 36.5 ms | n/a |
+| Phone, High, 4x CPU | n/a | 30, 35.2 ms | n/a |
+| Laptop, High, 4x CPU | 60, 18.3 ms | 59.9, 18.4 ms | 60, 18.3 / 60, 18.3 |
+| Laptop, High, 6x CPU | n/a | 60, 18.9 ms | n/a |
+| Laptop, Low, 4x CPU | n/a | 30, 35.0 ms | n/a |
+| Main-thread script per frame, phone Low, 4x | 0.86 ms | 1.75 ms in the first run, 0.99 ms (phone High) and 1.1 ms in later runs; 2.14 ms at 6x | 0.94 to 1.1 ms |
+| Software GL, phone Low, 4x: FPS, p99 | 29.9, 35.4 ms | 29.9, 35.6 ms | 29.5, 50.1 / 28.6, 63.8 |
+| Software GL, phone High, 4x | 28.1, 51.7 ms | 27.6, 55.3 ms | 25.1, 92.1 / 23.8, 98.6 |
+| Software GL, laptop High | 14.2 FPS | 13.6 FPS | n/a |
+| Software GL, laptop Low | 22.5 FPS | 23.7 FPS | n/a |
+
+On the M4 GPU the frame rate is the cap in every case, p99 is within 0.5 ms of the pre-CR-4 build, and the main thread is 1 to 2 ms of a 33 or 16.7 ms frame, so CPU headroom is roughly 15 to 30 times, as in part 2. On software GL the default characters cost the same as before (inside noise), while the worst-case pair costs 5 to 15% more frames per second: those characters have 2,550 more triangles, double-sided curly hair and a full beard, and a software rasteriser pays for vertices. Plain was no faster than checks (28.6 against 29.5 FPS), so the pattern is not the cause. A real GPU is expected to be insensitive to 2,500 triangles; this is the reason for A.8 item 1, not evidence of a problem.
+
+### Shader and ceiling cost (software GL, 1280 x 720, High, Visitor standing still; mean ms per frame)
+
+| Test | Result | Reading |
+|---|---|---|
+| Edge shader (silhouette band: one `fwidth`, a few ALU operations), both characters filling a large part of the view (camera at the 2.5 m minimum zoom), worst-case outfit with checks | with 84.0 ms (median of 3), without 81.3 (-2.8) | Under 3.5%, inside the run-to-run spread (82 to 95 ms for the same build) |
+| Pattern shader, same scene | with 84.0, without 81.8 (-2.3). On plain: 83.0 with, 83.0 without (0) | Under 3%. The plain path returns at the first branch and costs nothing measurable |
+| Edge and pattern both removed | 81.7 (-2.3) with checks; 83.3 (+0.3) plain | Same |
+| CR-4 against pre-CR-4 at the entrance pose, interleaved, median of 4 | High 73.7 against 70.9 ms (+4%); Low 40.6 against 38.8 ms (+4.6%) | The whole CR-4 look (finish, dressing, edge, pattern) on a fill-bound software rasteriser. Draw calls +2 and +1 |
+| Ceiling fade, High: default view, fading (opacity 0.2 to 0.4), camera above | 76.7, 79.5 (+2.8, +3.7%), 74.6 | One alpha-blended quad per room over the view for a short time. Visible in the median, small |
+| Ceiling fade, Low | 37.8, 38.1 (+0.3), 36.1 | No measurable cost |
+| Main-thread script per frame | 0.4 to 0.6 ms in every state | `CeilingFade` does a few comparisons per frame |
+
+Programs: 14 on Low and 16 on High after the walk (11 to 21 in the original audit). The body and hair patches have constant cache keys, so changing pattern, face shape or style never compiles a new program.
+
+### Not verified
+
+- **No real phone or laptop.** Everything above is desktop Chromium on an Apple M4 (CPU-throttled) or SwiftShader. Throttling does not slow the GPU. The reference phone's fill rate and tile-based GPU behaviour with `fwidth` (derivatives are 2 x 2 quad-based and can cost more on some mobile GPUs), the first-use shader compile of the two patched programs, upload hitches, thermals and the 15-minute soak with CR-4 are **not measured**. The edge and pattern costs above are bounds from a software rasteriser, not predictions for a phone.
+- The 15-minute soak (NFR-6) and the leave-and-re-enter checks were **not re-run** for CR-4. Memory per character rose by about 10 kB (the `outfitMask` attribute) and the scene geometry count is 74 to 90, as before.
+- Safari, Firefox and WebKit performance. The e2e run on this build (65 desktop-chromium tests: `gender`, `visit-welcome-roam`, `presentation-camera`, `ceiling`) passed apart from three `ceiling` tests that report "expected to fail, but passed" (QA's draft markers).
+- The builder preview with both characters on the High tier on a phone (the preview runs its own canvas), and the 250 ms face-shape morph cost (about 1 to 2 ms a frame in Node on the heaviest character, per the technical-artist) on a phone.
+
+## A.7 Changes made
+
+1. **Three.js chunk split into two named chunks** (`vite.config.ts`): see A.3. Bundle guards added to the Vite plugin.
+2. **Bundle check updated** (`.github/scripts/check-bundle-size.mjs`): guards for the two chunks, fails if either is missing.
+3. **Micro-benchmark harness** (new `scripts/perf/micro.mjs`): steady-state frame cost with the Visitor standing still, in three modes (`default`, `zoom` for shader A/B builds, `ceiling` for the fade).
+
+No change to scene code, shaders, materials, models or textures: nothing needed optimising on the budgets in A.1, and the look is unchanged.
+
+## A.8 Remaining issues
+
+| Issue | Suggested fix | Owner |
+|---|---|---|
+| Combined 3D code is 987.6 of 1,000 kB, so NFR-27 has 12.4 kB of real headroom; the 985 guard on `three-*` no longer says anything about our code | Keep the combined guard. A slimmer look-materials factory for the builder preview would drop the cone, motes, procedural floors and glow decals from the builder's download (not the visit's) | scene-developer, technical-artist |
+| Worst character is 5,862, 88 under the 5,950 hard stop, and the Low tier on a phone GPU is unmeasured | If the reference phone shows a problem, the cheapest cut is hair: curly-short is 1,660 triangles, 664 more than short-crop. Do not add geometry to any character without checking the hard stop | technical-artist, qa-engineer |
+| Real-device frame rate, shader cost, soak, upload hitches and thermals for CR-4 | Part 7 (the real-device plan) still applies. Add: the worst-case pair (suit, curly-short, full beard) with checks on the Low tier, and the builder preview morph | qa-engineer |
+| `docs/deployment.md` and `docs/architecture.md` (section 12) describe the check script and the chunk by the old rules and names | Update to the two guards and the `three-*` and `scene-shared-*` names | devops-engineer, architect |
+| `docs/design-spec.md` row "three.js chunk ... Guard 985 kB" and the technical-artist's handoff cite the old chunk | Point at `three-*` plus `scene-shared-*` | ux-ui-designer, technical-artist |
+| Fill cost on software GL is about 4 to 5% higher at the entrance pose than before CR-4 | None needed on the budgets; re-check on a real phone | performance-optimiser |
+
+## A.9 Repeating the CR-4 measurements
+
+```bash
+export PERF_DIR=/tmp/surprise-perf   # as in part 8
+# Bundle: live build, then the guard
+npm run build -- --outDir $PERF_DIR/live --emptyOutDir
+node .github/scripts/check-bundle-size.mjs $PERF_DIR/live
+# Browser runs: as part 8 (seed, frames.mjs, load.mjs), then the CR-4 micro-benchmarks
+node scripts/perf/micro.mjs --port 4180 --museum 20 --mode default --quality high --secs 12
+node scripts/perf/micro.mjs --port 4180 --museum 20 --mode ceiling --quality high --secs 15
+node scripts/perf/micro.mjs --port 4180 --museum 21 --mode zoom --quality high --secs 15   # worst-case characters
+```
+
+Triangle tables: the kit's own budget tests (`gender.test.ts`, `cr4.test.ts`, `kit.test.ts`) assert 6,000 and 3 draw calls over every combination; the per-style tables above came from a throw-away Vitest file with the same builders (`buildBodyGeometry`, `buildHairGeometry`, `createAvatarRig`) and the loops listed in A.4.
+
+---
+
+# Part B. Original audit (v1.1, 30/10/2026)
+
+The parts below are the first audit of the pre-CR-4 build. Where they quote the three.js chunk (968.8 kB) or draw-call and triangle figures, part A replaces them.
 
 ## 1. Summary
 
@@ -41,7 +263,7 @@ Version 1.1 | 30/10/2026 (1.1: section 5 Clock warning wording corrected per ADR
 | NFR-6 stability | 15 minutes, 20 pictures, no crash | 15-minute scripted soak (9 route loops, 20 photos, replays): no crash, JS heap 10.7 to 11.2 MB, process memory slope under 1 MB per minute, texture and geometry counts flat. Desktop Chromium only | Met on proxy. **Unverified on iOS Safari and Android** |
 | NFR-7 rendering capped, paused when hidden | 30 FPS on mobile | Cap held (30 FPS); desktop now capped at 60 FPS; `requestAnimationFrame` stops in a hidden tab | Met |
 | Welcome JS budget | 120 kB gzipped | 111.3 kB before, **95.5 kB after** (live build) | Met, with 25 kB headroom |
-| Three.js chunk | 1,000 kB minified | 968.8 kB, unchanged (three.js core and react-three-fiber account for 95%) | Met, still close |
+| Three.js chunk | 1,000 kB minified | 968.8 kB at the time. **Superseded by A.3**: after CR-4 it is `three-*.js` 921.4 kB plus `scene-shared-*.js` 66.2 kB | See A.1 |
 
 ### 3.2 Before and after
 
@@ -114,7 +336,7 @@ Not done, with reasons: texture eviction (memory is flat at 20 MB on Low and 79 
 | Issue | Suggested fix | Owner |
 |---|---|---|
 | Re-entering the museum leaks about 49 DOM nodes and 0.4 MB JS heap each time (both builds) | Heap-snapshot a leave and re-enter; likely drei `Html` label roots, `registerCanvasElement`, or a store subscription. Low priority | frontend-developer, scene-developer |
-| Three.js chunk 969 of 1000 kB minified | Nothing cheap: three core and react-three-fiber make up 95%. Review again on any three.js or drei upgrade | architect |
+| Three.js chunk 969 of 1000 kB minified (CR-4 and this audit: see A.3 and A.8) | Superseded: combined 3D code is 987.6 of 1,000 kB. Review again on any three.js or drei upgrade | architect |
 | Welcome JS is now 95.5 kB of 120, but `index` (74 kB gzipped) still carries Home, Legal and builder state | Lazy-load the Home and Legal screens if Release 2 adds to the first view | frontend-developer |
 | Real-device frame rate, upload hitches, memory and thermal behaviour | Section 7 | qa-engineer |
 | Tier thresholds and the weak-GPU name list | Section 7; add a manual "High" toggle if flagship phones should opt in | qa-engineer, frontend-developer |

@@ -73,8 +73,41 @@ function contentSecurityPolicy(supabaseUrl: string | undefined): Plugin {
  * bundle (ADR 0004). It gets its own ceiling, and only while it stays a lazily loaded chunk that
  * no other chunk imports statically, so growth in it, or anything pulling it into a normal
  * chunk, still warns. See docs/architecture.md, section 12.
+ *
+ * The three.js vendor chunk (`three-*.js`, see THREE_CHUNK_GROUPS) has the team's tighter guard,
+ * THREE_CHUNK_GUARD_KB, and the 3D code as a whole (that chunk plus the shared scene chunk) stays
+ * under NFR-27's 1,000 kB, so splitting code out of the vendor chunk cannot hide growth.
  */
 const DEFAULT_CHUNK_LIMIT_KB = 1000;
+const THREE_CHUNK_GUARD_KB = 985;
+const THREE_TOTAL_LIMIT_KB = 1000;
+
+/**
+ * Names the two shared 3D chunks, so they do not take the name of whichever module the bundler
+ * happens to pick (it was `NameLabel-*`, then `finale-*`, which moved the guard's target).
+ * - `three`: three.js, react-three-fiber, drei and their small helpers (node_modules only). Loaded
+ *   by the visit route and by the builder's character preview, and by nothing else. Its hash only
+ *   changes on a dependency upgrade, so returning visitors keep it cached across deploys.
+ * - `scene-shared`: our scene code that both the visit scene and the builder preview use (avatar
+ *   kit, look materials, shaders). `minShareCount: 2` leaves code that only one of them uses in
+ *   that route's own chunk. Same bytes on the wire as before the split, and the two are fetched in
+ *   parallel.
+ */
+const THREE_CHUNK_GROUPS = [
+  {
+    name: 'three',
+    test: /node_modules[\\/](?:three|@react-three[\\/](?:fiber|drei)|its-fine|react-use-measure|suspend-react)[\\/]/,
+    priority: 2,
+    includeDependenciesRecursively: false,
+  },
+  {
+    name: 'scene-shared',
+    test: /[\\/]src[\\/]scene[\\/]/,
+    minShareCount: 2,
+    priority: 1,
+    includeDependenciesRecursively: false,
+  },
+];
 const LAZY_CHUNK_LIMITS_KB: ReadonlyArray<{ label: string; module: RegExp; limitKb: number }> = [
   {
     label: 'heic-to (HEIC decoder, ADR 0004)',
@@ -90,7 +123,20 @@ function chunkSizeBudgets(): Plugin {
     generateBundle(_options, bundle) {
       const chunks = Object.values(bundle).filter((output) => output.type === 'chunk');
       const staticallyImported = new Set(chunks.flatMap((chunk) => chunk.imports));
+      const threeKb: number[] = [];
       for (const chunk of chunks) {
+        if (/^assets\/(?:three|scene-shared)-/.test(chunk.fileName)) {
+          threeKb.push(chunk.code.length / 1000);
+        }
+        if (
+          /^assets\/three-/.test(chunk.fileName) &&
+          chunk.code.length / 1000 > THREE_CHUNK_GUARD_KB
+        ) {
+          this.warn(
+            `${chunk.fileName} is ${(chunk.code.length / 1000).toFixed(0)} kB minified, over the ` +
+              `${THREE_CHUNK_GUARD_KB} kB three.js guard. See docs/performance.md.`,
+          );
+        }
         const sizeKb = chunk.code.length / 1000;
         const lazy = chunk.isDynamicEntry && !staticallyImported.has(chunk.fileName);
         const exception = lazy
@@ -105,6 +151,15 @@ function chunkSizeBudgets(): Plugin {
               `${exception ? ` (${exception.label})` : ''}. See docs/architecture.md, section 12.`,
           );
         }
+      }
+      const threeTotal = threeKb.reduce((a, b) => a + b, 0);
+      if (threeKb.length === 0) {
+        this.warn('No three-* chunk was emitted: update THREE_CHUNK_GROUPS and the bundle guards.');
+      } else if (threeTotal > THREE_TOTAL_LIMIT_KB) {
+        this.warn(
+          `The 3D chunks (three + scene-shared) total ${threeTotal.toFixed(0)} kB minified, over ` +
+            `${THREE_TOTAL_LIMIT_KB} kB (NFR-27). See docs/performance.md.`,
+        );
       }
     },
   };
@@ -140,6 +195,11 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
     },
     build: {
+      rolldownOptions: {
+        output: {
+          codeSplitting: { groups: THREE_CHUNK_GROUPS },
+        },
+      },
       // Per-chunk budgets are enforced by chunkSizeBudgets() above (1000 kB for every chunk,
       // a separate ceiling for the lazy HEIC decoder). Vite's single global limit is raised to
       // that ceiling so it does not warn about the decoder; it remains a backstop.
