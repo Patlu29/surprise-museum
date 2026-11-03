@@ -1,9 +1,46 @@
 # Handoff: architect
 
 ## Summary
-Follow-up to ADR 0021 for the frontend developer's two requests (03/11/2026). The builder's `AvatarOptionKey` now covers `faceShape` and `outfitPattern`. Their labels live in the domain, are re-exported from `@/lib/avatars` and are in `AVATAR_LABELS`, using exactly the wording in `src/ui/builder/extraOptions.ts`, so nothing visible changes. `describeAvatar` now says "{shape} face" and "striped" / "checked" / "spotted" (design spec 9.4 v2.0). Defaults add no words, so the descriptions of existing characters are unchanged. `src/ui/**` and `tests/e2e` were not touched.
+Docs-only sync with the CR-4 performance sign-off (commit 1659eb8, requirements v0.6.1). `docs/architecture.md` (now v1.5) describes the two named 3D chunks, `three-*` and `scene-shared-*`, instead of the single `NameLabel-*` chunk. It also describes the combined NFR-27 reading (987.6 of 1,000 kB), the guards in `vite.config.ts` and the CI script, and the triangle sign-off at 6,000 (worst 5,862). ADR 0021 section 7.3a has a dated amendment recording that the provisional 6,500 ceiling has lapsed. No code was changed and nothing was committed.
 
 ## Files changed
+- `docs/architecture.md` (v1.4 to v1.5):
+  - Header and section 2: dated note on the split chunks and their gzip sizes.
+  - 6.7: the face shape, pattern and styles row now says the 6,500 ceiling has lapsed and that the builder offers all 12 styles (the pending-kit gate is empty). The budget row has the 03/11/2026 figures: worst 5,862, defaults 4,602 and 4,436, worst body per style for all 12 styles, worst hair 1,660, and the `TRIANGLE_BUDGET = 6000` note.
+  - 12: the 3D gzip row now covers the three chunks (308 kB). A new NFR-27 row gives the combined minified figure (987.6 kB, 12.4 kB headroom, `three-*` guard 985 kB). The triangles row gives 5,862, signed off. The old "Chunk size warnings" paragraph, which named a single 969 kB chunk, is replaced by "Named 3D chunks" (a table of the two groups, why they are named, and the combined reading) and "Chunk size guards" (the four `chunkSizeBudgets()` warnings and the failing CI check, with exit 2 when a chunk is missing). The preview-slimming follow-up is noted.
+  - 13: the Vite plugins row mentions `codeSplitting.groups`.
+  - 15: the chunk and triangle risk is split into two rows: 987.6 of 1,000 kB combined, and 138 triangles of headroom. The "new outfit styles at risk" row is replaced by a forward-looking body ceiling (4,338 within 6,000, 4,288 under 5,950). "3D chunk" is now plural in the cold-start row.
+  - 16: lists ADR 0021's amendments.
+  - 17: v1.5 row added.
+- `docs/decisions/0021-avatar-face-shape-and-outfit-fields.md`:
+  - Status: one sentence pointing to the lapse.
+  - 7.3a: a new "Amendment (03/11/2026)" after step 5 records the measured 5,862 and its breakdown, the sign-off and its source, that steps 3 and 4 no longer apply, that `TRIANGLE_BUDGET` stays 6000, and that 7.4's triangle and chunk rows are superseded.
+- `docs/handoffs/architect.md`: this note.
+
+## Decisions
+- **No new ADR for the chunk split.** It is a build-configuration change. The tech lead's NFR-27 reading is already in requirements v0.6.1 and `docs/performance.md` A.3, and architecture section 12 now carries the design and the guards. ADR 0021 records only the triangle lapse, because 7.3a step 5 asked for that.
+- **Triangle figures taken from `docs/performance.md` A.4 (5,862)**, not the technical-artist's earlier 5,682. 5,862 is the figure after the hair edge fix, and it matches requirements v0.6.
+- **I kept the previous 7.3a text** and added the amendment after it, so the history stays readable.
+
+## Assumptions
+- The 3D gzip row (308 kB) adds Vite's gzip figures for `three-*`, `scene-shared-*` and `Experience` from performance A.3. Earlier rows used a different method, so the 288 to 308 change is partly method and partly CR-4 growth.
+- The first-view rows in section 12 (95, 111 and 112 kB, 28/10/2026) are left as they are. Performance A.3 measured them a different way (a static closure at gzip level 9, welcome 97.9 kB), and this task covered only the chunk split and triangles.
+
+## Open questions
+- None new. Performance-optimiser's question about applying the 985 kB guard to the combined figure was settled by the tech lead (combined under 1,000 kB, requirements v0.6.1).
+
+## Requests for other agents
+- **performance-optimiser:** please re-baseline the section 12 first-view rows (home, Visit welcome, builder) with one consistent method, so the architect can replace the 28/10/2026 figures. Optional.
+- **scene-developer and technical-artist:** the preview-only look-material factory (8 to 12 kB out of `scene-shared`) is the first real NFR-27 chunk headroom (architecture section 12, performance A.3). It is a follow-up, not a blocker.
+
+---
+
+## Earlier round: ADR 0021 builder keys and description words (03/11/2026)
+
+### Summary
+Follow-up to ADR 0021 for the frontend developer's two requests (03/11/2026). The builder's `AvatarOptionKey` now covers `faceShape` and `outfitPattern`. Their labels live in the domain, are re-exported from `@/lib/avatars` and are in `AVATAR_LABELS`, using exactly the wording in `src/ui/builder/extraOptions.ts`, so nothing visible changes. `describeAvatar` now says "{shape} face" and "striped" / "checked" / "spotted" (design spec 9.4 v2.0). Defaults add no words, so the descriptions of existing characters are unchanged. `src/ui/**` and `tests/e2e` were not touched.
+
+### Files changed
 - `src/domain/characters/avatarOptions.ts`:
   - New `FACE_SHAPE_LABELS` (Oval, Round, Square, Heart, Long) and `OUTFIT_PATTERN_LABELS` (Plain, Stripes, Checks, Dots).
   - `describeAvatar` adds `{shape} face` after the build when the shape is not Oval, and puts the pattern word between the colour and the garment when the pattern is not Plain ("navy striped shirt and trousers"). Both values are read through `avatarFaceShape` and `avatarOutfitPattern`.
@@ -17,19 +54,19 @@ Follow-up to ADR 0021 for the frontend developer's two requests (03/11/2026). Th
 - `src/domain/characters/avatarOptions.test.ts`: new block covering labels, unchanged default and legacy descriptions, unknown values, every face-shape phrase, every pattern word, and the spec 9.4 example.
 - `src/lib/lib.test.ts`: labels for the optional ids, `optionIds` and `avatarOptionLabel` for face shape and pattern, single source of truth, `selectedOptionValue`, `avatarsEqual` with missing keys.
 
-## Decisions
+### Decisions
 - **Labels live in the domain** (`src/domain/characters/avatarOptions.ts`), beside every other avatar label, and `@/lib/avatars` re-exports them. That keeps one source of truth for the kit, the builder and `describeAvatar`. The pattern table is called `OUTFIT_PATTERN_LABELS`, matching the contract's `AVATAR_OUTFIT_PATTERNS` and the `OUTFIT_*_LABELS` naming.
 - **Widening `AvatarOptionKey` makes `AvatarConfig[K]` include `undefined` for the optional keys.** `optionIds` and `avatarOptionLabel` use `NonNullable<AvatarConfig[K]>`, so the ids they return and accept are never `undefined`. `selectedOptionValue` is the safe read for a control's selected value, so callers do not read `config[key]` directly (ADR 0021, section 4).
 - **Pattern words come from the spec, not from the labels**: Stripes is "striped", Checks is "checked" and Dots is "spotted". The face word is the lower-case label plus "face".
 
-## Assumptions
+### Assumptions
 - `src/domain/characters/` and `src/lib/avatars.ts` are not in the ownership table. I edited them because the tech lead delegated this task, as in the ADR 0021 round.
 - "heart face" is acceptable wording (spec 9.4 only gives "round face" and "square face" as examples).
 
-## Open questions
+### Open questions
 - None new. The triangle budget question from the earlier round still stands (below).
 
-## Requests for other agents
+### Requests for other agents
 - **frontend-developer** (`src/ui/builder/`), all optional and with no visible change:
   - In `extraOptions.ts`, replace the local `FACE_SHAPE_LABELS` and `PATTERN_LABELS` with `FACE_SHAPE_LABELS` and `OUTFIT_PATTERN_LABELS` from `@/lib/avatars` (or use `AVATAR_LABELS.faceShape` and `AVATAR_LABELS.outfitPattern`). `faceShapeIds()` and `patternIds()` can become `optionIds('faceShape')` and `optionIds('outfitPattern')`. `stepCopy.test.ts` imports the two local names, so update it at the same time.
   - In `CharactersStep.tsx`, drop the `setOptional` cast and call `setAvatarOption(role, 'faceShape' | 'outfitPattern', value)` directly: the store's `<K extends AvatarOptionKey>` signature now accepts both keys.
