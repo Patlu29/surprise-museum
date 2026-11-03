@@ -43,6 +43,9 @@ if (files.length === 0) {
   process.exit(2);
 }
 
+const THREE_RE = /^three-.*\.js$/;
+const SHARED_RE = /^scene-shared-.*\.js$/;
+
 const rows = files
   .map((name) => {
     const sizeKb = statSync(join(assets, name)).size / 1000;
@@ -56,24 +59,25 @@ const rows = files
   })
   .sort((a, b) => b.sizeKb - a.sizeKb);
 
-const over = rows.filter((row) => row.sizeKb > row.limitKb);
+// Every match counts (not just the first), so an extra three-* chunk cannot slip out of the total.
+const threeRows = rows.filter((row) => THREE_RE.test(row.name));
+const sharedRows = rows.filter((row) => SHARED_RE.test(row.name));
+const threeTotalKb = [...threeRows, ...sharedRows].reduce((sum, row) => sum + row.sizeKb, 0);
+const threeTotalOver = threeTotalKb > THREE_TOTAL_LIMIT_KB;
 
-const threeRow = rows.find((row) => /^three-.*\.js$/.test(row.name));
-const sharedRow = rows.find((row) => /^scene-shared-.*\.js$/.test(row.name));
-if (!threeRow || !sharedRow) {
-  console.error(
-    `::error title=Bundle guard target missing::No ${threeRow ? '' : 'three-*.js '}${sharedRow ? '' : 'scene-shared-*.js '}chunk found. Update THREE_CHUNK_GROUPS in vite.config.ts and this script together.`,
-  );
-  process.exit(2);
-}
-const threeTotalKb = threeRow.sizeKb + sharedRow.sizeKb;
+// The table is printed before any failure, so a failing run still shows the numbers.
+// It lists the six largest chunks plus the 3D chunks, then the combined row.
+const shown = rows.filter(
+  (row, index) => index < 6 || THREE_RE.test(row.name) || SHARED_RE.test(row.name),
+);
 const lines = ['| Chunk | Size (kB) | Budget (kB) | Status |', '|---|---:|---:|---|'];
-for (const row of rows.slice(0, 6)) {
-  const status = row.sizeKb > row.limitKb ? 'OVER BUDGET' : 'ok';
-  lines.push(`| ${row.name} | ${row.sizeKb.toFixed(1)} | ${row.limitKb} | ${status} |`);
+for (const row of shown) {
+  lines.push(
+    `| ${row.name} | ${row.sizeKb.toFixed(1)} | ${row.limitKb} | ${row.sizeKb > row.limitKb ? 'OVER BUDGET' : 'ok'} |`,
+  );
 }
 lines.push(
-  `| three + scene-shared (3D total) | ${threeTotalKb.toFixed(1)} | ${THREE_TOTAL_LIMIT_KB} | ${threeTotalKb > THREE_TOTAL_LIMIT_KB ? 'OVER BUDGET' : 'ok'} |`,
+  `| three + scene-shared (3D total) | ${threeTotalKb.toFixed(1)} | ${THREE_TOTAL_LIMIT_KB} | ${threeTotalOver ? 'OVER BUDGET' : 'ok'} |`,
 );
 const table = lines.join('\n');
 console.log(table);
@@ -82,21 +86,35 @@ if (process.env.GITHUB_STEP_SUMMARY) {
   appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Bundle size (largest chunks)\n\n${table}\n`);
 }
 
-if (threeTotalKb > THREE_TOTAL_LIMIT_KB) {
+// A missing guard target is a configuration fault (exit 2), reported ahead of budget breaches.
+if (threeRows.length === 0 || sharedRows.length === 0) {
   console.error(
-    `::error title=Bundle over budget::three + scene-shared is ${threeTotalKb.toFixed(1)} kB, over ${THREE_TOTAL_LIMIT_KB} kB (NFR-27). See docs/performance.md (sections 3 and 6).`,
+    `::error title=Bundle guard target missing::No ${threeRows.length ? '' : 'three-*.js '}${sharedRows.length ? '' : 'scene-shared-*.js '}chunk found in ${assets}. Update THREE_CHUNK_GROUPS in vite.config.ts and this script together.`,
   );
+  process.exit(2);
+}
+
+// Report every breach, then fail once, so one run shows the whole picture.
+let failed = false;
+for (const row of rows.filter((entry) => entry.sizeKb > entry.limitKb)) {
+  failed = true;
+  console.error(
+    `::error title=Bundle over budget::${row.name} is ${row.sizeKb.toFixed(1)} kB, over its ${row.limitKb} kB budget (${row.label}). See docs/performance.md (sections A.3 and 6).`,
+  );
+}
+if (threeTotalOver) {
+  failed = true;
+  console.error(
+    `::error title=Bundle over budget::three + scene-shared is ${threeTotalKb.toFixed(1)} kB, over ${THREE_TOTAL_LIMIT_KB} kB (NFR-27). See docs/performance.md (section A.3).`,
+  );
+}
+if (failed) {
   process.exit(1);
 }
-if (over.length > 0) {
-  for (const row of over) {
-    console.error(
-      `::error title=Bundle over budget::${row.name} is ${row.sizeKb.toFixed(1)} kB, over its ${row.limitKb} kB budget (${row.label}). See docs/performance.md (sections 3 and 6).`,
-    );
-  }
-  process.exit(1);
-}
-const biggest = rows.find((row) => row.limitKb === DEFAULT_LIMIT_KB);
+
+const biggest = rows.find((row) => !/^heic-to-/.test(row.name));
 console.log(
-  `All chunks are within budget. Largest regular chunk: ${biggest?.name} at ${biggest?.sizeKb.toFixed(1)} of ${DEFAULT_LIMIT_KB} kB.`,
+  `All chunks are within budget. 3D total ${threeTotalKb.toFixed(1)} of ${THREE_TOTAL_LIMIT_KB} kB ` +
+    `(${(THREE_TOTAL_LIMIT_KB - threeTotalKb).toFixed(1)} kB headroom). ` +
+    `Largest chunk other than the HEIC decoder: ${biggest?.name} at ${biggest?.sizeKb.toFixed(1)} kB.`,
 );

@@ -9,12 +9,25 @@ Phase 7 (Delivery): wrote the CI workflow, a manual-only GitHub Pages deploy, a 
 - `docs/deployment.md`: Node mention updated; required-reviewer steps made explicit (Settings, Environments, `supabase-production`, Required reviewers: recommended; `github-pages`: optional). The two "no .nvmrc / Node 24" known gaps are removed.
 - Not run: the workflows on GitHub. Node 26 availability on `actions/setup-node` v7 is unverified here (needs the first CI run).
 
+## Update 03/11/2026: bundle guard review (three-* and scene-shared-* split)
+- Reviewed the performance-optimiser's edit to `.github/scripts/check-bundle-size.mjs` (commit 1659eb8). The limits and the exit-2-if-missing rule were right. Fixed five weaknesses in my own file:
+  - The combined breach exited first, so a `three-*` breach alongside it was never annotated. Every breach is now reported, then one exit 1.
+  - The missing-chunk check ran before the table was printed, so a failing run showed no numbers. The table (and the job summary) is now written first; a missing chunk still exits 2.
+  - Only the first `three-*` or `scene-shared-*` match was used. All matches are now summed, so an extra three-* chunk cannot slip out of the total.
+  - The table showed only the top six chunks, so `scene-shared-*` could drop out of view. The 3D chunks are always listed.
+  - The success line said "Largest regular chunk" and skipped `three-*` (it has the 985 limit), so it named `index-*`. It now names the largest chunk other than the HEIC decoder and prints the combined headroom.
+- Linux paths and hashed names were already fine (`path.join`, prefix regexes with `.*`, no hash length assumed). File size is measured in bytes on disk; `vite.config.ts` uses `code.length` (characters). They agree for ASCII output and the script is the stricter one.
+- Verified: `npm run build -- --outDir <scratch>` (not `dist/`), then the script on it: exit 0, `three` 921.4, `scene-shared` 66.2, combined 987.6 of 1000, HEIC 3150.9. Synthetic copies in the scratch folder: combined over (exit 1), three over 985 plus combined over (both annotated, exit 1), regular chunk over (exit 1), `scene-shared` missing (exit 2), no dist (exit 2), step summary file written. Prettier and ESLint pass on the script.
+- `docs/deployment.md` (version 1.1): bundle-size bullet and the troubleshooting row rewritten; no chunk is named after `NameLabel` any more. `ci.yml` needs no change.
+- Decision: the 985 kB `three-*` guard fails CI (as the performance-optimiser set it) although `vite.config.ts` only warns for it.
+- Not run: the script on GitHub (Linux). Nothing committed, pushed or deployed.
+
 ## Files changed
 - `.github/workflows/ci.yml`: PR and push-to-main CI (also `workflow_call`). Jobs `checks` (typecheck, lint, unit tests, build, bundle size), `deno` (check, lint, test; unverified), `e2e` (desktop-chromium, mobile-chromium, mobile-webkit; 2 workers; report and traces uploaded), `e2e-firefox` (non-blocking)
 - `.github/workflows/deploy-pages.yml`: `workflow_dispatch` only. Calls ci.yml, then check:live, live build, base-path and CSP verification, 404.html, configure-pages, upload-pages-artifact, deploy-pages. main only
 - `.github/workflows/deploy-supabase.yml`: `workflow_dispatch` only. Deno verify, optional `db push`, `functions deploy --no-verify-jwt`. Needs three secrets
 - `.github/workflows/visual-baselines-linux.yml`: `workflow_dispatch` only. Records and re-verifies Linux baselines, uploads `visual-baselines-linux`
-- `.github/scripts/check-bundle-size.mjs`: fails if any chunk is over 1000 kB (HEIC decoder 3500 kB)
+- `.github/scripts/check-bundle-size.mjs`: fails if any chunk is over 1000 kB (HEIC decoder 3500 kB), `three-*` over 985 kB, or `three-*` plus `scene-shared-*` over 1000 kB (see the 03/11/2026 update)
 - `.github/pages/404.html`: copied into the Pages artefact at deploy time
 - `docs/deployment.md`: pipeline, variables and secrets (names only), manual steps, hosting limits, rollback, known gaps
 - `docs/handoffs/devops-engineer.md`: this note
@@ -25,7 +38,7 @@ Phase 7 (Delivery): wrote the CI workflow, a manual-only GitHub Pages deploy, a 
 - `format:check` left out: it fails on 30 files today (21 in tests/e2e, 5 in src/ui, 1 each in src/domain, src/scene, src/styles, plus playwright.config.ts). A comment in ci.yml marks where to add it.
 - Visual spec on Linux: `ci.yml` runs every spec file except `visual.spec.ts` while no `tests/e2e/__screenshots__/*-linux` folder exists, with a warning annotation, and runs everything again automatically once the folder is committed. This needs no change to tests or the Playwright config (230 of 244 desktop-chromium tests run in the meantime, checked with `--list`).
 - Playwright browsers are installed with `npx playwright install --with-deps` and cached by version, not a Docker image, because the image tag could not be verified offline. Both CI and the baseline recorder use `ubuntu-24.04`, so baselines and runs share one environment.
-- Bundle check inspects every chunk, not a named one, because Vite names the three.js chunk after a module (`NameLabel-<hash>.js` today). Measured 961.8 kB of 1000 kB, HEIC decoder 3150.9 kB of 3500 kB.
+- Bundle check inspects every chunk by prefix. Originally Vite named the three.js chunk after a module (`NameLabel-<hash>.js`); since commit 1659eb8 the chunks are named `three-*` and `scene-shared-*` by `vite.config.ts`, and the script checks them by those names (03/11/2026 update).
 - The Deno job is blocking (the unverified status is in its name and in comments). If its first run fails on flags or lockfiles, fix it rather than ignore it.
 - Action majors checked against the GitHub releases API on 02/11/2026 (read only): checkout v7, setup-node v7, upload-artifact v7, cache v6, configure-pages v6, upload-pages-artifact v5, deploy-pages v5, setup-deno v2, supabase/setup-cli v3 with CLI 2.122.0. Pinned by major tag, not SHA.
 - 404.html is generated into the artefact at deploy time from `.github/pages/404.html`, so no file outside my folders was touched. Hash routing means it only appears for mistyped paths.
