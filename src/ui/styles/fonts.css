@@ -51,9 +51,3 @@
   descent-override: 28.5%;
   line-gap-override: 0%;
 }
-/* The display stack from tokens.css with the fallback face inserted after the real font. */
-:root {
-  --font-display:
-    'Fraunces Variable', 'Fraunces', 'Fraunces Fallback', 'Iowan Old Style', 'Palatino Linotype',
-    Palatino, Georgia, serif;
-}

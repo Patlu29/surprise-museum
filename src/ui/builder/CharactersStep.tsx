@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
 import type { AvatarConfig } from '@contract';
-import { avatarFaceShape, avatarOutfitPattern } from '@contract';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import type { AvatarOptionKey, AvatarRole } from '@/lib/avatars';
-import { avatarOptionLabel, describeAvatar, optionIds, selectedGender } from '@/lib/avatars';
+import { avatarOptionLabel, describeAvatar, optionIds, selectedOptionValue } from '@/lib/avatars';
 import { useBuilderStore } from '@/state/builderStore';
 import { Button } from '@/ui/components/Button';
 import { RadioGroup, type RadioOption } from '@/ui/components/RadioGroup';
@@ -16,14 +15,10 @@ import {
   closedStyles,
   FACE_SHAPE_GROUP,
   FACE_SHAPE_HELPER,
-  FACE_SHAPE_LABELS,
-  faceShapeIds,
   MORE_STYLES_GROUP,
   moreStyles,
   PATTERN_GROUP,
   PATTERN_HELPER,
-  PATTERN_LABELS,
-  patternIds,
   tabHasMoreOptions,
 } from './extraOptions';
 import { FaceShapeGlyph, GarmentGlyph, PatternGlyph } from './optionGlyphs';
@@ -104,7 +99,7 @@ function optionsFor(def: GroupDef): Array<RadioOption<string>> {
 
 /** The selected id for a group. Gender is optional in the data and reads as Neutral when missing. */
 function groupValue(config: AvatarConfig, key: AvatarOptionKey): string {
-  return key === 'gender' ? selectedGender(config) : (config[key] as string);
+  return selectedOptionValue(config, key);
 }
 
 /**
@@ -117,13 +112,6 @@ export function CharactersStep() {
   const guideName = useBuilderStore((state) => state.guideName);
   const visitorName = useBuilderStore((state) => state.visitorName);
   const setAvatarOption = useBuilderStore((state) => state.setAvatarOption);
-  // faceShape and outfitPattern are real keys of the draft (ADR 0021); the builder's own option
-  // type does not list them yet, so they go through this loosely typed view of the same action.
-  const setOptional = setAvatarOption as unknown as (
-    role: AvatarRole,
-    key: 'faceShape' | 'outfitPattern' | 'outfitStyle',
-    value: string,
-  ) => void;
   const resetAvatar = useBuilderStore((state) => state.resetAvatar);
 
   const [role, setRole] = useState<AvatarRole>('guide');
@@ -309,13 +297,13 @@ export function CharactersStep() {
                 variant="tiles"
                 description={FACE_SHAPE_HELPER}
                 className="radio-group--face-shape"
-                options={faceShapeIds().map((id) => ({
+                options={optionIds('faceShape').map((id) => ({
                   value: id,
-                  label: FACE_SHAPE_LABELS[id],
+                  label: avatarOptionLabel('faceShape', id),
                   glyph: <FaceShapeGlyph shape={id} />,
                 }))}
-                value={avatarFaceShape(config)}
-                onChange={(value) => setOptional(role, 'faceShape', value)}
+                value={selectedOptionValue(config, 'faceShape')}
+                onChange={(value) => setAvatarOption(role, 'faceShape', value as never)}
               />
             ) : null}
             {section === 'outfit' && newStyles.length > 0 ? (
@@ -331,7 +319,7 @@ export function CharactersStep() {
                   glyph: <GarmentGlyph style={id} />,
                 }))}
                 value={newStyles.includes(activeStyle) ? activeStyle : ''}
-                onChange={(value) => setOptional(role, 'outfitStyle', value)}
+                onChange={(value) => setAvatarOption(role, 'outfitStyle', value as never)}
               />
             ) : null}
             {section === 'outfit' ? (
@@ -341,14 +329,14 @@ export function CharactersStep() {
                 variant="tiles"
                 description={PATTERN_HELPER}
                 className="radio-group--pattern"
-                options={patternIds().map((id) => ({
+                options={optionIds('outfitPattern').map((id) => ({
                   value: id,
-                  label: PATTERN_LABELS[id],
+                  label: avatarOptionLabel('outfitPattern', id),
                   swatch: outfitColorVar,
                   glyph: <PatternGlyph pattern={id} />,
                 }))}
-                value={avatarOutfitPattern(config)}
-                onChange={(value) => setOptional(role, 'outfitPattern', value)}
+                value={selectedOptionValue(config, 'outfitPattern')}
+                onChange={(value) => setAvatarOption(role, 'outfitPattern', value as never)}
               />
             ) : null}
           </MoreOptions>

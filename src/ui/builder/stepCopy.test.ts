@@ -15,15 +15,14 @@ import {
   stillToDoLabel,
   titlePlaceholder,
 } from './stepCopy';
+import { FACE_SHAPE_LABELS, OUTFIT_PATTERN_LABELS } from '@/lib/avatars';
 import {
   FACE_SHAPE_GROUP,
   FACE_SHAPE_HELPER,
-  FACE_SHAPE_LABELS,
   MORE_OPTIONS_LABEL,
   MORE_STYLES_GROUP,
   PATTERN_GROUP,
   PATTERN_HELPER,
-  PATTERN_LABELS,
 } from './extraOptions';
 
 /** FR-76 (design spec 12.10): none of the CR-4 copy uses a gendered pronoun or noun. */
@@ -48,7 +47,7 @@ function allCopy(): string[] {
     MORE_STYLES_GROUP,
     PATTERN_GROUP,
     PATTERN_HELPER,
-    ...Object.values(PATTERN_LABELS),
+    ...Object.values(OUTFIT_PATTERN_LABELS),
   ];
 }
 

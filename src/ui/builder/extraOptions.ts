@@ -1,5 +1,5 @@
-import type { AvatarConfig, AvatarFaceShape, AvatarOutfitPattern } from '@contract';
-import { AVATAR_FACE_SHAPES, AVATAR_OUTFIT_PATTERNS, avatarFaceShape, avatarOutfitPattern } from '@contract';
+import type { AvatarConfig } from '@contract';
+import { selectedOptionValue } from '@/lib/avatars';
 
 /**
  * The "More options" groups on the Characters step (design spec 12.5.3, FR-96 to FR-102): face
@@ -9,22 +9,9 @@ import { AVATAR_FACE_SHAPES, AVATAR_OUTFIT_PATTERNS, avatarFaceShape, avatarOutf
 
 export const MORE_OPTIONS_LABEL = 'More options';
 
-export const FACE_SHAPE_LABELS: Readonly<Record<AvatarFaceShape, string>> = {
-  oval: 'Oval',
-  round: 'Round',
-  square: 'Square',
-  heart: 'Heart',
-  long: 'Long',
-};
 export const FACE_SHAPE_GROUP = 'Face shape (optional)';
 export const FACE_SHAPE_HELPER = 'Changes the shape of the face. Your other choices stay as they are.';
 
-export const PATTERN_LABELS: Readonly<Record<AvatarOutfitPattern, string>> = {
-  plain: 'Plain',
-  stripes: 'Stripes',
-  checks: 'Checks',
-  dots: 'Dots',
-};
 export const PATTERN_GROUP = 'Pattern (optional)';
 export const PATTERN_HELPER =
   'Adds a pattern in tints of your colour. There is no second colour to pick.';
@@ -51,13 +38,6 @@ export function moreStyles(offered: readonly string[]): string[] {
   return offered.filter((id) => !CLOSED_OUTFIT_STYLES.includes(id));
 }
 
-export function faceShapeIds(): readonly AvatarFaceShape[] {
-  return AVATAR_FACE_SHAPES;
-}
-export function patternIds(): readonly AvatarOutfitPattern[] {
-  return AVATAR_OUTFIT_PATTERNS;
-}
-
 export type MoreOptionsTab = 'body' | 'face' | 'hair' | 'outfit';
 
 /** True when the tab has a "More options" disclosure at all. */
@@ -72,10 +52,10 @@ export function tabHasMoreOptions(tab: MoreOptionsTab): boolean {
  * from the six new ones counts as one change.
  */
 export function changedInMoreOptions(tab: MoreOptionsTab, config: AvatarConfig): number {
-  if (tab === 'face') return avatarFaceShape(config) !== 'oval' ? 1 : 0;
+  if (tab === 'face') return selectedOptionValue(config, 'faceShape') !== 'oval' ? 1 : 0;
   if (tab === 'outfit') {
     const style = !CLOSED_OUTFIT_STYLES.includes(config.outfitStyle) ? 1 : 0;
-    const pattern = avatarOutfitPattern(config) !== 'plain' ? 1 : 0;
+    const pattern = selectedOptionValue(config, 'outfitPattern') !== 'plain' ? 1 : 0;
     return style + pattern;
   }
   return 0;

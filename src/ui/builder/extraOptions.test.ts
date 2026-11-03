@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { AVATAR_OPTIONS } from '@contract';
-import { DEFAULT_GUIDE_AVATAR } from '@/lib/avatars';
+import {
+  avatarOptionLabel,
+  DEFAULT_GUIDE_AVATAR,
+  FACE_SHAPE_LABELS,
+  optionIds,
+  OUTFIT_PATTERN_LABELS,
+} from '@/lib/avatars';
 import {
   changedInMoreOptions,
   CLOSED_OUTFIT_STYLES,
@@ -41,5 +47,16 @@ describe('More options rules (design spec 12.5.3)', () => {
       changedInMoreOptions('outfit', { ...DEFAULT_GUIDE_AVATAR, outfitStyle: 'coat', outfitPattern: 'dots' }),
     ).toBe(2);
     expect(changedInMoreOptions('body', { ...DEFAULT_GUIDE_AVATAR, faceShape: 'long' })).toBe(0);
+  });
+
+  it('reads its face shape and pattern ids and labels from the shared option lists', () => {
+    expect(optionIds('faceShape')).toEqual(['oval', 'round', 'square', 'heart', 'long']);
+    expect(optionIds('outfitPattern')).toEqual(['plain', 'stripes', 'checks', 'dots']);
+    for (const id of optionIds('faceShape')) {
+      expect(avatarOptionLabel('faceShape', id)).toBe(FACE_SHAPE_LABELS[id]);
+    }
+    for (const id of optionIds('outfitPattern')) {
+      expect(avatarOptionLabel('outfitPattern', id)).toBe(OUTFIT_PATTERN_LABELS[id]);
+    }
   });
 });
