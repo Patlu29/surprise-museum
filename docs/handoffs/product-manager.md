@@ -1,5 +1,7 @@
 # Handoff: product-manager
 
+**v0.6.1 (03/11/2026):** NFR-27 now reads "three.js chunk" as `three-*.js` (921.4 kB) plus `scene-shared-*.js` (66.2 kB) = 987.6 kB against 1,000 kB (12.4 kB spare, accepted by the tech lead); the old 969 to 971 kB and 988.70 kB figures are superseded, so the first open question below on 988.70 kB is closed. Builder-preview material slimming (about 8 to 12 kB) is a follow-up, not a blocker. Changed `requirements.md` (header, change log, NFR-27) and `user-stories.md` (header, US-61 criterion). The performance-optimiser and QA should measure the combined figure.
+
 ## Summary
 Requirements and user stories are now v0.6 (03/11/2026). The five tech-lead decisions from the CR-4 build are recorded: NFR-27 stays at 6,000 triangles (no raise), FR-80 allows a two-sentence description, FR-88 is deferred, a new Should (FR-103) covers face shape and pattern in the live character description, and eight known minor FR-89 edge-contrast cases are recorded as accepted exceptions. No Must was added or removed (still 64).
 

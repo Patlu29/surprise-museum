@@ -1,6 +1,6 @@
 # User stories: Virtual 3D Photo Museum
 
-Version 0.6 | 03/11/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.6)
+Version 0.6.1 | 03/11/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.6.1)
 
 Change in v0.6 (tech-lead decisions during the CR-4 build, 03/11/2026): US-51 allows a description of up to two sentences (FR-80). US-56 marks FR-88 (time hints) deferred; that criterion is not built or tested. US-57 records the accepted FR-89 exceptions (X-1 to X-8 in the requirements). US-63 and US-64 each gain one Should criterion for the live description naming face shape and pattern (new FR-103). US-61 is unchanged: its 6,000-triangle criterion stands because NFR-27 stays at 6,000. No Must is added or removed.
 
@@ -593,7 +593,7 @@ As a Visitor, I want soft shadows and subtle ambient detail, so that the museum 
 As the product owner, I want the improvements to stay inside the existing budgets and rules, so that the app is better and no less fast, accessible or compatible.
 
 **Acceptance criteria**
-- Given the production build, when the bundle is measured, then the three.js chunk is under 1,000 kB minified, the first view is under 10 MB, and the landing page's transferred size has grown by no more than 100 KB
+- Given the production build, when the bundle is measured, then the three.js chunk (the `three-*.js` vendor chunk plus the `scene-shared-*.js` chunk, combined; 987.6 kB at v0.6.1, NFR-27) is under 1,000 kB minified, the first view is under 10 MB, and the landing page's transferred size has grown by no more than 100 KB
 - Given every offered gender, face shape, clothing style, clothing pattern, body type, hair style and facial hair option (and the 10 skin tones), when the characters are counted, then no combination exceeds 6,000 triangles or 10 draw calls
 - Given NFR-1, NFR-2, NFR-3 and NFR-6 are re-measured by the same method, when the results are compared, then they still pass, including the Low quality tier on the reference phone
 - Given a museum published and a draft saved before CR-4, when each is opened, then it loads and looks improved with no migration, the four builder steps and their order are unchanged, and the stored document differs from before only by the optional character fields in FR-96 to FR-98 (no field renamed, removed or made required)
