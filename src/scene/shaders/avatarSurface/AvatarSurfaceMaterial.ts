@@ -66,6 +66,17 @@ function syncPixelRatio(renderer: WebGLRenderer): void {
   );
 }
 
+/**
+ * Edge tuning per material (`EDGE_K`, `EDGE_W1`, `EDGE_W2` in avatarEdge.glsl). `k` scales the
+ * `ndv / fwidth(ndv)` distance (a flat facet reads as the pixel distance, a smooth part as twice
+ * it, and a coarse facet adds half its width). `w1` and `w2` scale the rim and the contour width.
+ * Body 0.7, 1, 1: chosen on the limbs and head. Hair 0.7, 1.2, 2: hair shells have coarse facets, so
+ * a plain contour was too thin to show on mid and light backdrops; measured over 12 styles,
+ * 4 colours and 5 backdrops, hair failures fell from 51 to 7 (docs/handoffs/technical-artist.md).
+ */
+const BODY_EDGE = { k: 0.7, w1: 1, w2: 1 };
+const HAIR_EDGE = { k: 0.7, w1: 1.2, w2: 2 };
+
 /** Pattern index for the `uOutfitPattern` uniform. */
 export const PATTERN_INDEX: Readonly<Record<AvatarOutfitPattern, number>> = {
   plain: 0,
@@ -93,6 +104,7 @@ export function createPatternUniforms(): PatternUniforms {
 
 /** The edge band (both materials) and the per-vertex mask it shares with the pattern. */
 function patchEdge(shader: WebGLProgramParametersWithUniforms, pattern: boolean): void {
+  const e = pattern ? BODY_EDGE : HAIR_EDGE;
   Object.assign(shader.uniforms, EDGE_UNIFORMS);
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', `#include <common>\n${patternVertGlsl}`)
@@ -107,7 +119,10 @@ function patchEdge(shader: WebGLProgramParametersWithUniforms, pattern: boolean)
     ? patternFragGlsl
     : 'flat varying float vOutfitCells;\nfloat edgeWeight() { return vOutfitCells < -0.5 ? 0.0 : 1.0; }';
   shader.fragmentShader = shader.fragmentShader
-    .replace('#include <common>', `#include <common>\n${fragmentPars}\n${edgeGlsl}`)
+    .replace(
+      '#include <common>',
+      `#include <common>\n#define EDGE_K ${e.k.toFixed(2)}\n#define EDGE_W1 ${e.w1.toFixed(2)}\n#define EDGE_W2 ${e.w2.toFixed(2)}\n${fragmentPars}\n${edgeGlsl}`,
+    )
     .replace(
       '#include <opaque_fragment>',
       'outgoingLight = avatarEdge( outgoingLight, normal, vViewPosition, edgeWeight() );\n#include <opaque_fragment>',

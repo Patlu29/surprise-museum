@@ -81,6 +81,10 @@ interface Ctx {
   skin: Color;
 }
 
+/** Hair cap tessellation: finer rows up the dome (it was 5), so its top silhouette is smoother. */
+const CAP_ROWS = 8;
+const CAP_SEGMENTS = 24;
+
 function cap(
   ctx: Ctx,
   thickness: number,
@@ -96,8 +100,8 @@ function cap(
         radii: R,
         thickness,
         lower: hairline(front, side, back),
-        segments: options.segments ?? 20,
-        rows: options.rows ?? 5,
+        segments: options.segments ?? CAP_SEGMENTS,
+        rows: options.rows ?? CAP_ROWS,
         colour: options.colour ?? ctx.hair,
       }),
     ),
@@ -131,7 +135,7 @@ function blob(
 }
 
 /** A curtain of hair behind the head and shoulders, skinned to hairBack so it can sway. */
-function curtain(ctx: Ctx, rings: readonly Ring[], half: number, segments = 16): void {
+function curtain(ctx: Ctx, rings: readonly Ring[], half: number, segments: number): void {
   const geometry = loft(
     rings.map((r) => ({ ...r, colour: r.colour ?? ctx.hair })),
     // The arc is centred on the back of the head (theta = PI).
@@ -139,6 +143,18 @@ function curtain(ctx: Ctx, rings: readonly Ring[], half: number, segments = 16):
   );
   ctx.b.add(shadeHair(geometry), 'hairBack');
 }
+
+/**
+ * Curtain segment counts. The screen-space edge band (design spec 12.8.2 A) finds a silhouette
+ * vertex only when a vertex sits at the left and right of the figure (theta = 90 and 270 degrees
+ * from the front). The arc runs from PI - half to PI + half, so a vertex falls there when
+ * `segments * (half - PI / 2) / (2 * half)` is a whole number: 24 for the bob (half 2.35), 28 for
+ * long straight (2.2) and 25 for long wavy (2.3). The old 16, 16 and 20 had facets there, so the
+ * light rim never showed on the sides of the long hair.
+ */
+const BOB_SEGMENTS = 24;
+const LONG_STRAIGHT_SEGMENTS = 28;
+const LONG_WAVY_SEGMENTS = 25;
 
 const HAIR_BUILDERS: Record<HairStyle, (ctx: Ctx) => void> = {
   shaved(ctx) {
@@ -218,6 +234,7 @@ const HAIR_BUILDERS: Record<HairStyle, (ctx: Ctx) => void> = {
         { y: HY + 0.1, rx: 0.17, rz: 0.158 },
       ],
       2.35,
+      BOB_SEGMENTS,
     );
     blob(ctx, 'head', [HX, HY + 0.095, HZ + 0.13], [0.12, 0.04, 0.05], { rotation: [0.25, 0, 0] });
   },
@@ -234,6 +251,7 @@ const HAIR_BUILDERS: Record<HairStyle, (ctx: Ctx) => void> = {
         { y: HY + 0.02, rx: 0.17, rz: 0.165 },
       ],
       2.2,
+      LONG_STRAIGHT_SEGMENTS,
     );
     blob(ctx, 'head', [HX, HY + 0.095, HZ + 0.13], [0.115, 0.04, 0.05], { rotation: [0.25, 0, 0] });
   },
@@ -252,7 +270,7 @@ const HAIR_BUILDERS: Record<HairStyle, (ctx: Ctx) => void> = {
         { y: HY + 0.02, rx: 0.18, rz: 0.17 },
       ],
       2.3,
-      20,
+      LONG_WAVY_SEGMENTS,
     );
     blob(ctx, 'head', [HX, HY + 0.1, HZ + 0.13], [0.12, 0.045, 0.055], { rotation: [0.25, 0, 0] });
   },

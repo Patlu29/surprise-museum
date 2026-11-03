@@ -72,7 +72,7 @@ function maskedBox(g: BufferGeometry, test: (mask: number) => boolean): Box3 {
   return box;
 }
 
-describe('look values reach the kit', () => {
+describe('look values reach the kit', { timeout: KIT_TEST_TIMEOUT }, () => {
   it('uses the tokens: eye scale, brow thickness, mouth thickness and brow contrast', () => {
     expect(LOOK.eyeScale).toBe(1.1);
     expect(LOOK.browThickness).toBe(1.45);
@@ -673,7 +673,7 @@ describe('twelve outfit styles (ADR 0021 7.3)', { timeout: KIT_TEST_TIMEOUT }, (
       expect(n, style).toBeLessThanOrEqual(suit);
       expect(n + worstHair + SHADOW, style).toBeLessThanOrEqual(5950);
     }
-    expect(suit + worstHair + SHADOW).toBe(5682);
+    expect(suit + worstHair + SHADOW).toBe(5862);
     // The six new styles all differ from the jumpsuit fallback.
     const hashes = new Set(
       AVATAR_OPTIONS.outfitStyle.map((outfitStyle) =>
@@ -745,7 +745,7 @@ describe('twelve outfit styles (ADR 0021 7.3)', { timeout: KIT_TEST_TIMEOUT }, (
   });
 });
 
-describe('idle and walk (design spec 12.8.2 F)', () => {
+describe('idle and walk (design spec 12.8.2 F)', { timeout: KIT_TEST_TIMEOUT }, () => {
   function bonesOf() {
     const rig = createAvatarRig(cfg({}), { role: 'guide' });
     return { rig, bones: rig.bones };

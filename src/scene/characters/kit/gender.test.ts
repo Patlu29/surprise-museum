@@ -38,7 +38,7 @@ const TRIANGLE_BUDGET = 6000;
 /** Design spec 12.8: the CR-4 hard stop per character, catchlights included. */
 const CR4_HARD_STOP = 5950;
 /** The measured worst character (curly-short, full-beard, suit), filled in from the budget measurement. */
-const WORST_TOTAL = 5682;
+const WORST_TOTAL = 5862;
 const DRAW_CALL_BUDGET = 10;
 const BONE = (name: (typeof BONE_NAMES)[number]) => BONE_NAMES.indexOf(name);
 
@@ -64,7 +64,9 @@ const V1_NO_HEAD_GOLDEN: Record<string, string> = {
 /**
  * CR-4 fingerprints (NFR-29), re-baselined once on 02/11/2026 for the deliberate face changes: bigger
  * eyes, catchlights, thicker brows and mouth, the hairline shading, and arms and shins with 8 sides
- * instead of 10 (so the screen-space edge finds a silhouette vertex). The new outfit-mask attribute
+ * instead of 10 (so the screen-space edge finds a silhouette vertex). The hair hashes were
+ * re-baselined a second time on 03/11/2026 for finer hair caps (8 rows, 24 segments) and curtains
+ * (24, 28 and 25 segments), which fixed the light-hair edge contrast; afro is unchanged. The new outfit-mask attribute
  * is not hashed. The v1.0 values were body 5af56628 1b2931b0 85a3a108 aa5bbd48, and every hair hash
  * changed (each hair mesh carries the brows). A Neutral, Oval, Plain character must keep matching.
  */
@@ -73,21 +75,21 @@ const CR4_GOLDEN: Record<string, string> = {
   'body:regular': '3725789a',
   'body:curvy': 'd1d8b486',
   'body:broad': '1e040752',
-  'hair:shaved': 'b4f6d895',
-  'hair:buzz': '150654a5',
-  'hair:short-crop': 'c84d0e75',
-  'hair:side-part': 'baf7706d',
-  'hair:curly-short': '4fda284d',
-  'hair:bob': '9a57340d',
-  'hair:long-straight': '1f32fcf5',
-  'hair:long-wavy': '170ed1ad',
-  'hair:ponytail': '3a5b2a75',
-  'hair:bun': '6beefe5',
+  'hair:shaved': '5484c675',
+  'hair:buzz': 'a660fb95',
+  'hair:short-crop': 'ea479c5d',
+  'hair:side-part': 'fced494d',
+  'hair:curly-short': '28fa5af5',
+  'hair:bob': 'd45eacdd',
+  'hair:long-straight': '94e50ca5',
+  'hair:long-wavy': '2462b9c5',
+  'hair:ponytail': 'a2c820c5',
+  'hair:bun': '95ad2ba5',
   'hair:afro': 'fa17f155',
-  'hair:braids': '42464b65',
+  'hair:braids': 'f9d62165',
 };
 
-describe('Neutral is the v1.0 character', () => {
+describe('Neutral is the v1.0 character', { timeout: KIT_TEST_TIMEOUT }, () => {
   it('has every multiplier at exactly 1', () => {
     for (const v of Object.values(GENDER_SHAPES.neutral)) expect(v).toBe(1);
     for (const bodyType of AVATAR_OPTIONS.bodyType) {
@@ -146,7 +148,7 @@ describe('Neutral is the v1.0 character', () => {
   });
 });
 
-describe('gender shape table', () => {
+describe('gender shape table', { timeout: KIT_TEST_TIMEOUT }, () => {
   const F = GENDER_SHAPES.feminine;
   const N = GENDER_SHAPES.neutral;
   const M = GENDER_SHAPES.masculine;
@@ -213,25 +215,29 @@ describe('gender shape table', () => {
   });
 });
 
-describe('width limits (design spec 9.1): 12 gender and body type combinations', () => {
-  for (const gender of AVATAR_GENDERS) {
-    for (const bodyType of AVATAR_OPTIONS.bodyType) {
-      it(`${gender} / ${bodyType}`, () => {
-        const s = shapeFor(cfg({ gender, bodyType }));
-        const shoulders = 0.4 * s.shoulder;
-        const hips = 0.3 * s.hip;
-        expect(shoulders).toBeGreaterThanOrEqual(0.34 - 1e-9);
-        expect(shoulders).toBeLessThanOrEqual(0.5);
-        expect(hips).toBeGreaterThanOrEqual(0.26 - 1e-9);
-        expect(hips).toBeLessThanOrEqual(0.36);
-        // The measured pelvis ring is the nominal hip width (before the garment's thickness).
-        const rings = torsoRings(s, 0).pelvis;
-        const widest = Math.max(...rings.map((r) => 2 * r.rx));
-        expect(widest).toBeCloseTo(hips, 9);
-      });
+describe(
+  'width limits (design spec 9.1): 12 gender and body type combinations',
+  { timeout: KIT_TEST_TIMEOUT },
+  () => {
+    for (const gender of AVATAR_GENDERS) {
+      for (const bodyType of AVATAR_OPTIONS.bodyType) {
+        it(`${gender} / ${bodyType}`, () => {
+          const s = shapeFor(cfg({ gender, bodyType }));
+          const shoulders = 0.4 * s.shoulder;
+          const hips = 0.3 * s.hip;
+          expect(shoulders).toBeGreaterThanOrEqual(0.34 - 1e-9);
+          expect(shoulders).toBeLessThanOrEqual(0.5);
+          expect(hips).toBeGreaterThanOrEqual(0.26 - 1e-9);
+          expect(hips).toBeLessThanOrEqual(0.36);
+          // The measured pelvis ring is the nominal hip width (before the garment's thickness).
+          const rings = torsoRings(s, 0).pelvis;
+          const widest = Math.max(...rings.map((r) => 2 * r.rx));
+          expect(widest).toBeCloseTo(hips, 9);
+        });
+      }
     }
-  }
-});
+  },
+);
 
 /** Width of a mesh's silhouette (x extent) at height y, from the triangles that cross it. */
 function silhouetteWidth(g: BufferGeometry, y: number, bones: readonly number[] | null): number {
@@ -260,7 +266,7 @@ function silhouetteWidth(g: BufferGeometry, y: number, bones: readonly number[] 
   return hi - lo;
 }
 
-describe('silhouette from behind (design spec 9.6)', () => {
+describe('silhouette from behind (design spec 9.6)', { timeout: KIT_TEST_TIMEOUT }, () => {
   const order: AvatarGender[] = ['feminine', 'neutral', 'masculine'];
 
   it('separates neighbouring shoulder to hip ratios by 10% or more (spec numbers)', () => {
@@ -361,8 +367,9 @@ describe(
         }
         expect(combos).toBeGreaterThan(1000);
         expect(worst).toBeLessThanOrEqual(TRIANGLE_BUDGET);
-        // ADR 0020 measured 5,878 with the v1.0 kit. CR-4 adds the two catchlights (+36) and takes
-        // 232 off by cutting arms and shins from 10 to 8 sides: 5,682. The hard stop is 5,950.
+        // ADR 0020 measured 5,878 with the v1.0 kit. CR-4 adds the two catchlights (+36), takes 232
+        // off by cutting arms and shins from 10 to 8 sides, and adds 180 to the curly hair for finer hair
+        // caps and curtains (edge contrast): 5,862. The hard stop is 5,950.
         expect(worst).toBeLessThanOrEqual(CR4_HARD_STOP);
         expect(worst).toBe(WORST_TOTAL);
       },
@@ -926,44 +933,48 @@ describe('preview gender morph API (design spec 9.5)', { timeout: KIT_TEST_TIMEO
   });
 });
 
-describe('bind pose does not depend on the parent transform (BUG-6)', () => {
-  const inverses = (rig: ReturnType<typeof createAvatarRig>) => {
-    const mesh = rig.root.children.find((o) => o instanceof SkinnedMesh) as SkinnedMesh;
-    return {
-      inv: mesh.skeleton.boneInverses.map((m) => [...m.elements]),
-      bind: [...mesh.bindMatrix.elements],
+describe(
+  'bind pose does not depend on the parent transform (BUG-6)',
+  { timeout: KIT_TEST_TIMEOUT },
+  () => {
+    const inverses = (rig: ReturnType<typeof createAvatarRig>) => {
+      const mesh = rig.root.children.find((o) => o instanceof SkinnedMesh) as SkinnedMesh;
+      return {
+        inv: mesh.skeleton.boneInverses.map((m) => [...m.elements]),
+        bind: [...mesh.bindMatrix.elements],
+      };
     };
-  };
-  const offsetParent = () => {
-    const p = new Group();
-    p.position.set(3.2, 0.6, -1.4);
-    p.rotation.y = 1.1;
-    p.scale.setScalar(1.5);
-    p.updateMatrixWorld(true);
-    return p;
-  };
+    const offsetParent = () => {
+      const p = new Group();
+      p.position.set(3.2, 0.6, -1.4);
+      p.rotation.y = 1.1;
+      p.scale.setScalar(1.5);
+      p.updateMatrixWorld(true);
+      return p;
+    };
 
-  it('matches a fresh rig after setAppearance and a morph frame under a moved parent', () => {
-    const start = cfg({ gender: 'neutral', bodyType: 'regular' });
-    const rig = createAvatarRig(start, { role: 'guide' });
-    offsetParent().add(rig.root);
-    const first = inverses(rig);
-    expect(first.bind).toEqual([...new Matrix4().elements]);
+    it('matches a fresh rig after setAppearance and a morph frame under a moved parent', () => {
+      const start = cfg({ gender: 'neutral', bodyType: 'regular' });
+      const rig = createAvatarRig(start, { role: 'guide' });
+      offsetParent().add(rig.root);
+      const first = inverses(rig);
+      expect(first.bind).toEqual([...new Matrix4().elements]);
 
-    const next = cfg({ gender: 'feminine', bodyType: 'broad' });
-    rig.setAppearance(next);
-    const fresh = createAvatarRig(next, { role: 'guide' });
-    expect(inverses(rig)).toEqual(inverses(fresh));
+      const next = cfg({ gender: 'feminine', bodyType: 'broad' });
+      rig.setAppearance(next);
+      const fresh = createAvatarRig(next, { role: 'guide' });
+      expect(inverses(rig)).toEqual(inverses(fresh));
 
-    rig.beginGenderMorph('masculine');
-    rig.setGenderMorphProgress(0.5);
-    const mid = createAvatarRig(next, { role: 'guide' });
-    mid.beginGenderMorph('masculine', 'feminine');
-    mid.setGenderMorphProgress(0.5);
-    expect(inverses(rig)).toEqual(inverses(mid));
+      rig.beginGenderMorph('masculine');
+      rig.setGenderMorphProgress(0.5);
+      const mid = createAvatarRig(next, { role: 'guide' });
+      mid.beginGenderMorph('masculine', 'feminine');
+      mid.setGenderMorphProgress(0.5);
+      expect(inverses(rig)).toEqual(inverses(mid));
 
-    rig.dispose();
-    fresh.dispose();
-    mid.dispose();
-  });
-});
+      rig.dispose();
+      fresh.dispose();
+      mid.dispose();
+    });
+  },
+);

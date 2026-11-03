@@ -1,6 +1,49 @@
 # Handoff: technical-artist
 
-The newest round (CR-4, 02/11/2026) is the first section. Earlier sections below describe the v1.0 and CR-1 kit; where they quote 5,878 triangles per character or 970.7 kB, the CR-4 figures replace them.
+The newest rounds (CR-4 hair contrast, 03/11/2026, then CR-4, 02/11/2026) are the first sections. Earlier sections below describe the v1.0 and CR-1 kit; where they quote 5,878 triangles per character or 970.7 kB, the CR-4 figures replace them.
+
+## CR-4 hair contrast update (03/11/2026)
+
+Tech lead approved raising the hair tessellation for the light-hair edge failures (FR-89). The numbers in the CR-4 section below are superseded where this section says so.
+
+**What I found.** Raising the cap rows alone did nothing: with the cap at 10 rows the light-hair medians on oak stayed at 1.9 to 2.2. The cause was not the row count. On a coarse faceted shell `ndv / fwidth(ndv)` overestimates the pixel distance by about half a facet width, so the 1.5 px dark contour was pushed outside the silhouette and only a thin line showed. Hair facets are bigger than the head's, so the hair needed its own edge tuning as well as finer shells.
+
+**What changed (shader and hair builder only; no new draw call, mesh or material):**
+- `hair.ts`: caps went from 5 rows by 20 segments to 8 by 24. The bob curtain went from 16 to 24 segments, long straight from 16 to 28 and long wavy from 20 to 25. Those counts put a vertex at the left and right of the figure (`segments * (half - PI/2) / (2 * half)` is whole), the same alignment that fixed the limbs. The afro is unchanged.
+- `AvatarSurfaceMaterial.ts` and `avatarEdge.glsl`: the edge now has per-material `EDGE_K`, `EDGE_W1` and `EDGE_W2` defines. Body stays 0.7, 1, 1. **Hair is 0.7, 1.2, 2.0:** a 1.2 times wider rim and a 2 times wider contour (3 px instead of 1.5). I tried 0.7/1/1.4, 1.6, 0.5, 0.35, 0.7/1.5/1.6 and 0.7/1.2/2.0 over 12 styles, 4 colours (blonde, platinum, pink, black) and 5 backdrops (240 renders per setting); 0.7/1.2/2.0 was the best.
+
+**Hair edge contrast, median under 3:1 (all 12 styles, 4 colours, 5 backdrops = 240 cases):** before **51** cases, after **7**. Remaining failures:
+
+| Region | Option | Backdrop | Median | Cause |
+|---|---|---|---|---|
+| Hair, curly-short | blonde | Claret runner | 2.19 | The curls are 6-sided blobs; their silhouette facets are too small for the band to find, and the worst-case hair (1,660 triangles) leaves no triangles to re-tessellate them |
+| Hair, curly-short | blonde | Finale wall | 2.92 | Same |
+| Hair, curly-short | pink | Claret runner | 2.07 | Same |
+| Hair, curly-short | pink | Finale wall | 2.42 | Same |
+| Hair, curly-short | black | Claret runner | 2.22 | Dark hair on a dark backdrop needs the rim, which small blobs do not give |
+| Hair, curly-short | black | Finale wall | 1.67 | Same |
+| Hair, bob | black | Claret runner | 2.57 | Black curtain on claret: the rim on the curtain's open edges |
+
+**Full table re-measured** (same method as before, default Guide, 33 characters, 6 backdrops; the hair column is the 11 hair colours on short crop):
+
+| Backdrop | Hair | Head | Torso and arms | Legs |
+|---|---|---|---|---|
+| Linen wall | 10.56 (platinum), typical 13.7 | 11.30 (skin-01), 12.2 | 7.24 (green), 9.1 | 13.79, 13.8 |
+| Oak floor | 4.84 (platinum), typical 6.3 | 5.48 (skin-01), 5.8 | **2.29** (cream outfit), 4.2 | 6.34, 6.3 |
+| Claret runner | 3.50 (black), 3.5 | 3.08 (skin-09), 3.2 | 4.33, 4.3 | 4.28, 4.3 |
+| Finale wall | 4.81 (black), 4.9 | 3.90 (skin-09), 4.3 | 5.79, 5.8 | 5.74, 5.7 |
+| Finale floor | 5.86 (charcoal), 5.9 | 5.12 (skin-09), 5.3 | 7.22, 7.2 | 7.15, 7.2 |
+| Preview stage | 12.97 (white), 17.1 | 13.91 (skin-01), 15.1 | 5.69 (cream outfit), 11.2 | 17.11, 17.1 |
+
+The nine hair failures of the first table (blonde, pink, grey, platinum, white and ginger hair on oak, platinum on the wall and stage) all pass now. **The one remaining failure on the default character is the cream outfit on oak: torso and arms median 2.29, p10 1.8, 54% of samples under 3:1.** I tried the cheap material-side fix on the body band (no geometry): a 1.3 times wider contour gave 2.33, a 2.0 times wider contour with a 1.2 times wider rim made torso and arms worse (oak 1.47, stage 1.81), and a 1.6 times wider contour with a narrower rim moved the failure to the head on the runner (2.07). The limbs are thin, so a wider band trades one backdrop for another. No cheap fix exists; it stays recorded as a failure. A real fix would be a darker cream sleeve trim or a thicker arm (geometry).
+
+**Budgets after the change:**
+- Worst character (curly-short, full beard, suit, slim, Guide, skin-10): **5,862** (was 5,682; the hair grew by 180). Hard stop 5,950, NFR-27 6,000. Pass, 88 triangles under the hard stop.
+- Worst hair per style: shaved 796, buzz 796, short-crop 996, side-part 996, curly-short **1,660**, bob 1,040, long-straight 1,120, long-wavy 1,146, ponytail 1,176, bun 1,040, afro 856, braids 1,568. Body counts are unchanged (suit 4,200 is the worst body).
+- Worst character per style (body worst plus 1,660 hair plus the 2-triangle shadow): tee-jeans 5,558, hoodie 5,658, shirt-trousers 5,702, dress 5,602, **suit 5,862**, jumpsuit 5,630, sweater 5,670, overalls 5,718, coat 5,582, tracksuit 5,750, cardigan 5,638, tunic 5,614. Draw calls per character: 3.
+- **Neutral fingerprint re-baselined a second time, hair only.** Eleven of the 12 hair hashes changed because the cap and curtain tessellation changed; the afro and all four body hashes are unchanged. New hair values are in `gender.test.ts` (`CR4_GOLDEN`). The v1.0 proof for the torso, pelvis, thighs, garments, extras, badge and neck still passes.
+- **three.js chunk: 988.70 kB, over the 985 kB guard.** This is not the hair work: at HEAD `0cf9877` (the scene developer's CR-4 integration) a clean build is already **988.47 kB** (the chunk is now `finale-*.js`; the Experience chunk shrank by 8.4 kB, so code moved into it). My change adds 0.23 kB. At my commit `08a5359` the chunk was 976.55 kB. Cutting enough to get back under 985 kB (about 3.7 kB) needs the cuts the tech lead ruled out (finale dado variant, strip builder, garment duplication), so I left them. Decision needed.
+- Tests: `KIT_TEST_TIMEOUT` (120 s) now sits on every `describe` in `cr4.test.ts`, `gender.test.ts` and `kit.test.ts`, so a parallel full run cannot hit the 5 s default. typecheck, lint, 1,047 tests and `npm run build` pass.
 
 ## CR-4 update (02/11/2026): face, edge, shape, pattern, twelve styles, museum finish
 

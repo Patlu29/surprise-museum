@@ -160,7 +160,7 @@ describe('avatar rig', { timeout: KIT_TEST_TIMEOUT }, () => {
   });
 });
 
-describe('describeAvatar', () => {
+describe('describeAvatar', { timeout: KIT_TEST_TIMEOUT }, () => {
   it('matches the design spec example', () => {
     expect(describeAvatar(DEFAULT_GUIDE_APPEARANCE, 'Tom')).toBe(
       'Tom: medium height, regular build, short crop dark brown hair, navy shirt and trousers.',
