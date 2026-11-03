@@ -1,6 +1,8 @@
 # Design spec: Surprise Museum
 
-Version 2.0 | 02/11/2026 | Owner: ux-ui-designer | Based on requirements v0.4 (CR-4, Epic E10), user stories v0.4 and architecture v1.0
+Version 2.0.1 | 02/11/2026 | Owner: ux-ui-designer | Based on requirements v0.4 (CR-4, Epic E10), user stories v0.4 and architecture v1.0
+
+**Change note, v2.0.1 (after the CR-4 build, 02/11/2026).** Records the build, no design change. (1) 6.3: the follow camera is capped 2 m above the ceiling (5.2 m) and the reduced-motion hysteresis is 2.85 m off, 2.65 m on. (2) 12.8.3: ceiling strip position stated (intended toward the exit; the build's entrance side is accepted). (3) Tech-lead decisions on frontend deviations: one Preview visible at a time, so on step 4 from 640 px it sits beside Publish (12.4.1, 12.4.4, 12.5.4); preview turn buttons top-right (12.5.3); finale footer on one row in the 136 px strip (12.6.5); step 3 purpose line after the restored-draft notice (12.4.2). (4) 12.3: `--font-display` now includes `'Fraunces Fallback'`. No other token changed.
 
 **Change note, v2.0 (CR-4 polish, 02/11/2026).** The user asked for "Improved UI" (CR-4): polish the current look, keep the identity, layout and flows, with no design checkpoint before the build. All new and changed rules are in **section 12**, which is written to be built as it stands. **Where section 12 and sections 1 to 11 disagree, section 12 wins.** The older sections are kept because they still describe the unchanged behaviour (caption card placement 3.5, presentation camera 6.12, avatar options 9). Short "superseded" pointers were added where a sentence in 1 to 11 is now wrong.
 - **Polish, not a new direction (FR-94).** Palette, logo, typeface, the four builder steps and their order, the data model (apart from the two new character options below), camera, controls and Guide behaviour are unchanged. Nothing is removed.
@@ -798,6 +800,7 @@ Every interaction is specified as Trigger, Feedback, Camera, Exit, Touch, Keyboa
   - **Reduced motion (FR-95: any fade is instant):** a hard step with hysteresis: the ceiling switches off when `cameraY` rises above `ceilingHeight - 0.35` and back on when it falls below `ceilingHeight - 0.55`, so it never flickers at the threshold. Either way the change only happens because the Visitor moved the camera.
   - The presentation camera (6.12) keeps its 8 to 20 degree pitch, so it never triggers the fade. Low graphics quality: the same rule; it is one opacity value.
   - QA: at pitch 55 degrees and boom 6 m on desktop (and with the keyboard camera controls) the Visitor, the route and at least the next room are visible; at the default pose the ceiling is opaque and the picture matches today's; hovering the camera at the threshold causes no flicker; reduced motion switches in one frame.
+  - **As built (v2.0.1, scene-developer, accepted).** (1) **Height cap:** the follow camera is never higher than **2 m above the ceiling, 5.2 m** (`ceilingHeight + 2.0`, H = 3.2). When pitch and boom would put it higher, the boom is shortened for the height only; the pitch and the Visitor's zoom setting are untouched, so lowering the pitch gives the zoom back. With the 0.9 m pivot at 55 degrees the longest boom is therefore about 5.25 m, not 6 m, and the QA line above reads "the longest boom the cap allows" (the 6 m limit in 6.2 still holds below that pitch). The cap is a design decision, not a side effect: it keeps the whole museum in view from above without the camera drifting off to the roof. (2) **Reduced-motion hysteresis:** off when `cameraY` is above 2.85 m (H - 0.35), on again when it is below 2.65 m (H - 0.55), and between the two it keeps its last state; there is no animation and the change lands in one frame. (3) **One down-facing quad per room**, single-sided, so seen from above it is culled and can never hide the view even before the fade starts; it is transparent only while partly faded, so the default view stays opaque and cheap. The roses, oculus ring and strips fade with it (12.8.3).
 - **Not used:** camera shake, head bob, FOV changes, motion blur, auto-orbit, intro fly-through (there is no intro; the welcome screen is the intro).
 
 ### 6.4 Interaction: Reset view
@@ -1628,15 +1631,19 @@ Line heights: `--leading-tight` 1.2 for display and h1, `--leading-snug` 1.3 for
 
 **Size and stability (NFR-27, NFR-28).** CSS only: no new font (Fraunces 400 and 600 as now), no new image, the illustration is the existing 5.8 kB SVG. Expected growth is under 10 kB. Give the illustration `width`, `height` and `aspect-ratio` so nothing shifts; add an `@font-face` fallback for the display font with `size-adjust` and `ascent-override` tuned to Georgia, so the swap moves the layout by less than 0.02 CLS. Measure CLS at 360 by 640 and 1280 by 720: 0.1 or less.
 
+*As built (frontend, measured; tokens updated 02/11/2026):* the fallback face is `'Fraunces Fallback'` (Georgia at `size-adjust: 93%`, declared in `src/ui/styles/fonts.css`). It is part of the token: `--font-display` is `'Fraunces Variable', 'Fraunces', 'Fraunces Fallback', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif`, so the fallback comes straight after the real font and the frontend needs no override of its own.
+
 ### 12.4 Builder shell: progress, outstanding list, bar (FR-82, FR-84 to FR-88)
 
 #### 12.4.1 Header
 
-Brand left (44 px). From 640 px the **Preview** tertiary button stays in the header. Below 640 px it moves into the action bar (12.4.4) and the header button is `display: none`. The header scrolls away; it is not sticky.
+Brand left (44 px). From 640 px the **Preview** tertiary button stays in the header, **except on step 4 (Review)**. Below 640 px it moves into the action bar (12.4.4) and the header button is `display: none`. The header scrolls away; it is not sticky.
+
+*Decision, 02/11/2026 (tech lead, matches the build):* **one Preview is visible at a time.** On step 4 at 640 px and up the Preview sits **beside Publish** (12.5.4) and the header copy is hidden; on steps 1 to 3 it stays in the header. The DOM holds three Preview buttons (header, action bar, Review) and CSS leaves exactly one visible, the others `display: none` so they leave the accessibility tree (12.0, selector safety). Back and Preview are not rendered while publishing.
 
 #### 12.4.2 Step header and stepper
 
-Every step opens with the same block: eyebrow (`--text-xs`, "Step 2 of 4"), the h1 (the step name, focused on arrival as today), and a **purpose line** (`--text-lead`, muted, at most two lines at 360). Purpose lines (new copy, 12.10) tell the Creator what the step is for and what is required. The stepper nav keeps its text "Step 2 of 4: Words" in the DOM exactly as today; visually only "Step 2 of 4" shows (the rest is a visually hidden span), which removes the duplicated step name.
+Every step opens with the same block: eyebrow (`--text-xs`, "Step 2 of 4"), the h1 (the step name, focused on arrival as today), and a **purpose line** (`--text-lead`, muted, at most two lines at 360). Purpose lines (new copy, 12.10) tell the Creator what the step is for and what is required. *Order, decision 02/11/2026 (tech lead, matches the build): the restored-draft notice (5.17) is the heading's next sibling, so on step 3 the order is h1, notice (when shown), purpose line, "Still to do". The purpose line comes after the notice because the notice's test and markup require it directly after the heading.* The stepper nav keeps its text "Step 2 of 4: Words" in the DOM exactly as today; visually only "Step 2 of 4" shows (the rest is a visually hidden span), which removes the duplicated step name.
 
 | Part | Phone and tablet (under 1024 px) | Desktop (1024 px and up) |
 |---|---|---|
@@ -1670,7 +1677,7 @@ A region under the purpose line on every step, always visible, never behind a co
 | Position | `position: sticky; bottom: 0`, `--color-bg` background, `--shadow-bar`, no hard top border. Padding `--space-3` `--space-4` plus the bottom safe area. `min-height: var(--bar-min-height)` (never a fixed height, so it grows with text size). Landscape phone: `--bar-min-height-compact` |
 | Progress line | A 3 px line along the bar's top edge: track `--color-border`, fill `--color-accent`, width 25%, 50%, 75%, 100% for steps 1 to 4, width change in `--duration-normal`. `aria-hidden` (the stepper carries the meaning) |
 | Phone (under 640 px) | Three controls in one row, 8 px gaps: **Back** (secondary, 48 px, from step 2; absent on step 1, its slot stays empty), **Preview** (tertiary with the eye icon, 48 px), **Next** (primary, 48 px, minimum 7 rem, `margin-left: auto`). Step 4: Next is absent and Publish stays in the content (12.5.4) |
-| 640 px and up | Back left, Next right (as today). Preview stays in the header |
+| 640 px and up | Back left, Next right (as today). Preview stays in the header on steps 1 to 3; on step 4 it sits beside Publish (12.4.1, 12.5.4) |
 | While publishing | Back and Preview are not rendered; nothing else changes |
 | Large text | The row may wrap to two lines; nothing is clipped |
 | Keyboard open (FR-84) | `index.html` already sets `interactive-widget=resizes-content`. For browsers that ignore it (iOS Safari): while a text field is focused and `visualViewport.height` is under 75% of `innerHeight`, set `data-keyboard="open"` on `.builder`; the bar becomes `position: static` at the end of the content so it never covers the field, and every field gets `scroll-margin-block: 7.5rem` so the focused field clears the keyboard. Inputs stay at 16 px, so the page never zooms on focus |
@@ -1732,7 +1739,7 @@ Order and grouping change; every field, label, id and limit is unchanged.
 | Part | Phone portrait and tablet | Phone landscape | Desktop (1024 px and up) |
 |---|---|---|---|
 | Preview | **Sticky** at the top of the step (`position: sticky; top: var(--safe-top); z-index: var(--z-sticky)`), height `--preview-sticky-height` (176 to 256 px, 32 dvh), full width, radius `--radius-lg`, stage backdrop (12.8.4). The stepper and the "Still to do" list scroll away above it; the options scroll under it | Left 45%, sticky, full height minus the compact bar | Left column, sticky (as today) |
-| Preview controls | Turn left, Turn right and Back view become **icon-only 44 px night buttons** over the preview's bottom-right corner, 8 px gaps. Their accessible names are unchanged | Same | The existing tertiary buttons under the preview |
+| Preview controls | Turn left, Turn right and Back view become **icon-only 44 px night buttons** over the preview's **top-right** corner, 8 px gaps. Their accessible names are unchanged. *Decision, 02/11/2026 (tech lead, matches the build): top-right, not bottom-right. The name labels run along the preview's bottom edge and the buttons covered one* | Same | The existing tertiary buttons under the preview |
 | Character switch | Two segmented tabs "Guide: {name}" and "Visitor: {name}" (names unchanged), then a muted line: "The Guide is you. The Visitor is who you're making this for." | Same | Same |
 | Section tabs | Body, Face, Hair, Outfit as four equal segments (44 px, 8 px gap) | Same | Same |
 | Description | The live text description under the section tabs (not in the sticky area) | Same | Under the preview |
@@ -1811,7 +1818,7 @@ Why this split: today's controls, their order, their tiles and their accessible 
 | Purpose line | "Check everything, then publish. You can preview first." |
 | Cards | Three summary cards, each: h2 left, **Edit** tertiary (44 px) right; the card's content is one short block. Your museum (title, For, Guide, closing message), Photos (all thumbnails in a grid of `minmax(3.5rem, 1fr)`, so about five per row at 360 px, never truncated), Characters (the two descriptions) |
 | Consent | Its own card with the tag **Required**. The checkbox is 28 px inside a 48 px-tall row; the full sentence is the label; links on their own line (44 px targets). Error state: a danger bar, an icon and the message |
-| Actions | Preview (secondary) and **Publish museum** (primary, 56 px) in one row from 640 px, stacked on phones with Publish last and full width. **Under 640 px the in-content Preview is `display: none`** (the bar has it, 12.4.4); Publish stays in the content, at the bottom of the page where the Creator has just ticked consent. Reason line for an unavailable Publish stays under the button |
+| Actions | Preview (secondary; the only visible Preview on this step from 640 px, the header one is hidden, 12.4.1) and **Publish museum** (primary, 56 px) in one row from 640 px, stacked on phones with Publish last and full width. **Under 640 px the in-content Preview is `display: none`** (the bar has it, 12.4.4); Publish stays in the content, at the bottom of the page where the Creator has just ticked consent. Reason line for an unavailable Publish stays under the button |
 | After a failed publish | The danger alert (with the accent bar) above the actions; button reads "Try again" |
 
 #### 12.5.5 Published screen
@@ -1862,6 +1869,8 @@ Allowed (they change no measured box): surface and shadow tokens (`--color-surfa
 #### 12.6.5 Finale card
 
 Same shell as 5.7 with: a 40 px brass seal (radial brass gradient, heart icon in `--color-text`), the heading `--text-xl` Fraunces, a hairline brass rule with a small diamond ornament under the header, the message in `--caption-size` Fraunces, and footer buttons **Keep exploring** (primary, 56 px) and **Replay from the start** (secondary, 48 px, 8 px gap), stacked and full width under 480 px, side by side from 480 px. Placement, focus on Keep exploring, Escape and the reading sheet are unchanged.
+
+*Decision, 02/11/2026 (tech lead, matches the build): in the 136 px finale strip (`FINALE_STRIP_HEIGHT`) the footer stays on **one row at every width**, including under 480 px.* A stacked 56 px plus 48 px pair and the 8 px gap do not fit the strip. Full-height finale cards keep the stacked layout under 480 px.
 
 #### 12.6.6 Overlays and sheets
 
@@ -2025,7 +2034,7 @@ The user reports that phones are not hard to use. FR-81 and FR-83 (Must) stay as
 |---|---|
 | Walls | **Dado:** lower wall 0 to 0.95 m in `--look-dado` (vertex colour) with a slim rail (`--look-dado-rail`, 0.05 by 0.04 m, a merged strip) on top. **Contact darkening:** wall base darkens by `--look-ao-wall-base` (12%) over the lowest 0.5 m, and the top by `--look-ao-ceiling` (18%) over 0.4 m, tinted `--look-ao`. **Wall cap:** a flat 0.06 m cap in `--look-dado-rail` on every wall top, so the ceiling cutaway (6.3) looks finished |
 | Floor | Oak: plank seams every 0.2 m along the route (1 px, `--scene-floor-grain`), plank-to-plank tone variation of plus or minus 4%, faint grain (existing texture, edited). **Edge shadow decal:** a 0.45 m soft dark strip along each wall at 18% alpha (merged, normal blend) so walls sit on the floor. **Runner:** a darker inner band `--look-runner-border` 0.12 m wide inside the brass line; pile noise as now |
-| Ceiling | `--scene-ceiling` deeper. One recessed strip per room (`--look-ceiling-strip`, emissive, 0.06 by 1.2 m, a leading line along the route) and the rose in the entrance hall and finale. Strips and roses fade with the ceiling (6.3) |
+| Ceiling | `--scene-ceiling` deeper. One recessed strip per room (`--look-ceiling-strip`, emissive, 0.06 by 1.2 m, a leading line along the route) and the rose in the entrance hall and finale. Strips and roses fade with the ceiling (6.3). **Strip position (v2.0.1):** on the room's centre line, running along the route, and offset from the rose by 0.3 of the room depth up to 2.4 m so the two never overlap. The offset is meant to be **toward the exit (-Z)**, ahead of the Visitor, so the strip reads as a line that leads to the next doorway. The build offsets it toward the entrance (+Z); that is accepted and not a defect (see the handoff, a one-sign change if wanted) |
 | Frames | Keep 0.06 m border and 0.05 m depth. Add a **brass fillet** (`--look-frame-fillet`, 3 mm, 8 triangles) between the walnut and the mount, and shade the mount's inner edge 6% darker (vertex colour, a fake bevel). **Contact shadow:** a soft decal (`--look-contact-shadow`, wider by 0.04 m, shifted 0.02 m down, behind the frame, never over the photo) |
 | Picture lights and wash | Wash peak alpha `--look-wash-alpha` (0.18, was 0.10 to 0.14), 1.6 times the frame height tall, tinted `--scene-pool`. The decal is drawn **behind** the frame and never covers the mat or the photo |
 | Standing pools | **At least as visible as before** (FR-92): unchanged peak alpha 0.3, proximity ramp 40% to 100%, colour `--scene-pool` |

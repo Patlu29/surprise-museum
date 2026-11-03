@@ -218,10 +218,13 @@
 
   /* ------------------------------------------------------------------ Typography */
   /* Display serif: Fraunces (SIL Open Font Licence), self-hosted, Latin subset, weights 400 and 600.
-     The fallback stack is metrically close enough that nothing reflows badly if the font is late. */
+     'Fraunces Fallback' is a Georgia face scaled to Fraunces' width (size-adjust 93%, ascent and descent
+     overrides), declared with @font-face in src/ui/styles/fonts.css (design spec 12.3, NFR-28). It sits
+     straight after the real font so the swap moves the layout very little. If that @font-face is absent
+     the name matches nothing and the browser moves on to the next family, so the stack stays safe. */
   --font-display:
-    'Fraunces Variable', 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia,
-    serif;
+    'Fraunces Variable', 'Fraunces', 'Fraunces Fallback', 'Iowan Old Style', 'Palatino Linotype',
+    Palatino, Georgia, serif;
   /* Body and controls: the device's own UI font. Zero download, best legibility on phones. */
   --font-sans:
     system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif,

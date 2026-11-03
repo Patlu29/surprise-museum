@@ -1,5 +1,40 @@
 # Handoff: ux-ui-designer
 
+## Update v2.0.1: spec matched to the CR-4 build (02/11/2026)
+
+### Summary
+Spec is now v2.0.1. The font fallback is in the token, the ceiling build is recorded in 6.3, the ceiling strip position is stated in 12.8.3, and the four tech-lead decisions on the frontend's deviations are in section 12. No design change; nothing committed. I could not run `npx vitest run src/scene/materials` (this session has no shell); I checked by reading instead (below), so please run it once.
+
+### Files changed
+- `src/styles/tokens.css`: `--font-display` is now `'Fraunces Variable', 'Fraunces', 'Fraunces Fallback', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif`; comment updated. No other token touched
+- `docs/design-spec.md`: version 2.0.1 and change note; 6.3 "As built" note (5.2 m height cap, 2.85 / 2.65 m hysteresis, one down-facing quad); 12.3 as-built font line; 12.4.1, 12.4.2, 12.4.4, 12.5.3, 12.5.4, 12.6.5 decision notes; 12.8.3 strip position
+- `docs/handoffs/ux-ui-designer.md`: this section
+
+### Token drift test check (by reading, not run)
+- `src/scene/materials/palette.test.ts` parses only `--scene-<name>: #hex;`; `look.test.ts` parses only `--look-<name>: value;`. No test reads `--font-*`, and my comment adds no `--scene-` or `--look-` text, so both are unaffected. `--scene-*` and `--look-*` values are unchanged.
+- The frontend can delete the `:root { --font-display }` block at the end of `src/ui/styles/fonts.css` (keep the two `Fraunces Fallback` `@font-face` rules there). The family name is harmless if that file is not loaded, because an undeclared family is skipped.
+
+### Ceiling (FR-95)
+- Spec matches the build: opacity formula, 0.02 hide threshold, reduced-motion 2.85 m off and 2.65 m on (= H - 0.35 and H - 0.55 with H = 3.2). The one thing the build adds is the 2 m-above-ceiling height cap (5.2 m), which the spec did not have; I recorded it as an accepted design decision.
+- Consequence for QA: at pitch 55 degrees the cap shortens a 6 m boom to about 5.25 m (pivot 0.9 m), so the 6.3 QA line now reads "the longest boom the cap allows". Pitch and the zoom setting are untouched.
+- **Strip position: the spec never fixed it.** 12.8.3 said "a leading line along the route", which I meant as a line ahead of the Visitor leading to the next doorway. The build puts it at the room centre plus min(0.3 x depth, 2.4 m) toward +Z, which is the entrance side (route runs to -Z), so it sits behind her. The offset itself is right (it keeps the strip clear of the 0.4 m rose at the centre) and the direction along the route is right. My answer: intended toward the exit, but the entrance side is acceptable and not a defect, because the ceiling is mostly a thin band at the top of the default view and either side is seen at some point of the walk. I wrote the intent and the acceptance into 12.8.3. Optional scene-developer change: flip the sign at `src/scene/objects/museumDressing.ts` line 175 (`cz - Math.min(...)`); no other change, same triangle count.
+
+### Decisions on the four deviations (all agreed, none disputed)
+- One Preview visible at a time (on step 4 from 640 px beside Publish): agreed. It fixes a real duplicate and keeps one control per view. 12.4.1, 12.4.4 and 12.5.4 now say so.
+- Turn buttons top-right: agreed; the labels are at the bottom edge of the preview. 12.5.3 updated.
+- Finale footer on one row in the 136 px strip: agreed; stacked 56 + 48 px does not fit. 12.6.5 updated. Under 480 px this means two buttons on one row in about 336 px; each is 44 px or more tall with the 8 px gap, so FR-81 holds, but labels must not clip (QA to check at 320 px with large text).
+- Step 3 purpose line after the restored-draft notice: agreed; the notice is the heading's next sibling by test. 12.4.2 updated. Small cost: after a reload the notice pushes the purpose line down by the notice's height; it is shown once and dismissible.
+
+### Open questions
+- None new.
+
+### Requests for other agents
+- frontend-developer: drop the `--font-display` override block from `src/ui/styles/fonts.css` (token now has the fallback). Keep the `@font-face` rules
+- scene-developer (optional, low priority): ceiling strip toward the exit (sign flip, above). Update the QA wording for the 5.25 m effective boom if you keep a note of it
+- qa-engineer: run `npx vitest run src/scene/materials` once; check the finale footer at 320 px with large caption text, and the 6.3 criterion at the capped boom
+
+---
+
 ## Update v2.0: CR-4 polish (02/11/2026)
 
 ## Summary
