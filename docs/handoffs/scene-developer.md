@@ -1,5 +1,13 @@
 # Handoff: scene-developer
 
+## Update 03/11/2026: ceiling strip moved to the exit side (spec 12.8.3, v2.0.1)
+
+- **Change:** `src/scene/objects/museumDressing.ts` now places each room's strip at `cz - Math.min(depth * 0.3, 2.4)` (toward -Z, the exit, ahead of the Visitor). It was `cz +`. One sign; same geometry, triangle count and draw calls. This supersedes row 3 of the table below ("toward the entrance").
+- **Clearances (all room layouts: entrance 7.5 m, galleries 6 m and 10 m; the finale has an oculus, no strip):** the strip is 0.06 by 1.2 m on the ceiling (y 3.2), on the centre line (x 0). Offsets from the room centre are 2.25 m (entrance), 1.8 m (6 m gallery) and 2.4 m (10 m gallery), so it stays 1.2 m or more from the centre, clear of the 0.4 m rose (at least 0.8 m of gap). It ends at least 0.6 m short of each wall and doorway wall (the closest is the 6 m gallery) and is 0.5 m or more above the 2.7 m door head. Standing spots, plinths and photos are on the floor or the side walls (spots at x 2.4, frames at x 4), over 2 m away in plan. The entrance strip now lies wholly beyond the Visitor's spawn (z -5.4 to -6.6, spawn z -4.9). No collision found.
+- **Label and camera logic:** neither reads the strip. The only coupling is `CeilingFade`, which fades the whole `ceilingDressing` mesh, so the strip fades with the ceiling as before.
+- **Test:** new `src/scene/objects/museumDressing.test.ts` pins the position for 0, 1, 3, 4, 5, 8, 9 and 20 photos (centre offset toward -Z, length, centre line, rose gap, wall and doorway margins, standing spots, podium, ahead of spawn). It fails with the old sign (8 of 8).
+- **Visual baselines:** the strip is a 6 cm line near the top of the frame, so `entrance*.png`, `presenting-photo-1.png` and `finale.png` may shift by a few pixels. They are not re-baselined here (QA owns `tests/e2e`; Linux baselines come from the CI workflow).
+
 ## Update 02/11/2026 (CR-4 integration): the technical-artist's requests 1 to 8
 
 ### What was done (against `docs/handoffs/technical-artist.md`, CR-4 requests)

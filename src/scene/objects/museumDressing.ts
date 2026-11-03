@@ -153,7 +153,8 @@ export function buildMuseumDressing(
   decorParts.push(...wallCaps(layout), ...dadoRails(layout));
 
   // Ceiling dressing: a rose at every room's centre, a larger oculus ring over the podium, and
-  // one recessed strip per route room (not the finale) on the centre line, nearer the entrance.
+  // one recessed strip per route room (not the finale) on the centre line, on the exit side of the
+  // rose (toward -Z) so it leads the eye ahead of the Visitor to the next doorway (spec 12.8.3).
   const ceilingParts: BufferGeometry[] = [];
   const rose = createCeilingRoseGeometry({ radius: 0.4 });
   const oculus = createCeilingRoseGeometry({ radius: 0.9 });
@@ -172,7 +173,7 @@ export function buildMuseumDressing(
     const depth = room.bounds.maxZ - room.bounds.minZ;
     const strip = createCeilingStripGeometry();
     ceilingParts.push(
-      mergePlaced(strip, [{ position: [cx, WALL.height, cz + Math.min(depth * 0.3, 2.4)] }]),
+      mergePlaced(strip, [{ position: [cx, WALL.height, cz - Math.min(depth * 0.3, 2.4)] }]),
     );
     strip.dispose();
   }
