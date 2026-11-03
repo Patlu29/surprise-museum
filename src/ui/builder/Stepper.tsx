@@ -8,17 +8,42 @@ interface StepperProps {
   onSelect: (step: BuilderStep) => void;
 }
 
+/** The short label drawn on phones and tablets under each segment (design spec 12.4.2). */
+const SHORT_LABEL: Partial<Record<BuilderStep, string>> = { 4: 'Review' };
+
+function StepLabel({ step, label, done }: { step: BuilderStep; label: string; done: boolean }) {
+  const short = SHORT_LABEL[step] ?? label;
+  return (
+    <span className="stepper__label">
+      {done ? <Icon name="check" size="sm" className="stepper__check" /> : null}
+      {short !== label ? (
+        <>
+          <span className="stepper__label-short" aria-hidden="true">
+            {short}
+          </span>
+          <span className="stepper__label-full">{label}</span>
+        </>
+      ) : (
+        <span>{label}</span>
+      )}
+      {done ? <span className="visually-hidden"> (done)</span> : null}
+    </span>
+  );
+}
+
 /**
- * Phone: "Step 2 of 4: Words" and four segments. Desktop: a numbered list in the left rail with
- * a check when complete (design spec 5.16). Steps not yet reached are not offered. The current
- * step has `aria-current="step"`; completion is never colour alone.
+ * Phone and tablet: "Step 2 of 4" over four segments, each with a short label (design spec
+ * 12.4.2). Desktop: a numbered list in the left rail with a check when complete. The nav's text
+ * stays "Step 2 of 4: Words" in the DOM (the name is visually hidden). Steps not yet reached are
+ * not offered. The current step has `aria-current="step"`; completion is never colour alone.
  */
 export function Stepper({ step, maxStep, onSelect }: StepperProps) {
   const current = BUILDER_STEPS.find((item) => item.step === step);
   return (
     <nav className="stepper" aria-label="Builder steps">
       <p className="stepper__summary">
-        Step {step} of {BUILDER_STEPS.length}: {current?.label}
+        Step {step} of {BUILDER_STEPS.length}
+        <span className="visually-hidden">: {current?.label}</span>
       </p>
       <ol className="stepper__list">
         {BUILDER_STEPS.map((item) => {
@@ -39,17 +64,14 @@ export function Stepper({ step, maxStep, onSelect }: StepperProps) {
                   <span className="stepper__marker" aria-hidden="true">
                     {done ? <Icon name="check" size="sm" /> : item.step}
                   </span>
-                  <span className="stepper__label">
-                    {item.label}
-                    {done ? <span className="visually-hidden"> (done)</span> : null}
-                  </span>
+                  <StepLabel step={item.step} label={item.label} done={done} />
                 </button>
               ) : (
                 <span className="stepper__item is-locked">
                   <span className="stepper__marker" aria-hidden="true">
                     {item.step}
                   </span>
-                  <span className="stepper__label">{item.label}</span>
+                  <StepLabel step={item.step} label={item.label} done={false} />
                 </span>
               )}
             </li>

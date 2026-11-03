@@ -12,6 +12,7 @@ import { useSessionStore } from '@/state/sessionStore';
 import { useSettingsStore } from '@/state/settingsStore';
 import type { Rect } from './chooseCaptionDock';
 import { Button } from '@/ui/components/Button';
+import { CARRY_ON_LABEL, CARRY_ON_NAME, DONE_LABEL, DONE_NAME } from '@/ui/builder/stepCopy';
 import type { IconName } from '@/ui/components/Icon';
 import { Icon } from '@/ui/components/Icon';
 import { ArrowPad } from './ArrowPad';
@@ -74,6 +75,7 @@ export function Hud({ content, openSheet, onOpenSheet, onReplay }: HudProps) {
   const topRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
+  const doneRef = useRef<HTMLButtonElement>(null);
   const cardRef = useRef<HTMLElement | null>(null);
   const scrollingUntil = useRef(0);
 
@@ -149,6 +151,8 @@ export function Hud({ content, openSheet, onOpenSheet, onReplay }: HudProps) {
     if (chipsRef.current && chipsRef.current.childElementCount > 0) {
       keepOut.push(toRect(chipsRef.current.getBoundingClientRect()));
     }
+    // The Done and Carry on button is part of the keep-out, so no placement lands under it (spec 12.7).
+    if (doneRef.current) keepOut.push(toRect(doneRef.current.getBoundingClientRect()));
     return { viewport, insets: { top, bottom }, keepOut };
   }, []);
 
@@ -207,6 +211,11 @@ export function Hud({ content, openSheet, onOpenSheet, onReplay }: HudProps) {
     }, HINT_FALLBACK_MS);
   };
 
+  // Phone portrait only, while a card is open and docked at the top (design spec 12.7). It runs the
+  // same action as Close or Keep exploring, sits opposite the joystick, and never takes focus.
+  const showDone = layout === 'phone-portrait' && card !== null && placement?.dock === 'top';
+  const doneSide = controlMode !== 'none' && side === 'right' ? 'left' : 'right';
+
   const openViewer = (photoId: string) => useSessionStore.getState().openViewer(photoId);
   const dismiss = () => useSessionStore.getState().dismissPresentation();
 
@@ -217,7 +226,7 @@ export function Hud({ content, openSheet, onOpenSheet, onReplay }: HudProps) {
       data-layout={layout}
       data-sheet={openSheet ?? undefined}
     >
-      <div ref={topRef} className="hud__top">
+      <div ref={topRef} className="hud__top" data-reset={cameraOff ? 'showing' : undefined}>
         <div className="hud__cluster">
           <HudButton
             icon="list"
@@ -233,6 +242,11 @@ export function Hud({ content, openSheet, onOpenSheet, onReplay }: HudProps) {
           />
         </div>
         <p className="hud-pill">
+          <span
+            className="hud-pill__ring"
+            aria-hidden="true"
+            style={{ ['--p' as string]: total > 0 ? (viewedCount / total) * 100 : 0 }}
+          />
           <span aria-hidden="true">
             {viewedCount} of {total}
           </span>
@@ -280,6 +294,20 @@ export function Hud({ content, openSheet, onOpenSheet, onReplay }: HudProps) {
           onKeepExploring={dismiss}
           onReplay={onReplay}
         />
+      ) : null}
+
+      {showDone ? (
+        <Button
+          ref={doneRef}
+          variant="night"
+          icon="check"
+          tabIndex={-1}
+          aria-label={card === 'finale' ? CARRY_ON_NAME : DONE_NAME}
+          className={`hud__done hud__done--${doneSide} ui-hit`}
+          onClick={dismiss}
+        >
+          {card === 'finale' ? CARRY_ON_LABEL : DONE_LABEL}
+        </Button>
       ) : null}
 
       {hint && !hint.onScreen ? (

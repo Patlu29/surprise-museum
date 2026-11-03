@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert } from '@/ui/components/Alert';
 import { Button } from '@/ui/components/Button';
+import { FrameMark } from '@/ui/components/FrameMark';
 import { ProgressBar } from '@/ui/components/ProgressBar';
 
 interface WelcomeScreenProps {
@@ -76,42 +77,49 @@ export function WelcomeScreen({
         ) : null}
 
         <div className="welcome__card surface-paper">
-          <p className="eyebrow">A private view</p>
-          <h1 id="welcome-title" className="welcome__title user-text">
-            {title}
-          </h1>
-          <p className="welcome__for">
-            For <span className="user-text">{visitorName}</span>
-          </p>
-          <p className="muted">
-            Your guide today: <span className="user-text">{guideName}</span>
-          </p>
-          <Button
-            ref={startRef}
-            variant="primary"
-            large
-            className="welcome__start"
-            loading={waiting}
-            onClick={onStart}
-          >
-            {waiting ? 'Getting the gallery ready' : 'Start'}
-          </Button>
-          {waiting ? (
-            <div className="welcome__progress">
-              <ProgressBar value={progress} label="Getting the gallery ready" />
-              <p className="muted" role="status">
-                {step === null ? 'Hanging the pictures...' : `Hanging the pictures... ${step}%`}
-              </p>
-            </div>
-          ) : null}
-          <a
-            className="welcome__privacy"
-            href="#/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Privacy
-          </a>
+          <div className="welcome__intro">
+            <span className="welcome__mark" aria-hidden="true">
+              <FrameMark />
+            </span>
+            <p className="eyebrow">A private view</p>
+            <h1 id="welcome-title" className="welcome__title user-text">
+              {title}
+            </h1>
+            <p className="welcome__for">
+              For <span className="user-text">{visitorName}</span>
+            </p>
+            <p className="welcome__guide muted">
+              Your guide today: <span className="user-text">{guideName}</span>
+            </p>
+          </div>
+          <div className="welcome__actions">
+            <Button
+              ref={startRef}
+              variant="primary"
+              large
+              className="welcome__start"
+              loading={waiting}
+              onClick={onStart}
+            >
+              {waiting ? 'Getting the gallery ready' : 'Start'}
+            </Button>
+            {waiting ? (
+              <div className="welcome__progress">
+                <ProgressBar value={progress} label="Getting the gallery ready" />
+                <p className="muted" role="status">
+                  {step === null ? 'Hanging the pictures...' : `Hanging the pictures... ${step}%`}
+                </p>
+              </div>
+            ) : null}
+            <a
+              className="welcome__privacy"
+              href="#/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Privacy
+            </a>
+          </div>
         </div>
       </div>
     </main>

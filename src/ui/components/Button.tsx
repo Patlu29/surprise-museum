@@ -10,6 +10,8 @@ interface CommonProps {
   variant?: ButtonVariant;
   /** 56 px calls to action, or the default 44 px. */
   large?: boolean;
+  /** 48 px: the builder action bar and other thumb-reach controls (design spec 12.1). */
+  medium?: boolean;
   icon?: IconName;
   children?: ReactNode;
 }
@@ -19,8 +21,16 @@ function classes(
   large: boolean | undefined,
   iconOnly: boolean,
   extra?: string,
+  medium?: boolean,
 ) {
-  return ['btn', `btn--${variant}`, large && 'btn--large', iconOnly && 'btn--icon', extra]
+  return [
+    'btn',
+    `btn--${variant}`,
+    large && 'btn--large',
+    medium && !large && 'btn--medium',
+    iconOnly && 'btn--icon',
+    extra,
+  ]
     .filter(Boolean)
     .join(' ');
 }
@@ -35,6 +45,7 @@ interface ButtonProps extends CommonProps, ComponentProps<'button'> {
 export function Button({
   variant = 'secondary',
   large,
+  medium,
   icon,
   loading,
   unavailable,
@@ -49,7 +60,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={classes(variant, large, iconOnly, className)}
+      className={classes(variant, large, iconOnly, className, medium)}
       aria-busy={loading || undefined}
       aria-disabled={blocked || undefined}
       onClick={(event) => {
@@ -81,6 +92,7 @@ interface ButtonLinkProps extends CommonProps, Omit<ComponentProps<'a'>, 'href' 
 export function ButtonLink({
   variant = 'secondary',
   large,
+  medium,
   icon,
   href,
   external,
@@ -100,7 +112,7 @@ export function ButtonLink({
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className={classes(variant, large, false, className)}
+        className={classes(variant, large, false, className, medium)}
         {...rest}
       >
         {content}
@@ -108,7 +120,7 @@ export function ButtonLink({
     );
   }
   return (
-    <Link href={href} className={classes(variant, large, false, className)} {...rest}>
+    <Link href={href} className={classes(variant, large, false, className, medium)} {...rest}>
       {content}
     </Link>
   );

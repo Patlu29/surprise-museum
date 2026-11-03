@@ -1,5 +1,65 @@
 # Handoff: frontend-developer
 
+## Update: CR-4 polish (design spec v2.0, section 12) (02/11/2026)
+
+### Summary
+Built the designer's frontend task list (12.11 items 1 to 8), including the Characters step "More options" (face shape, More styles, pattern) once the data fields landed (ADR 0021, a359991). No store field was added or changed; no file outside `src/ui/`, `src/hooks/` and this note was edited. Checks on the final tree: typecheck, lint, 1,047 unit tests and both builds pass. E2E (desktop-chromium and mobile-chromium, visual excluded): everything passes except the items under "E2E needing QA updates" below. Note the shared `dist` was overwritten by a live build during one long run (photos never became ready, `__APP_TEST__` missing); those failures were re-run on a fresh test-mode build and passed.
+
+### E2E needing QA updates or scene attention
+- `tests/e2e/gender.spec.ts:192` (mobile only) "a body type change leaves the character on its plinth": `stageShot` scrolls the stage to 110 px below the top, but the preview is now sticky (spec 12.5.3), so the live shot is taken with the stage stuck at y 0 and the rebuilt one at y 109.77, which gives images 672 and 675 px tall and a diff ratio of 1. The step bar it avoided no longer exists. Fix in the test: scroll to the very top before each shot, or compare both after the same scroll
+- `tests/e2e/ceiling.spec.ts` AC-2 to AC-4: "Expected to fail, but passed" (scene fix landed): remove the `test.fail` markers (not mine)
+- Passed in isolation but failed once under load (not caused by copy): `gender.spec.ts:630` (the caption card was not up when read, "Gallery 1 of 1" instead of "Sam, photo 1 of 1"; no card text changed), `visit-welcome-roam.spec.ts:199` Q and E turn (yaw 0.05 against 0.1 on a slow frame rate), `restored-notice.spec.ts:69` (photos not ready in time)
+- The three-Next path, Preview (one visible at a time), Add more photos and the Done and Carry on buttons have no e2e yet; suggested checks in the report
+
+### Files changed
+- `src/ui/styles/components.css`: `--ui-bar-height` is `--progress-bar-height`; swatch cell 48 px with a 40 px swatch and 8 px gaps; primary gradient and button shadows, hover only under `@media (hover: hover)`; `.btn--medium` (48 px); alerts with the 4 px state bar; field placeholder, `scroll-margin-block: 7.5rem`, auto-grow textarea; dialog and sheet enter motion (`--duration-overlay`, `--rise-distance`); sheets capped at `--sheet-max-height-phone` with a sticky header; `.tag`, `.meter`, `.step-card`; eyebrow rule; offline bar with icon
+- `src/ui/styles/builder.css`: rewritten for 12.4 and 12.5 (rail, not-sticky stepper with short labels and a container-query 2 by 2, Still to do chips, action bar with progress line and keyboard-open fallback, Preview visibility rules, compact photo row, dropzone, Words cards, sticky Characters preview, segmented tabs, More options row and pictogram tiles, Review and Published cards)
+- `src/ui/styles/screens.css`: landing (hero type, step cards, framed illustration, desktop two columns), shared message card
+- `src/ui/styles/visit.css`: HUD trays with dividers, progress ring, Done and Carry on, joystick restyle (chevrons, brass knob ring), welcome (gradient, stagger, landscape two columns, scroll-safe centring), finale card (seal, rule, footer), retry chip, caption card visual finish only, overlay motion
+- `src/ui/styles/fonts.css`: `Fraunces Fallback` faces (Georgia at 93% size-adjust, measured) and `--font-display` redefined to include them (see Requests)
+- `src/ui/screens/HomeScreen.tsx`: new DOM order (Create above the steps), step lines, reassurance, framed illustration last
+- `src/ui/builder/CreateScreen.tsx`: purpose line, Still to do (inline and rail), action bar (progress line, phone Preview, Back slot), keyboard-open attribute, `data-step`, chip handler, Preview hidden while publishing
+- `src/ui/builder/Stepper.tsx`, `StillToDo.tsx` (new), `stepCopy.ts` (new, all CR-4 copy), `WordsStep.tsx`, `PhotosStep.tsx`, `PhotoRow.tsx`, `ReviewStep.tsx`, `PublishedScreen.tsx`
+- `src/ui/builder/CharactersStep.tsx`, `AvatarPreviewSlot.tsx`, `MoreOptions.tsx` (new), `extraOptions.ts` (new, labels and rules), `optionGlyphs.tsx` (new, pictograms and fabric swatches)
+- `src/ui/components/`: `Button` (`medium`), `Icon` (`circle`, `replace`, `chevron`), `LimitedField` (`placeholder`, blur and focus callbacks, `maxRows`), `LinkField` (`copyVariant`), `RadioGroup` (optional `glyph`, tab stop when nothing is selected), `StepSection.tsx` (new)
+- `src/ui/overlays/Hud.tsx` (ring `--p`, `data-reset`, Done and Carry on in `keepOut`), `Joystick.tsx`, `FinaleCard.tsx`; `src/ui/visit/WelcomeScreen.tsx`
+- `src/hooks/useDraftIssues.ts`, `useKeyboardOpen.ts`, `useExitingItems.ts` (new)
+- Tests: `stepCopy.test.ts`, `extraOptions.test.ts`, `stepShell.test.tsx` (new; copy, FR-76 scan, chip order, Stepper text)
+
+### Decisions
+- One Preview visible at a time: three buttons in the DOM (header, bar, Review), all but one `display: none` by CSS. Under 640 px the bar; from 640 px the header, except on Review where the header copy is hidden and the one beside Publish shows (12.4.1 says the header keeps it; the one-at-a-time rule wins). Back and Preview are not rendered while publishing
+- The restored-draft notice test requires the notice to be the heading's next sibling, so the purpose line sits after the notice (heading, notice, purpose, Still to do)
+- Still to do is rendered twice (flow and desktop rail); CSS shows one, the other is `display: none`. A chip for a step the Creator has not reached (consent from step 1) goes to the first outstanding item instead, so chips cannot skip Next's checks
+- Blur validation: a message shows after a failed Next or once the field has been left, never while it has focus; messages are the existing issue messages
+- Step 3 "Optional" is a tag inline at the start of the purpose line (no extra line, so the closed step stays short)
+- Empty photo area omits the "file rules" line because the purpose line directly above already holds it
+- More options: "Outfit style" shows exactly today's six (filtered to the six ids), "More styles" shows whatever `optionIds('outfitStyle')` offers beyond them, so it appears when the artist empties the pending set and is absent until then; Face shape and Pattern are always offered. Open state is per character and tab, in memory, and latches open when a value is non-default
+- Done and Carry on show on phone portrait only when a card is open with `dock === 'top'` (also for the finale); `tabIndex={-1}`; rect is added to `keepOut` only while rendered, so 3.5 placement logic is unchanged
+- Finale footer: stacked under 480 px, except in the 136 px strip where both buttons stay on one row (a stacked 56 + 48 px pair does not fit it)
+- Dialogs and sheets rise or slide in with the scrim fading, but the dialog's own opacity is not animated: an axe contrast run right after opening sampled half-faded text and failed (QA's edit-delete dialog test). Spec 12.2 says fade and rise
+- Turn buttons sit at the preview's top-right, not bottom-right (12.5.3): the name labels run along the bottom edge and the buttons covered one
+- The preview frame paints no background (the scene paints the stage gradient behind its transparent canvas)
+- Primary buttons keep a solid colour under the gradient so hover changes colour smoothly (a light flash showed otherwise, and axe caught it mid-transition)
+- Overlay exit motion is not built: dialogs unmount at once, so only enter motion (fade and rise, sheet slide) uses the tokens. Exit in `--duration-fast` needs a delayed unmount and focus-return rework
+- Compact joystick (Could) not switched on: it would change the controls keep-out the caption dock and framing assume
+- Caption card: CSS only (brass badge ring, gradient hairline with the same 1 px border box, scroll shadows on full and fitted bodies); no padding, gap, size, DOM or logic change
+
+### Assumptions
+- `setAvatarOption` accepts `faceShape` and `outfitPattern` at run time (it spreads any key); only its type excludes them, so the step uses a typed cast
+- Landscape phone Characters preview height is `100dvh` minus the compact bar
+
+### Open questions
+- Product manager: FR-80 one-sentence description (kept two sentences per the tech lead)
+
+### Requests for other agents
+- designer: tokens used as the nearest match: none missing. `--font-display` is redefined in `src/ui/styles/fonts.css` to insert the fallback face; please add `'Fraunces Fallback'` to the token in `tokens.css` and I will drop the override
+- architect or scene-developer (`src/lib/avatars.ts`): widen `AvatarOptionKey` to include `faceShape` and `outfitPattern`, add their labels to `AVATAR_LABELS` and remove them from the exclusion, so my cast and local labels in `extraOptions.ts` can go
+- scene-developer or architect (`src/domain/characters/avatarOptions.ts`): `describeAvatar` has the new style words but not "round face", "striped", "checked", "spotted" (spec 9.4, 12.5.3). I cannot edit it; the live description and Review will say nothing about face shape or pattern until it does
+- technical-artist: empty `OUTFIT_STYLES_PENDING_KIT` in `src/lib/avatars.ts` when the garments exist; "More styles" then appears with no UI change
+- qa-engineer: see the report for e2e needing updates
+
+---
+
 ## Update: fix round 1 after QA round 3 (BUG-7, BUG-8, BUG-9, BUG-10 UI part, N-6)
 
 ### Summary

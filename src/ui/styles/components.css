@@ -4,9 +4,9 @@
  * named below, in one place.
  */
 :root {
-  --ui-bar-height: 6px; /* design spec 5.16: the visible stepper and progress bar */
-  --ui-swatch-size: 44px; /* design spec 5.3 */
-  --ui-swatch-cell: 52px;
+  --ui-bar-height: var(--progress-bar-height); /* design spec 12.4: the stepper and progress bars */
+  --ui-swatch-cell: var(--tile-height); /* design spec 12.7: swatch cells are 48 px with an 8 px gap */
+  --ui-swatch-size: calc(var(--tile-height) - var(--space-2)); /* the 40 px visible swatch */
 }
 
 /* ------------------------------------------------------------------ Icons and spinner */
@@ -42,7 +42,7 @@
   }
 }
 
-/* ------------------------------------------------------------------ Buttons (design spec 5.1) */
+/* ------------------------------------------------------------------ Buttons (design spec 5.1, 12.1) */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -61,12 +61,16 @@
   cursor: pointer;
   transition:
     background-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
     transform var(--duration-instant) var(--ease-standard);
   -webkit-user-select: none;
   user-select: none;
 }
 .btn:active {
   transform: scale(var(--press-scale));
+}
+.btn--medium {
+  min-height: var(--touch-target-md);
 }
 .btn--large {
   min-height: var(--touch-target-lg);
@@ -86,16 +90,27 @@
   opacity: 1;
 }
 
+/* Primary: the claret gradient, one per screen (FR-78). */
 .btn--primary {
-  background: var(--color-accent);
+  /* The solid colour sits under the gradient so a hover fill changes colour smoothly and never flashes light. */
+  background: var(--gradient-accent), var(--color-accent);
   color: var(--color-on-accent);
-}
-.btn--primary:hover {
-  background: var(--color-accent-hover);
-  color: var(--color-on-accent);
+  box-shadow: var(--shadow-button);
 }
 .btn--primary:active {
-  background: var(--color-accent-active);
+  background-image: none;
+  background-color: var(--color-accent-active);
+  box-shadow: var(--shadow-button-pressed);
+}
+@media (hover: hover) {
+  .btn--primary:hover {
+    background-image: none;
+    background-color: var(--color-accent-hover);
+    color: var(--color-on-accent);
+  }
+  .btn--primary:active:hover {
+    background-color: var(--color-accent-active);
+  }
 }
 
 .btn--secondary {
@@ -103,28 +118,43 @@
   border-color: var(--color-accent);
   color: var(--color-accent);
 }
-.btn--secondary:hover {
+.btn--secondary:active {
   background: var(--color-accent-tint);
-  color: var(--color-accent);
+}
+@media (hover: hover) {
+  .btn--secondary:hover {
+    background: var(--color-accent-tint);
+    color: var(--color-accent);
+  }
 }
 
 .btn--tertiary {
   background: transparent;
   color: var(--color-accent);
 }
-.btn--tertiary:hover {
+.btn--tertiary:active {
   background: var(--color-accent-tint);
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
+}
+@media (hover: hover) {
+  .btn--tertiary:hover {
+    background: var(--color-accent-tint);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
 }
 
 .btn--danger {
   background: var(--color-danger);
   color: var(--color-on-danger);
 }
-.btn--danger:hover {
+.btn--danger:active {
   background: var(--color-danger-hover);
-  color: var(--color-on-danger);
+}
+@media (hover: hover) {
+  .btn--danger:hover {
+    background: var(--color-danger-hover);
+    color: var(--color-on-danger);
+  }
 }
 
 /* Night variants: HUD glass over the 3D scene. */
@@ -134,11 +164,16 @@
   border-color: color-mix(in srgb, var(--color-on-night) 25%, transparent);
   -webkit-backdrop-filter: blur(var(--blur-panel));
   backdrop-filter: blur(var(--blur-panel));
-  box-shadow: var(--shadow-hud);
+  box-shadow: var(--shadow-glass);
 }
-.btn--night:hover {
+.btn--night:active {
   background: var(--color-night-raised);
-  color: var(--color-on-night);
+}
+@media (hover: hover) {
+  .btn--night:hover {
+    background: var(--color-night-raised);
+    color: var(--color-on-night);
+  }
 }
 .btn--night.btn--icon {
   border-radius: var(--radius-pill);
@@ -150,18 +185,23 @@
   background: var(--color-brass);
   color: var(--color-text);
 }
-.btn--night-primary:hover {
-  background: var(--color-brass-hover);
-  color: var(--color-text);
+@media (hover: hover) {
+  .btn--night-primary:hover {
+    background: var(--color-brass-hover);
+    color: var(--color-text);
+  }
 }
 
-/* ------------------------------------------------------------------ Alerts (design spec 5.14) */
+/* ------------------------------------------------------------------ Alerts (design spec 5.14, 12.1) */
+/* Tint, icon, a 4 px state bar on the left and words: meaning is never colour alone. */
 .alert {
+  --alert-bar: var(--color-accent);
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border: var(--hairline) solid currentColor;
+  border: var(--hairline) solid transparent;
+  border-left: var(--accent-bar-width) solid var(--alert-bar);
   border-radius: var(--radius-md);
 }
 .alert__body {
@@ -177,23 +217,28 @@
   margin-top: 2px;
 }
 .alert ul {
+  display: grid;
+  gap: var(--space-2);
   margin: 0;
   padding-left: var(--space-5);
 }
 .alert--info {
+  --alert-bar: var(--color-accent);
   background: var(--color-info-tint);
   color: var(--color-text);
 }
 .alert--warning {
+  --alert-bar: var(--color-warning-border);
   background: var(--color-warning-tint);
   color: var(--color-warning-text);
-  border-color: var(--color-warning-border);
 }
 .alert--danger {
+  --alert-bar: var(--color-danger);
   background: var(--color-danger-tint);
   color: var(--color-danger);
 }
 .alert--success {
+  --alert-bar: var(--color-success);
   background: var(--color-success-tint);
   color: var(--color-success);
 }
@@ -232,7 +277,7 @@
 }
 .field__control {
   width: 100%;
-  min-height: 48px;
+  min-height: var(--touch-target-md);
   padding: var(--space-3) var(--space-4);
   border: var(--border-control) solid var(--color-border-strong);
   border-radius: var(--radius-md);
@@ -244,6 +289,20 @@
 }
 textarea.field__control {
   resize: vertical;
+}
+textarea.field__control--grow {
+  resize: none;
+  overflow-y: hidden;
+}
+.field__control::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+.field__control {
+  scroll-margin-block: 7.5rem; /* a focused field clears the keyboard and the bar (design spec 12.4.4) */
+}
+.field__control[aria-invalid='true'] {
+  border-color: var(--color-danger);
 }
 .field--error .field__control {
   border-color: var(--color-danger);
@@ -319,7 +378,7 @@ textarea.field__control {
 }
 .radio-group--swatches .radio-options,
 .radio-group--swatches .radio-group__options {
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 .radio-group--swatches .radio-option {
   width: var(--ui-swatch-cell);
@@ -411,6 +470,33 @@ textarea.field__control {
 }
 .dialog::backdrop {
   background: var(--color-scrim);
+  animation: backdrop-in var(--duration-overlay) var(--ease-out);
+}
+/* Overlay motion (design spec 12.2): a rise on enter, with the scrim fading in. The dialog's own text stays
+   fully opaque from the first frame, so a contrast check taken the moment it opens never samples a half
+   faded colour. Every duration is 0 under reduced motion. */
+.dialog[open] {
+  animation: overlay-in var(--duration-overlay) var(--ease-out);
+}
+@keyframes overlay-in {
+  from {
+    transform: translateY(var(--rise-distance));
+  }
+}
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes sheet-in-right {
+  from {
+    transform: translateX(100%);
+  }
 }
 .dialog[open] {
   display: grid;
@@ -434,10 +520,21 @@ textarea.field__control {
   margin: auto 0 0;
   width: 100%;
   max-width: none;
-  max-height: var(--sheet-max-height);
+  /* Phone portrait: 60 dvh, so the Close button sits at or below 40% of the screen (design spec 12.6.6). */
+  max-height: var(--sheet-max-height-phone);
   border-end-start-radius: 0;
   border-end-end-radius: 0;
-  padding: var(--space-4) var(--space-4) calc(var(--space-6) + var(--safe-bottom));
+  padding: 0 var(--space-4) calc(var(--space-6) + var(--safe-bottom));
+}
+.dialog--sheet[open] {
+  animation: sheet-up var(--duration-overlay) var(--ease-out);
+}
+.dialog--sheet .dialog__header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-block: var(--space-3);
+  background: var(--color-surface);
 }
 .dialog__header {
   display: flex;
@@ -459,6 +556,9 @@ textarea.field__control {
     max-height: 100dvh;
     border-radius: var(--radius-lg) 0 0 var(--radius-lg);
     padding-right: calc(var(--space-4) + var(--safe-right));
+  }
+  .dialog--sheet[open] {
+    animation: sheet-in-right var(--duration-overlay) var(--ease-out);
   }
 }
 
@@ -557,14 +657,30 @@ textarea.field__control {
   text-transform: uppercase;
   color: var(--color-text-muted);
 }
+/* A 24 by 1 px brass rule before the eyebrow (decoration, design spec 12.3). */
+.eyebrow--rule {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.eyebrow--rule::before {
+  content: '';
+  width: var(--space-6);
+  height: var(--hairline);
+  background: var(--color-brass-deep);
+}
 .offline-bar {
   position: sticky;
   top: 0;
   z-index: var(--z-toast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   background: var(--color-warning-tint);
   color: var(--color-warning-text);
-  border-bottom: var(--hairline) solid var(--color-warning-border);
+  font-size: var(--text-sm);
   text-align: center;
   font-weight: var(--weight-semibold);
 }
@@ -587,7 +703,10 @@ textarea.field__control {
   border-radius: var(--radius-md);
 }
 .tabs__tab:focus-visible {
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border-radius: var(--radius-pill);
+}
+.more-options__button:focus-visible {
+  border-radius: var(--radius-md);
 }
 .radio-group--segmented .radio-option:focus-visible {
   border-radius: 0;
@@ -616,7 +735,8 @@ textarea.field__control {
   padding: var(--space-3) var(--space-4);
   background: var(--color-info-tint);
   color: var(--color-text);
-  border: var(--hairline) solid var(--color-border-strong);
+  border: var(--hairline) solid transparent;
+  border-left: var(--accent-bar-width) solid var(--color-accent);
   border-radius: var(--radius-md);
   overflow: hidden;
   max-height: 40rem;
@@ -651,4 +771,77 @@ textarea.field__control {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--color-text-muted);
+}
+
+/* ------------------------------------------------------------------ Tags, meters and cards (design spec 12.1) */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  white-space: nowrap;
+}
+.tag--required {
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+}
+.tag--optional {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}
+.meter {
+  display: block;
+  width: 100%;
+  height: var(--ui-bar-height);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+}
+.meter__fill {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-normal) var(--ease-standard);
+}
+.step-card {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+.step-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.step-card__title {
+  font-size: var(--text-lg);
+  margin-right: var(--space-1);
+}
+.step-card__note {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+/* The Required names card: a 4 px claret bar and a faint wash. */
+.step-card--emphasis {
+  background: linear-gradient(var(--color-accent-wash), var(--color-accent-wash)), var(--color-surface);
+  border-left: var(--accent-bar-width) solid var(--color-accent);
+}
+/* The optional card is plainer: no shadow, a hairline instead. */
+.step-card--quiet {
+  box-shadow: none;
+  border: var(--hairline) solid var(--color-border);
+}
+@media (min-width: 640px) {
+  .step-card {
+    padding: var(--space-5);
+  }
 }

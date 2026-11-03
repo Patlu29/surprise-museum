@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { codePointLength, limitText } from '@/lib/text';
 import { Icon } from './Icon';
 
@@ -20,6 +20,13 @@ interface LimitedFieldProps {
   spellCheck?: boolean;
   showCounter?: boolean;
   className?: string;
+  /** Shown while the field is empty. Never a replacement for the label (design spec 12.5.2). */
+  placeholder?: string;
+  /** Called when the field loses focus (blur validation, design spec 12.4.5). */
+  onFieldBlur?: () => void;
+  onFieldFocus?: () => void;
+  /** A multiline field grows with its text up to this many rows, then scrolls (design spec 12.5.1). */
+  maxRows?: number;
 }
 
 /**
@@ -43,7 +50,12 @@ export function LimitedField({
   spellCheck,
   showCounter = true,
   className,
+  placeholder,
+  onFieldBlur,
+  onFieldFocus,
+  maxRows,
 }: LimitedFieldProps) {
+  const areaRef = useRef<HTMLTextAreaElement>(null);
   const [atLimit, setAtLimit] = useState(false);
   const generated = useId();
   const helperId = `${id}-help`;
@@ -52,6 +64,23 @@ export function LimitedField({
   const describedBy = [helper ? helperId : null, error ? errorId : null, atLimit ? limitId : null]
     .filter(Boolean)
     .join(' ');
+
+  // Auto-grow: fit the text, never above `maxRows`, then scroll inside the field.
+  useLayoutEffect(() => {
+    const el = areaRef.current;
+    if (!el || !maxRows) return;
+    el.style.height = 'auto';
+    const style = getComputedStyle(el);
+    const line = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5;
+    const chrome =
+      parseFloat(style.paddingTop) +
+      parseFloat(style.paddingBottom) +
+      parseFloat(style.borderTopWidth) +
+      parseFloat(style.borderBottomWidth);
+    const limit = line * maxRows + chrome;
+    el.style.height = `${Math.min(el.scrollHeight + (el.offsetHeight - el.clientHeight), limit)}px`;
+    el.style.overflowY = el.scrollHeight + 1 > limit ? 'auto' : 'hidden';
+  }, [value, maxRows]);
 
   const handleChange = (next: string) => {
     const result = limitText(next, max);
@@ -67,6 +96,9 @@ export function LimitedField({
     spellCheck,
     autoCapitalize,
     autoComplete: 'off',
+    placeholder,
+    onBlur: onFieldBlur,
+    onFocus: onFieldFocus,
     'aria-invalid': error ? true : undefined,
     'aria-describedby': describedBy || undefined,
     className: 'field__control',
@@ -81,6 +113,8 @@ export function LimitedField({
       {multiline ? (
         <textarea
           {...sharedProps}
+          ref={areaRef}
+          className={maxRows ? 'field__control field__control--grow' : 'field__control'}
           rows={rows}
           onChange={(event) => handleChange(event.target.value)}
         />

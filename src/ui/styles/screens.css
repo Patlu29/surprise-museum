@@ -1,13 +1,17 @@
 /* Full screens: home, messages (not found, couldn't open, WebGL), loading, legal and edit. */
 
-/* ------------------------------------------------------------------ Home */
+/* ------------------------------------------------------------------ Home (design spec 12.3) */
+.home {
+  min-height: 100dvh;
+  background: var(--gradient-page);
+}
 .home__header,
 .builder__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--page-gutter);
   padding-top: calc(var(--space-3) + var(--safe-top));
   max-width: var(--content-wide-max-width);
   width: 100%;
@@ -21,38 +25,57 @@
   text-decoration: none;
   display: inline-flex;
   align-items: center;
+  gap: var(--space-2);
   min-height: var(--touch-target);
+}
+.home__brand .frame-mark {
+  width: var(--space-6);
+  margin: 0;
 }
 .home__main {
   width: 100%;
   max-width: var(--content-wide-max-width);
   margin-inline: auto;
-  padding: var(--space-6) var(--space-4) var(--space-10);
+  padding: var(--space-4) var(--page-gutter) var(--section-gap);
   display: grid;
-  gap: var(--space-8);
-  align-content: center;
-}
-.home__art {
-  display: grid;
-  place-items: center;
-}
-.home__art .frame-mark {
-  width: min(70%, 220px);
+  gap: var(--section-gap);
+  align-content: start;
 }
 .home__intro {
-  gap: var(--space-5);
+  display: grid;
+  gap: var(--space-4);
   max-width: 40rem;
+  align-content: start;
 }
 .home__heading {
-  font-size: var(--text-3xl);
+  font-size: var(--text-hero);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-display);
+  max-width: 14em;
 }
 .home__body {
-  font-size: var(--text-lg);
+  font-size: var(--text-lead);
   line-height: var(--leading-reading);
+  color: var(--color-text);
+  max-width: 34em;
+}
+.home__cta {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+.home__create {
+  width: 100%;
+  max-width: 22rem;
+  min-width: 15rem;
+}
+.home__reassure {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 .home__steps {
   list-style: none;
-  margin: 0;
+  margin: var(--space-2) 0 0;
   padding: 0;
   display: grid;
   gap: var(--space-3);
@@ -61,14 +84,36 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  font-weight: var(--weight-medium);
+  min-height: var(--space-16);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  animation: rise-in var(--duration-overlay) var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * var(--duration-stagger));
+  transition:
+    box-shadow var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+}
+@media (hover: hover) {
+  .home__steps li:hover {
+    background: var(--color-surface-raised);
+    box-shadow: var(--shadow-raised);
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rise-distance));
+  }
 }
 .home__step-number {
   display: grid;
   place-items: center;
   flex: none;
-  width: var(--touch-target);
-  height: var(--touch-target);
+  width: var(--space-8);
+  height: var(--space-8);
   border-radius: var(--radius-pill);
   background: var(--color-surface);
   box-shadow: var(--shadow-inset-frame);
@@ -76,11 +121,47 @@
   font-family: var(--font-display);
   font-weight: var(--weight-semibold);
 }
+.home__step-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.home__step-title {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+.home__step-line {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+/* The framed illustration: mat, walnut frame, brass hairline, a slight tilt (static). */
+.home__art {
+  display: grid;
+  place-items: center;
+}
+.home__frame {
+  width: 70%;
+  max-width: 14rem;
+  padding: var(--space-3);
+  background: var(--scene-mat);
+  border: var(--space-2) solid var(--scene-frame);
+  border-radius: var(--radius-md);
+  box-shadow:
+    var(--shadow-art),
+    inset 0 0 0 var(--hairline) var(--color-brass);
+  transform: rotate(-1.5deg);
+}
+.home__frame .illustration,
+.home__frame .frame-mark {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+}
 .home__footer {
   width: 100%;
   max-width: var(--content-wide-max-width);
   margin-inline: auto;
-  padding: var(--space-6) var(--space-4);
+  padding: var(--space-4) var(--page-gutter);
   padding-bottom: calc(var(--space-6) + var(--safe-bottom));
   display: grid;
   gap: var(--space-2);
@@ -92,6 +173,7 @@
   padding: 0;
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: var(--space-2) var(--space-6);
 }
 .home__footer-links a {
@@ -99,13 +181,36 @@
   align-items: center;
   min-height: var(--touch-target);
 }
+@media (min-width: 640px) {
+  .home__steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    max-width: none;
+  }
+  .home__steps li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-4);
+  }
+}
 @media (min-width: 1024px) {
   .home__main {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     align-items: center;
   }
+  .home__intro {
+    max-width: none;
+  }
   .home__art {
-    order: 2;
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .home__frame {
+    width: 100%;
+    max-width: 26rem;
+  }
+  .home__footer-links {
+    justify-content: flex-start;
   }
 }
 
@@ -115,7 +220,7 @@
   display: grid;
   place-items: center;
   padding: var(--space-6) var(--space-4);
-  background: var(--color-bg);
+  background: var(--gradient-page);
 }
 .message-screen--overlay {
   position: fixed;
@@ -123,6 +228,7 @@
   z-index: var(--z-screen);
   overflow: auto;
 }
+/* The shared empty and error state (design spec 12.2): a card on the page gradient, a frame mark, a heading, one sentence, one action. */
 .message-screen__card {
   width: 100%;
   max-width: 32rem;
@@ -130,6 +236,16 @@
   gap: var(--space-5);
   text-align: center;
   justify-items: center;
+  padding: var(--space-8) var(--space-6);
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-raised), var(--shadow-inset-frame);
+}
+.message-screen__card .frame-mark {
+  width: 8rem;
+}
+.message-screen__card .illustration {
+  width: min(100%, 10rem);
 }
 .message-screen__card .stack {
   justify-items: center;

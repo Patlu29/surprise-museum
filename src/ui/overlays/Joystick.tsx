@@ -68,10 +68,10 @@ export function Joystick() {
         ref={baseRef}
         className={['joystick__base', held && 'is-held'].filter(Boolean).join(' ')}
       >
-        <span className="joystick__tick joystick__tick--n">N</span>
-        <span className="joystick__tick joystick__tick--e">E</span>
-        <span className="joystick__tick joystick__tick--s">S</span>
-        <span className="joystick__tick joystick__tick--w">W</span>
+        <span className="joystick__chevron joystick__chevron--n" />
+        <span className="joystick__chevron joystick__chevron--e" />
+        <span className="joystick__chevron joystick__chevron--s" />
+        <span className="joystick__chevron joystick__chevron--w" />
         <div
           className="joystick__knob"
           style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }}

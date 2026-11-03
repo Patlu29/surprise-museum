@@ -7,6 +7,7 @@ import { discardDraft } from '@/state/uploadQueue';
 import { Alert } from '@/ui/components/Alert';
 import { Button, ButtonLink } from '@/ui/components/Button';
 import { DemoNotice } from '@/ui/components/DemoNotice';
+import { Icon } from '@/ui/components/Icon';
 import { LinkField } from '@/ui/components/LinkField';
 
 /**
@@ -44,7 +45,10 @@ export function PublishedScreen() {
 
   return (
     <div className="stack published">
-      <div className="stack">
+      <div className="stack published__intro">
+        <span className="published__seal" aria-hidden="true">
+          <Icon name="heart" size="lg" />
+        </span>
         <h1 ref={headingRef} tabIndex={-1}>
           Your museum is ready
         </h1>
@@ -56,7 +60,7 @@ export function PublishedScreen() {
 
       <DemoNotice context="published" />
 
-      <section className="stack" aria-labelledby="share-heading">
+      <section className="stack published__card" aria-labelledby="share-heading">
         <h2 id="share-heading">Share link</h2>
         <p>
           Send this to <span className="user-text">{visitorName}</span>. Opening it on a phone works
@@ -65,19 +69,20 @@ export function PublishedScreen() {
         <LinkField
           label="Share link"
           url={link}
+          copyVariant={acknowledged ? 'secondary' : 'primary'}
           shareData={{
             title: effectiveTitle(title, visitorName),
             text: `${guideName.trim() || 'Someone'} made you a little museum.`,
           }}
         />
         <div>
-          <ButtonLink variant="tertiary" icon="external" href={link} external>
+          <ButtonLink variant="secondary" icon="external" href={link} external>
             Open my museum<span className="visually-hidden"> (opens in a new tab)</span>
           </ButtonLink>
         </div>
       </section>
 
-      <section className="stack" aria-labelledby="edit-heading">
+      <section className="stack published__card" aria-labelledby="edit-heading">
         <h2 id="edit-heading">Private edit link</h2>
         <Alert tone="warning" title="Save this link now" role="none">
           <p>
@@ -85,7 +90,12 @@ export function PublishedScreen() {
             lose it. Don&apos;t share it.
           </p>
         </Alert>
-        <LinkField label="Private edit link" url={editUrl(editToken)} copyLabel="Copy edit link" />
+        <LinkField
+          label="Private edit link"
+          url={editUrl(editToken)}
+          copyLabel="Copy edit link"
+          copyVariant="secondary"
+        />
         <label className="consent">
           <input
             type="checkbox"
@@ -103,7 +113,12 @@ export function PublishedScreen() {
       </section>
 
       <div>
-        <Button variant="primary" large unavailable={!acknowledged} onClick={finish}>
+        <Button
+          variant={acknowledged ? 'primary' : 'secondary'}
+          large
+          unavailable={!acknowledged}
+          onClick={finish}
+        >
           Finish
         </Button>
         {!acknowledged ? (

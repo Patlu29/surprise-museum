@@ -6,6 +6,8 @@ import { Alert } from '@/ui/components/Alert';
 import { Button } from '@/ui/components/Button';
 import { DemoNotice } from '@/ui/components/DemoNotice';
 import { Icon } from '@/ui/components/Icon';
+import { StepSection } from '@/ui/components/StepSection';
+import { SECTION } from './stepCopy';
 
 interface ReviewStepProps {
   issues: readonly DraftIssue[];
@@ -30,12 +32,12 @@ export function ReviewStep({ issues, onEditStep, onPreview, onPublish }: ReviewS
   );
 
   return (
-    <div className="stack">
+    <div className="step-sections">
       <section className="review-card stack" aria-labelledby="review-museum">
         <div className="row review-card__head">
           <h2 id="review-museum">Your museum</h2>
           <Button variant="tertiary" onClick={() => onEditStep(2)}>
-            Edit words<span className="visually-hidden"> (step 2)</span>
+            Edit<span className="visually-hidden"> words (step 2)</span>
           </Button>
         </div>
         <dl className="review-list">
@@ -62,13 +64,14 @@ export function ReviewStep({ issues, onEditStep, onPreview, onPublish }: ReviewS
 
       <section className="review-card stack" aria-labelledby="review-photos">
         <div className="row review-card__head">
-          <h2 id="review-photos">
-            {summary.total} {summary.total === 1 ? 'photo' : 'photos'}
-          </h2>
+          <h2 id="review-photos">Photos</h2>
           <Button variant="tertiary" onClick={() => onEditStep(1)}>
-            Edit photos<span className="visually-hidden"> (step 1)</span>
+            Edit<span className="visually-hidden"> photos (step 1)</span>
           </Button>
         </div>
+        <p className="muted review-card__count">
+          {summary.total} {summary.total === 1 ? 'photo' : 'photos'}, in the order they hang
+        </p>
         <ul className="review-thumbs" aria-label="Photos in order">
           {usable.map((photo, index) => (
             <li key={photo.localId}>
@@ -92,7 +95,7 @@ export function ReviewStep({ issues, onEditStep, onPreview, onPublish }: ReviewS
         <div className="row review-card__head">
           <h2 id="review-characters">Characters</h2>
           <Button variant="tertiary" onClick={() => onEditStep(3)}>
-            Edit characters<span className="visually-hidden"> (step 3)</span>
+            Edit<span className="visually-hidden"> characters (step 3)</span>
           </Button>
         </div>
         <p className="user-text">
@@ -103,7 +106,7 @@ export function ReviewStep({ issues, onEditStep, onPreview, onPublish }: ReviewS
         </p>
       </section>
 
-      <div className="stack">
+      <StepSection title={SECTION.consent} tag="required" className="consent-card">
         <label className={['consent', consentIssue && 'consent--error'].filter(Boolean).join(' ')}>
           <input
             id={FIELD_IDS.consent}
@@ -122,7 +125,6 @@ export function ReviewStep({ issues, onEditStep, onPreview, onPublish }: ReviewS
           <a href="#/terms" target="_blank" rel="noopener noreferrer">
             Read the terms<span className="visually-hidden"> (opens in a new tab)</span>
           </a>
-          {' · '}
           <a href="#/privacy" target="_blank" rel="noopener noreferrer">
             Privacy policy<span className="visually-hidden"> (opens in a new tab)</span>
           </a>
@@ -132,7 +134,7 @@ export function ReviewStep({ issues, onEditStep, onPreview, onPublish }: ReviewS
             <Icon name="alert" size="sm" /> {consentIssue.message}
           </p>
         ) : null}
-      </div>
+      </StepSection>
 
       <DemoNotice context="builder" />
 
@@ -143,10 +145,17 @@ export function ReviewStep({ issues, onEditStep, onPreview, onPublish }: ReviewS
       ) : null}
 
       <div className="stack">
-        <div className="row">
-          <Button variant="secondary" icon="eye" onClick={onPreview}>
-            Preview
-          </Button>
+        <div className="review-actions">
+          {publishing ? null : (
+            <Button
+              variant="secondary"
+              icon="eye"
+              className="builder__preview builder__preview--review"
+              onClick={onPreview}
+            >
+              Preview
+            </Button>
+          )}
           <Button
             variant="primary"
             large

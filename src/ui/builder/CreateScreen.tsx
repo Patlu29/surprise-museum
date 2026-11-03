@@ -3,6 +3,8 @@ import { Link, useLocation } from 'wouter';
 import { useBeforeUnload } from '@/hooks/useBeforeUnload';
 import { useBuilderStep } from '@/hooks/useBuilderStep';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { useDraftIssues } from '@/hooks/useDraftIssues';
+import { useKeyboardOpen } from '@/hooks/useKeyboardOpen';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { announce } from '@/state/announcer';
 import { useBuilderStore } from '@/state/builderStore';
@@ -13,12 +15,15 @@ import { retryNetworkFailures } from '@/state/uploadQueue';
 import { Alert } from '@/ui/components/Alert';
 import { Button } from '@/ui/components/Button';
 import { Dialog } from '@/ui/components/Dialog';
+import { Icon } from '@/ui/components/Icon';
 import { CharactersStep } from './CharactersStep';
 import { PhotosStep } from './PhotosStep';
 import { PublishedScreen } from './PublishedScreen';
 import { RestoredDraftNotice } from './RestoredDraftNotice';
 import { ReviewStep } from './ReviewStep';
+import { sortByStep, STEP_PURPOSE } from './stepCopy';
 import { Stepper } from './Stepper';
+import { StillToDo } from './StillToDo';
 import { WordsStep } from './WordsStep';
 
 function focusField(id: string) {
@@ -41,6 +46,8 @@ export default function CreateScreen() {
   const acknowledged = useBuilderStore((state) => state.editLinkAcknowledged);
   const dirty = useBuilderStore((state) => hasDraftContent(state, state.photos));
   const online = useOnlineStatus();
+  const keyboardOpen = useKeyboardOpen();
+  const publishIssues = useDraftIssues('publish');
 
   const headingRef = useRef<HTMLHeadingElement>(null);
   const summaryRef = useRef<HTMLDivElement>(null);
@@ -49,6 +56,7 @@ export default function CreateScreen() {
   const [missing, setMissing] = useState<DraftIssue[] | null>(null);
 
   const published = publishPhase === 'done';
+  const publishing = publishPhase === 'publishing';
   const label = BUILDER_STEPS.find((item) => item.step === step)?.label ?? '';
   useDocumentTitle(
     published ? 'Your museum is ready' : `${label}, step ${step} of ${BUILDER_STEPS.length}`,
@@ -129,6 +137,17 @@ export default function CreateScreen() {
     window.setTimeout(() => focusField(issue.fieldId), 50);
   };
 
+  /**
+   * A "Still to do" chip does what the Preview dialog's links do. A chip for a later step than the
+   * Creator has reached (the consent box on Review) leads to the first thing still missing instead,
+   * so a chip never skips the checks that Next makes.
+   */
+  const goToChip = (issue: DraftIssue) => {
+    const first = sortByStep(publishIssues)[0];
+    const reached = issue.step <= Math.max(maxStep, step);
+    goToIssue(reached || !first ? issue : first);
+  };
+
   if (published) {
     return (
       <div className="page builder builder--published">
@@ -143,30 +162,45 @@ export default function CreateScreen() {
   }
 
   return (
-    <div className="page builder">
+    <div
+      className="page builder"
+      data-step={step}
+      data-keyboard={keyboardOpen ? 'open' : undefined}
+    >
       {!online ? (
         <p className="offline-bar" role="status">
-          You&apos;re offline. We&apos;ll carry on when you&apos;re back.
+          <Icon name="alert" size="sm" />
+          <span>You&apos;re offline. We&apos;ll carry on when you&apos;re back.</span>
         </p>
       ) : null}
       <header className="builder__header">
         <Link href="/" className="home__brand">
           Surprise Museum
         </Link>
-        <Button variant="tertiary" icon="eye" onClick={preview}>
-          Preview
-        </Button>
+        {publishing ? null : (
+          <Button
+            variant="tertiary"
+            icon="eye"
+            className="builder__preview builder__preview--header"
+            onClick={preview}
+          >
+            Preview
+          </Button>
+        )}
       </header>
 
       <div className="builder__layout">
-        <Stepper
-          step={step}
-          maxStep={maxStep}
-          onSelect={(target) => {
-            setAttempt(null);
-            goTo(target);
-          }}
-        />
+        <div className="builder__rail">
+          <Stepper
+            step={step}
+            maxStep={maxStep}
+            onSelect={(target) => {
+              setAttempt(null);
+              goTo(target);
+            }}
+          />
+          <StillToDo issues={publishIssues} onSelect={goToChip} placement="rail" />
+        </div>
 
         <main className="builder__content">
           <h1 ref={headingRef} tabIndex={-1} className="builder__heading">
@@ -181,6 +215,13 @@ export default function CreateScreen() {
             }}
             onDismissed={() => headingRef.current?.focus()}
           />
+
+          <p className="step-purpose">
+            {step === 3 ? <span className="tag tag--optional">Optional</span> : null}
+            {STEP_PURPOSE[step]}
+          </p>
+
+          <StillToDo issues={publishIssues} onSelect={goToChip} placement="inline" />
 
           {activeAttempt.length > 0 ? (
             <Alert
@@ -222,16 +263,30 @@ export default function CreateScreen() {
       </div>
 
       <div className="builder__actions">
+        <span className="builder__progress" aria-hidden="true">
+          <span className="builder__progress-fill" />
+        </span>
         <div className="builder__actions-inner">
-          {step > 1 ? (
-            <Button variant="secondary" onClick={back}>
+          {publishing ? null : step > 1 ? (
+            <Button variant="secondary" medium className="builder__back" onClick={back}>
               Back
             </Button>
           ) : (
-            <span />
+            <span className="builder__back-slot" />
+          )}
+          {publishing ? null : (
+            <Button
+              variant="tertiary"
+              medium
+              icon="eye"
+              className="builder__preview builder__preview--bar"
+              onClick={preview}
+            >
+              Preview
+            </Button>
           )}
           {step < 4 ? (
-            <Button variant="primary" onClick={next}>
+            <Button variant="primary" medium className="builder__next" onClick={next}>
               Next
             </Button>
           ) : null}

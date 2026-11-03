@@ -66,10 +66,10 @@ export function FinaleCard({
 
   const footer = (
     <div className="finale-card__footer">
-      <Button ref={keepRef} variant="primary" onClick={onKeepExploring}>
+      <Button ref={keepRef} variant="primary" large onClick={onKeepExploring}>
         Keep exploring
       </Button>
-      <Button variant="secondary" icon="reset" onClick={onReplay}>
+      <Button variant="secondary" medium icon="reset" onClick={onReplay}>
         Replay from the start
       </Button>
     </div>
@@ -81,7 +81,9 @@ export function FinaleCard({
         ref={cardRef}
         role="region"
         aria-labelledby={headingId}
-        className="finale-card surface-paper ui-hit"
+        className={['finale-card', 'surface-paper', 'ui-hit', placement.size === 'strip' && 'is-strip']
+          .filter(Boolean)
+          .join(' ')}
         style={style}
         data-dock={placement.dock}
       >
@@ -93,6 +95,7 @@ export function FinaleCard({
             {heading}
           </h2>
         </header>
+        <span className="finale-card__rule" aria-hidden="true" />
         <div className="finale-card__body" tabIndex={0} role="group" aria-label="Message">
           <p
             className={['finale-card__text', 'user-text', clamp && 'is-clamped']

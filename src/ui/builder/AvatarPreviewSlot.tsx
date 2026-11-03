@@ -100,8 +100,10 @@ interface AvatarPreviewSlotProps {
   yawDegrees: number;
   /** Text alternative for the preview picture (kept current by the parent). */
   label: string;
-  /** Text description of the active character, announced politely by the parent. */
-  descriptions: ReactNode;
+  /** Text description of the active character (desktop shows it under the preview). */
+  descriptions?: ReactNode;
+  /** The turn buttons: over the preview on phones and tablets, under it on desktop (CSS). */
+  controls?: ReactNode;
   onSelectActive: (role: 'guide' | 'visitor') => void;
 }
 
@@ -114,6 +116,7 @@ export function AvatarPreviewSlot({
   yawDegrees,
   label,
   descriptions,
+  controls,
   onSelectActive,
 }: AvatarPreviewSlotProps) {
   const [webgl] = useState(() => isWebGLAvailable());
@@ -198,6 +201,7 @@ export function AvatarPreviewSlot({
           </div>
         ) : null}
       </div>
+      {controls}
       {descriptions}
     </div>
   );

@@ -62,15 +62,14 @@
   clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
 }
 
-/* ------------------------------------------------------------------ Welcome (design spec 7.2) */
+/* ------------------------------------------------------------------ Welcome (design spec 7.2, 12.6.3) */
 .welcome {
   position: fixed;
   inset: 0;
   z-index: var(--z-screen);
   display: grid;
-  place-items: center;
   padding: var(--space-6) var(--space-4);
-  background: var(--color-bg);
+  background: var(--gradient-page);
   overflow: auto;
   transition: opacity var(--duration-slow) var(--ease-standard);
 }
@@ -78,9 +77,11 @@
   opacity: 0;
   pointer-events: none;
 }
+/* Auto margins centre the card and fall to zero when it is taller than the screen, so a long title scrolls and never clips. */
 .welcome__stack {
   width: 100%;
   max-width: 32rem;
+  margin: auto;
   display: grid;
   gap: var(--space-4);
 }
@@ -91,17 +92,51 @@
   text-align: center;
   padding: var(--space-8) var(--space-6);
   border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-raised);
   outline: var(--hairline) solid var(--color-brass);
   outline-offset: calc(var(--space-2) * -1);
+  animation: rise-in var(--duration-overlay) var(--ease-out) backwards;
+}
+.welcome__intro,
+.welcome__actions {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+/* Lines inside the card enter one after another (at most four siblings). */
+.welcome__intro > * {
+  animation: rise-in var(--duration-overlay) var(--ease-out) backwards;
+}
+.welcome__intro > :nth-child(2) {
+  animation-delay: var(--duration-stagger);
+}
+.welcome__intro > :nth-child(3) {
+  animation-delay: calc(var(--duration-stagger) * 2);
+}
+.welcome__intro > :nth-child(n + 4) {
+  animation-delay: calc(var(--duration-stagger) * 3);
+}
+.welcome__mark .frame-mark {
+  width: var(--space-10);
+  margin: 0;
 }
 .welcome__title {
   font-size: var(--text-display);
+  letter-spacing: var(--tracking-display);
+  overflow-wrap: anywhere;
 }
 .welcome__for {
   font-family: var(--font-display);
   font-weight: var(--weight-semibold);
   font-size: var(--text-2xl);
+  letter-spacing: var(--tracking-display);
   color: var(--color-accent);
+  overflow-wrap: anywhere;
+}
+.welcome__guide {
+  font-size: var(--text-md);
   overflow-wrap: anywhere;
 }
 .welcome__start {
@@ -118,6 +153,41 @@
   align-items: center;
   min-height: var(--touch-target);
   font-size: var(--text-sm);
+}
+/* Phone landscape: a two-column card, title block left, Start and Privacy right; no frame mark. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .welcome {
+    padding-block: var(--space-3);
+  }
+  .welcome__stack {
+    max-width: 44rem;
+  }
+  .welcome__card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    text-align: left;
+    padding: var(--space-4) var(--space-6);
+    gap: var(--space-6);
+  }
+  .welcome__intro {
+    justify-items: start;
+    gap: var(--space-2);
+  }
+  .welcome__mark {
+    display: none;
+  }
+  .welcome__title {
+    font-size: var(--text-2xl);
+  }
+  .welcome__for {
+    font-size: var(--text-xl);
+  }
+  .welcome__actions {
+    gap: var(--space-2);
+  }
+  .welcome__start {
+    margin-top: 0;
+  }
 }
 
 /* ------------------------------------------------------------------ Preview bar (design spec 7.11) */
@@ -164,7 +234,7 @@
   padding-top: calc(var(--space-6) + var(--preview-bar-height) + var(--safe-top));
 }
 
-/* ------------------------------------------------------------------ HUD (design spec 3.3) */
+/* ------------------------------------------------------------------ HUD (design spec 3.3, 12.6) */
 .hud {
   display: grid;
   grid-template-rows: auto 1fr;
@@ -176,29 +246,75 @@
   align-items: start;
   gap: var(--space-2);
 }
+/* A tray: one glass pill that holds its buttons, with one blur per tray (design spec 12.6.1). */
 .hud__cluster {
   display: flex;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--target-gap);
+  border-radius: var(--radius-pill);
+  background: var(--color-hud);
+  -webkit-backdrop-filter: blur(var(--blur-panel));
+  backdrop-filter: blur(var(--blur-panel));
+  box-shadow:
+    var(--shadow-glass),
+    0 0 0 var(--hairline) color-mix(in srgb, var(--color-on-night) 18%, transparent);
 }
 .hud__cluster--end {
   justify-content: flex-end;
 }
-.hud-btn {
+/* The buttons inside lose their own fill, ring, shadow and blur. */
+.hud__cluster .hud-btn {
+  position: relative;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   padding-inline: 0;
 }
-.hud-btn:has(.hud-btn__label) {
+.hud__cluster .hud-btn:has(.hud-btn__label) {
   padding-inline: var(--space-3);
+}
+@media (hover: hover) {
+  .hud__cluster .hud-btn:hover {
+    background: var(--color-night-raised);
+  }
+}
+.hud__cluster .hud-btn:active {
+  background: var(--color-night-raised);
+}
+/* A 1 by 24 px rule centred in each 8 px gap. */
+.hud__cluster .hud-btn + .hud-btn::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--target-gap) / -2 - var(--hairline) / 2);
+  top: 50%;
+  width: var(--hairline);
+  height: var(--icon-md);
+  transform: translateY(-50%);
+  background: var(--color-divider-night);
+  pointer-events: none;
 }
 .hud-btn__label {
   display: none;
 }
-@media (min-width: 400px) {
+/* Words show from 480 px, so the 8 px gaps hold from 360 to 479 px. */
+@media (min-width: 480px) {
   .hud-btn__label {
     display: inline;
     white-space: nowrap;
   }
 }
-/* At 320 px with Reset view showing, five 44 px buttons and the pill need tighter spacing. */
+.hud__cluster .hud-btn:not(:has(.hud-btn__label)) {
+  width: var(--touch-target);
+}
+@media (max-width: 479px) {
+  .hud__cluster .hud-btn {
+    width: var(--touch-target);
+    padding-inline: 0;
+  }
+}
+/* At 359 px and narrower the gaps may fall to 4 px (the 320 px reflow case only). */
 @media (max-width: 359px) {
   .hud__top,
   .hud__cluster {
@@ -207,47 +323,46 @@
   .hud-pill {
     padding: 0 var(--space-2);
   }
-}
-/* Between 400 and 479 px the labelled buttons, pill and icon buttons only just fit, so the
-   spacing tightens a little. Touch targets stay at --touch-target (BUG-4). */
-@media (min-width: 400px) and (max-width: 479px) {
-  .hud__top {
-    gap: var(--space-1);
-  }
-  .hud__cluster {
-    gap: var(--space-1);
-  }
-  .hud-btn:has(.hud-btn__label) {
-    padding-inline: var(--space-2);
-  }
-  .hud-pill {
-    padding: 0 var(--space-2);
-  }
-}
-.hud-btn:not(:has(.hud-btn__label)) {
-  width: var(--touch-target);
-}
-@media (max-width: 399px) {
-  .hud-btn {
-    width: var(--touch-target);
-    padding-inline: 0;
+  .hud__cluster .hud-btn + .hud-btn::before {
+    left: calc(var(--space-1) / -2 - var(--hairline) / 2);
   }
 }
 .hud-pill {
   justify-self: center;
   align-self: center;
-  min-height: var(--space-8);
+  min-height: calc(var(--space-8) + var(--space-1)); /* 36 px, not interactive */
   display: inline-flex;
   align-items: center;
+  gap: var(--space-2);
   padding: 0 var(--space-3);
   border-radius: var(--radius-pill);
   background: var(--color-hud);
   color: var(--color-on-night);
   -webkit-backdrop-filter: blur(var(--blur-panel));
   backdrop-filter: blur(var(--blur-panel));
+  box-shadow: var(--shadow-glass);
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   white-space: nowrap;
+}
+/* The progress ring: brass for the share of pictures viewed, a 5 px hole. */
+.hud-pill__ring {
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-pill);
+  background: conic-gradient(
+    var(--color-brass) calc(var(--p, 0) * 1%),
+    var(--color-track-night) 0
+  );
+  -webkit-mask: radial-gradient(circle, transparent 0 var(--space-1), var(--color-night) calc(var(--space-1) + 0.5px));
+  mask: radial-gradient(circle, transparent 0 var(--space-1), var(--color-night) calc(var(--space-1) + 0.5px));
+}
+/* With Reset view showing the pill is tight on small phones, so it drops its ring. */
+@media (max-width: 399px) {
+  .hud__top[data-reset] .hud-pill__ring {
+    display: none;
+  }
 }
 
 .hud__controls {
@@ -260,6 +375,20 @@
 }
 .hud__controls--right {
   right: calc(var(--safe-right) + var(--hud-margin));
+}
+/* Done and Carry on: a small glass pill at the bottom, opposite the joystick (design spec 12.7). */
+.hud__done {
+  position: absolute;
+  bottom: calc(var(--safe-bottom) + var(--hud-margin));
+  min-height: var(--touch-target-md);
+  padding-inline: var(--space-5);
+  animation: rise-in var(--duration-overlay) var(--ease-out) backwards;
+}
+.hud__done--right {
+  right: calc(var(--safe-right) + var(--hud-margin));
+}
+.hud__done--left {
+  left: calc(var(--safe-left) + var(--hud-margin));
 }
 .hud__chips {
   position: absolute;
@@ -282,6 +411,7 @@
     bottom: calc(var(--safe-bottom) + var(--hud-margin) + var(--space-16));
   }
 }
+/* Hint and retry chips: glass, radius-lg, enter with the overlay fade and rise (design spec 12.6.2). */
 .hud-chip {
   display: inline-flex;
   flex-wrap: wrap;
@@ -294,11 +424,26 @@
   color: var(--color-on-night);
   -webkit-backdrop-filter: blur(var(--blur-panel));
   backdrop-filter: blur(var(--blur-panel));
-  box-shadow: var(--shadow-hud);
+  box-shadow: var(--shadow-glass);
+  font-size: var(--text-sm);
   text-align: center;
+  animation: rise-in var(--duration-overlay) var(--ease-out) backwards;
+}
+/* The retry chip: text left and Retry right from 400 px; stacked, with Retry full width, under it. */
+.hud-chip--action {
+  flex-direction: column;
+  align-items: stretch;
+}
+@media (min-width: 400px) {
+  .hud-chip--action {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+  }
 }
 
-/* Joystick (design spec 5.9) */
+/* Joystick (design spec 5.9, 12.6.2): a soft highlight, four chevrons, a brass-ringed knob. */
 .joystick {
   display: grid;
   place-items: center;
@@ -312,11 +457,19 @@
   width: var(--joystick-size);
   height: var(--joystick-size);
   border-radius: var(--radius-pill);
-  background: var(--color-hud);
+  background:
+    radial-gradient(
+      circle at 30% 25%,
+      color-mix(in srgb, var(--color-on-night) 16%, transparent),
+      transparent 60%
+    ),
+    var(--color-hud);
   border: var(--border-control) solid color-mix(in srgb, var(--color-on-night) 40%, transparent);
   -webkit-backdrop-filter: blur(var(--blur-panel));
   backdrop-filter: blur(var(--blur-panel));
+  box-shadow: var(--shadow-glass);
   opacity: 0.7;
+  transition: opacity var(--duration-fast) var(--ease-standard);
 }
 .joystick__base.is-held {
   opacity: 1;
@@ -326,31 +479,56 @@
   height: var(--joystick-knob);
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--color-on-night) 92%, transparent);
-  box-shadow: var(--shadow-hud);
-  transition: transform var(--duration-fast) var(--ease-standard);
+  box-shadow:
+    inset 0 0 0 3px var(--color-brass),
+    var(--shadow-glass);
+  scale: 1;
+  transition:
+    transform var(--duration-fast) var(--ease-standard),
+    scale var(--duration-fast) var(--ease-standard);
 }
 .joystick__base.is-held .joystick__knob {
-  transition: none;
+  scale: 1.06;
+  transition: scale var(--duration-fast) var(--ease-standard);
 }
-.joystick__tick {
+/* Four small chevrons made of CSS triangles. */
+.joystick__chevron {
   position: absolute;
-  font-size: var(--text-xs);
-  color: var(--color-on-night-muted);
+  width: 0;
+  height: 0;
+  border: var(--space-1) solid transparent;
+  opacity: 0.7;
 }
-.joystick__tick--n {
-  top: var(--space-1);
+.joystick__chevron--n {
+  top: var(--space-2);
+  border-bottom-color: var(--color-on-night-muted);
+  border-top-width: 0;
 }
-.joystick__tick--s {
-  bottom: var(--space-1);
+.joystick__chevron--s {
+  bottom: var(--space-2);
+  border-top-color: var(--color-on-night-muted);
+  border-bottom-width: 0;
 }
-.joystick__tick--e {
+.joystick__chevron--e {
   right: var(--space-2);
+  border-left-color: var(--color-on-night-muted);
+  border-right-width: 0;
 }
-.joystick__tick--w {
+.joystick__chevron--w {
   left: var(--space-2);
+  border-right-color: var(--color-on-night-muted);
+  border-left-width: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .joystick__base.is-held .joystick__knob {
+    scale: 1;
+  }
+}
+:root[data-motion='reduce'] .joystick__base.is-held .joystick__knob {
+  scale: 1;
 }
 
-/* Arrow buttons (WCAG 2.5.7 alternative) */
+/* Arrow buttons (WCAG 2.5.7 alternative): restyled like the tray buttons, 56 px, 8 px gaps. */
 .arrow-pad {
   display: grid;
   grid-template-columns: repeat(3, var(--touch-target-lg));
@@ -359,18 +537,18 @@
     'turn-left up turn-right'
     'left . right'
     '. down .';
-  gap: var(--space-2);
+  gap: var(--target-gap);
 }
 .arrow-pad__button {
   display: grid;
   place-items: center;
-  border: var(--border-control) solid color-mix(in srgb, var(--color-on-night) 40%, transparent);
+  border: var(--hairline) solid color-mix(in srgb, var(--color-on-night) 18%, transparent);
   border-radius: var(--radius-pill);
   background: var(--color-hud);
   color: var(--color-on-night);
   -webkit-backdrop-filter: blur(var(--blur-panel));
   backdrop-filter: blur(var(--blur-panel));
-  box-shadow: var(--shadow-hud);
+  box-shadow: var(--shadow-glass);
   cursor: pointer;
 }
 .arrow-pad__button:active {
@@ -392,6 +570,7 @@
   color: var(--color-brass);
   -webkit-backdrop-filter: blur(var(--blur-panel));
   backdrop-filter: blur(var(--blur-panel));
+  box-shadow: var(--shadow-glass);
   pointer-events: none;
 }
 .edge-arrow__distance {
@@ -438,6 +617,12 @@
   background: var(--badge-color);
   font-family: var(--font-display);
   font-weight: var(--weight-semibold);
+}
+/* Visual finish (design spec 12.6.4): a brass ring drawn with box-shadow, so it takes no layout space. */
+.caption-card__badge {
+  box-shadow:
+    0 0 0 2px var(--color-surface),
+    0 0 0 3.5px var(--color-brass);
 }
 .caption-card__badge--dark {
   color: var(--color-text);
@@ -521,7 +706,22 @@
   overflow: auto;
   overscroll-behavior: contain;
   padding-top: var(--space-2);
-  border-top: var(--hairline) solid var(--color-border);
+  /* The divider is a 1 px gradient hairline: same height as the old border, so no box changes. */
+  border-top: var(--hairline) solid transparent;
+  border-image: linear-gradient(90deg, transparent, var(--color-border), transparent) 1;
+}
+/* Thin scroll shadows at the clipped edges of the full and fitted bodies (not on a strip). */
+.caption-card:not(.is-strip) .caption-card__body {
+  background:
+    linear-gradient(var(--color-surface) 30%, transparent) center top / 100% var(--space-4) no-repeat local,
+    linear-gradient(transparent, var(--color-surface) 70%) center bottom / 100% var(--space-4) no-repeat local,
+    radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--color-text) 16%, transparent), transparent)
+      center top / 100% var(--space-2) no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--color-text) 16%, transparent), transparent)
+      center bottom / 100% var(--space-2) no-repeat scroll;
+}
+.caption-card__text {
+  text-wrap: pretty;
 }
 .caption-card__text,
 .finale-card__text {
@@ -613,11 +813,41 @@
   flex: none;
   display: grid;
   place-items: center;
-  width: var(--space-8);
-  height: var(--space-8);
+  width: var(--space-10);
+  height: var(--space-10);
   border-radius: var(--radius-pill);
-  background: var(--color-brass);
+  background: radial-gradient(circle at 35% 30%, var(--color-brass-hover), var(--color-brass) 60%, var(--color-brass-deep));
   color: var(--color-text);
+  box-shadow: var(--shadow-inset-frame);
+}
+.finale-card__heading {
+  font-size: var(--text-xl);
+  letter-spacing: var(--tracking-display);
+}
+/* A hairline brass rule with a small diamond ornament under the header (decoration). */
+.finale-card__rule {
+  position: relative;
+  flex: none;
+  height: var(--hairline);
+  margin-block: var(--space-1);
+  background: linear-gradient(90deg, transparent, var(--color-brass-deep), transparent);
+}
+.finale-card__rule::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--space-2);
+  height: var(--space-2);
+  background: var(--color-brass-deep);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.finale-card {
+  animation: rise-in var(--duration-overlay) var(--ease-out);
+}
+.finale-card .finale-card__body {
+  border-top: 0;
+  border-image: none;
 }
 .finale-card__text.is-clamped {
   display: -webkit-box;
@@ -628,12 +858,23 @@
 }
 .finale-card__footer {
   flex: none;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: var(--space-2);
 }
-.finale-card__footer .btn {
-  flex: 1 1 9rem;
+/* Stacked and full width under 480 px, side by side from 480 px (design spec 12.6.5). */
+@media (min-width: 480px) {
+  .finale-card__footer {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+}
+/* A strip is only 136 px tall, so its two buttons stay on one row there. */
+.finale-card.is-strip .finale-card__footer {
+  grid-template-columns: 1fr 1fr;
+}
+.finale-card.is-strip .finale-card__footer .btn--large {
+  min-height: var(--touch-target-md);
+  font-size: var(--text-md);
   padding-inline: var(--space-3);
 }
 .finale-card__reading {
@@ -792,8 +1033,10 @@
   text-align: left;
   cursor: pointer;
 }
-.picture-row:hover {
-  background: var(--color-accent-tint);
+@media (hover: hover) {
+  .picture-row:hover {
+    background: var(--color-accent-tint);
+  }
 }
 .picture-row__thumb {
   flex: none;

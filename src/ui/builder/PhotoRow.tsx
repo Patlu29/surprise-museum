@@ -137,7 +137,12 @@ export function PhotoRow({ photo, index, total, listRef }: PhotoRowProps) {
 
   return (
     <li
-      className={['photo-row', dragging && 'is-dragging', grabbed && 'is-grabbed']
+      className={[
+        'photo-row',
+        dragging && 'is-dragging',
+        grabbed && 'is-grabbed',
+        photo.status === 'failed' && 'is-failed',
+      ]
         .filter(Boolean)
         .join(' ')}
       data-row-id={photo.localId}
@@ -191,16 +196,6 @@ export function PhotoRow({ photo, index, total, listRef }: PhotoRowProps) {
         <ProgressBar value={photo.progress} label={`Photo ${number} upload`} />
       ) : null}
 
-      {photo.status === 'failed' ? (
-        <div className="row">
-          {RETRYABLE.includes(photo.errorKind) ? (
-            <Button variant="primary" icon="retry" onClick={() => retryPhoto(photo.localId)}>
-              Retry
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-
       <LimitedField
         id={`caption-${photo.localId}`}
         label="Caption (optional)"
@@ -209,7 +204,8 @@ export function PhotoRow({ photo, index, total, listRef }: PhotoRowProps) {
         onChange={(value) => setCaption(photo.localId, value)}
         max={LIMITS.captionMaxChars}
         multiline
-        rows={3}
+        rows={2}
+        maxRows={6}
         lang="en-AU"
         spellCheck
       />
@@ -235,26 +231,42 @@ export function PhotoRow({ photo, index, total, listRef }: PhotoRowProps) {
         </div>
       ) : (
         <div className="photo-row__actions">
+          {photo.status === 'failed' && RETRYABLE.includes(photo.errorKind) ? (
+            <Button variant="primary" icon="retry" onClick={() => retryPhoto(photo.localId)}>
+              Retry
+            </Button>
+          ) : null}
           {index > 0 ? (
-            <Button variant="tertiary" icon="up" onClick={() => move(index - 1)}>
-              Earlier
+            <Button
+              variant="tertiary"
+              icon="up"
+              className="photo-row__move"
+              onClick={() => move(index - 1)}
+            >
+              <span className="photo-row__word">Earlier</span>
               <span className="visually-hidden"> (move photo {number} up)</span>
             </Button>
           ) : null}
           {index < total - 1 ? (
-            <Button variant="tertiary" icon="down" onClick={() => move(index + 1)}>
-              Later
+            <Button
+              variant="tertiary"
+              icon="down"
+              className="photo-row__move"
+              onClick={() => move(index + 1)}
+            >
+              <span className="photo-row__word">Later</span>
               <span className="visually-hidden"> (move photo {number} down)</span>
             </Button>
           ) : null}
           <Button
             variant="tertiary"
+            icon="replace"
             onClick={() => replaceInput.current?.click()}
             unavailable={busy && photo.status !== 'queued'}
           >
             Replace<span className="visually-hidden"> photo {number}</span>
           </Button>
-          <Button variant="tertiary" onClick={() => setConfirmingRemove(true)}>
+          <Button variant="tertiary" icon="trash" onClick={() => setConfirmingRemove(true)}>
             Remove<span className="visually-hidden"> photo {number}</span>
           </Button>
           <input

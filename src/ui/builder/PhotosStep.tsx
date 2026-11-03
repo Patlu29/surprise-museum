@@ -7,7 +7,10 @@ import { addFiles } from '@/state/uploadQueue';
 import { Alert } from '@/ui/components/Alert';
 import { Button } from '@/ui/components/Button';
 import { DemoNotice } from '@/ui/components/DemoNotice';
+import { FrameMark } from '@/ui/components/FrameMark';
+import { StepSection } from '@/ui/components/StepSection';
 import { PhotoRow } from './PhotoRow';
+import { SECTION } from './stepCopy';
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif';
 
@@ -38,13 +41,10 @@ export function PhotosStep() {
     handleFiles(event.dataTransfer.files);
   };
 
-  return (
-    <div className="stack">
-      <p className="muted">
-        You can add 1 to {LIMITS.maxPhotos} photos. JPEG, PNG, WebP or HEIC, up to{' '}
-        {Math.round(LIMITS.maxSourceFileBytes / (1024 * 1024))} MB each.
-      </p>
+  const percent = Math.min(100, Math.round((photos.length / LIMITS.maxPhotos) * 100));
 
+  return (
+    <div className="step-sections">
       <DemoNotice context="builder" />
 
       {rejections.length > 0 ? (
@@ -63,65 +63,99 @@ export function PhotosStep() {
         </Alert>
       ) : null}
 
-      <div
-        className={['dropzone', dropping && 'is-dropping'].filter(Boolean).join(' ')}
-        onDragOver={(event) => {
-          event.preventDefault();
-          setDropping(true);
-        }}
-        onDragLeave={() => setDropping(false)}
-        onDrop={onDrop}
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          accept={ACCEPT}
-          className="visually-hidden"
-          tabIndex={-1}
-          aria-hidden="true"
-          onChange={(event) => {
-            const files = event.target.files ? Array.from(event.target.files) : [];
-            event.target.value = '';
-            handleFiles(files);
+      <StepSection title={SECTION.photos} tag="required" note={SECTION.photosNote}>
+        <div
+          className={[
+            'dropzone',
+            photos.length === 0 && 'is-empty',
+            dropping && 'is-dropping',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setDropping(true);
           }}
-        />
-        <Button
-          id={FIELD_IDS.photos}
-          variant="primary"
-          large
-          icon="plus"
-          unavailable={full}
-          aria-describedby="photo-count"
-          onClick={() => inputRef.current?.click()}
+          onDragLeave={() => setDropping(false)}
+          onDrop={onDrop}
         >
-          Add photos
-        </Button>
-        <p id="photo-count" className="muted">
-          {full
-            ? `You can add up to ${LIMITS.maxPhotos} photos. Remove one to add another.`
-            : `${photos.length} of ${LIMITS.maxPhotos} photos`}
-        </p>
-      </div>
-
-      {photos.length > 0 ? (
-        <>
-          <p className="muted">
-            Photos hang along the museum from the entrance to the finale, in this order.
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            accept={ACCEPT}
+            className="visually-hidden"
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={(event) => {
+              const files = event.target.files ? Array.from(event.target.files) : [];
+              event.target.value = '';
+              handleFiles(files);
+            }}
+          />
+          {photos.length === 0 ? (
+            <>
+              <span className="dropzone__mark" aria-hidden="true">
+                <FrameMark />
+              </span>
+              <p className="dropzone__title">No photos yet</p>
+            </>
+          ) : null}
+          <Button
+            id={FIELD_IDS.photos}
+            variant="primary"
+            large
+            icon="plus"
+            className="dropzone__add"
+            unavailable={full}
+            aria-describedby="photo-count"
+            onClick={() => inputRef.current?.click()}
+          >
+            Add photos
+          </Button>
+          <p id="photo-count" className="dropzone__count muted">
+            {full
+              ? `You can add up to ${LIMITS.maxPhotos} photos. Remove one to add another.`
+              : `${photos.length} of ${LIMITS.maxPhotos} photos`}
           </p>
-          <ol ref={listRef} className="photo-list" aria-label="Your photos">
-            {photos.map((photo, index) => (
-              <PhotoRow
-                key={photo.localId}
-                photo={photo}
-                index={index}
-                total={photos.length}
-                listRef={listRef}
-              />
-            ))}
-          </ol>
-        </>
-      ) : null}
+          <span className="meter" aria-hidden="true">
+            <span className="meter__fill" style={{ width: `${percent}%` }} />
+          </span>
+          <p className="dropzone__drag muted" aria-hidden="true">
+            or drag photos here
+          </p>
+        </div>
+
+        {photos.length > 0 ? (
+          <>
+            <p className="muted">
+              Photos hang along the museum from the entrance to the finale, in this order.
+            </p>
+            <ol ref={listRef} className="photo-list" aria-label="Your photos">
+              {photos.map((photo, index) => (
+                <PhotoRow
+                  key={photo.localId}
+                  photo={photo}
+                  index={index}
+                  total={photos.length}
+                  listRef={listRef}
+                />
+              ))}
+            </ol>
+            {!full ? (
+              <div>
+                <Button
+                  variant="secondary"
+                  icon="plus"
+                  onClick={() => inputRef.current?.click()}
+                >
+                  Add more photos
+                </Button>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </StepSection>
     </div>
   );
 }

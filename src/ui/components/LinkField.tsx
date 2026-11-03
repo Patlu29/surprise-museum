@@ -7,13 +7,21 @@ interface LinkFieldProps {
   /** Offer the device share sheet when the browser has one (US-28). */
   shareData?: { title: string; text: string };
   copyLabel?: string;
+  /** One primary per screen (design spec 12.1): the Copy button's emphasis is the caller's call. */
+  copyVariant?: 'primary' | 'secondary';
 }
 
 /**
  * Read-only link with Copy and, where available, Share (design spec 5.15). On a copy failure the
  * link stays selected so the person can copy it by hand.
  */
-export function LinkField({ label, url, shareData, copyLabel = 'Copy link' }: LinkFieldProps) {
+export function LinkField({
+  label,
+  url,
+  shareData,
+  copyLabel = 'Copy link',
+  copyVariant = 'primary',
+}: LinkFieldProps) {
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
@@ -62,15 +70,15 @@ export function LinkField({ label, url, shareData, copyLabel = 'Copy link' }: Li
       />
       <div className="link-field__actions">
         <Button
-          variant="primary"
-          large
+          variant={copyVariant}
+          large={copyVariant === 'primary'}
           icon={state === 'copied' ? 'check' : 'copy'}
           onClick={() => void copy()}
         >
           {state === 'copied' ? 'Copied' : copyLabel}
         </Button>
         {canShare ? (
-          <Button variant="secondary" large icon="share" onClick={() => void share()}>
+          <Button variant="secondary" icon="share" onClick={() => void share()}>
             Share...
           </Button>
         ) : null}
