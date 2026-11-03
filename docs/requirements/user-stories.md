@@ -1,6 +1,8 @@
 # User stories: Virtual 3D Photo Museum
 
-Version 0.5 | 02/11/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.5)
+Version 0.6 | 03/11/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.6)
+
+Change in v0.6 (tech-lead decisions during the CR-4 build, 03/11/2026): US-51 allows a description of up to two sentences (FR-80). US-56 marks FR-88 (time hints) deferred; that criterion is not built or tested. US-57 records the accepted FR-89 exceptions (X-1 to X-8 in the requirements). US-63 and US-64 each gain one Should criterion for the live description naming face shape and pattern (new FR-103). US-61 is unchanged: its 6,000-triangle criterion stands because NFR-27 stays at 6,000. No Must is added or removed.
 
 Change in v0.5 (user feedback on CR-4, 02/11/2026): new US-62 (ceiling never blocks the view, FR-95), US-63 (face shape, FR-96), US-64 (clothing style and pattern, FR-97, FR-98), US-65 (every option for every gender, FR-99), US-66 (saved, shown identically, older museums unchanged, FR-100, FR-101) and US-67 (the "More options" group keeps the Characters step short, FR-102), all Must. US-53 is demoted (FR-82 Could, FR-84 Should; the user says phones are not hard to use); US-52 stays Must. US-57 and US-61 changed (patterns and face shapes in the contrast and budget checks; the data criterion allows the optional fields). US-6 and US-7 (customiser) now also cover the new options through US-63 to US-65.
 
@@ -492,7 +494,7 @@ As a Creator or a Visitor, I want controls to react clearly when I touch or sele
 As a Creator arriving at the home page, I want to understand what this is and how to start without scrolling, so that I begin quickly.
 
 **Acceptance criteria**
-- Given I open the home page at 360 by 640 and at 1280 by 720, when it loads, then the product name, a one-sentence description and the Create a museum button are all visible without scrolling
+- Given I open the home page at 360 by 640 and at 1280 by 720, when it loads, then the product name, a description of no more than two sentences and the Create a museum button are all visible without scrolling
 - Given I scroll the page, when I read the how-it-works content, then there are three steps, each with a short heading and one idea
 - Given the home page loads on a throttled 4G connection, when I wait, then it is interactive within 5 seconds, has no 3D content and shows no layout shift larger than 0.1
 - Given I use only the keyboard, when the page loads, then the first Tab stop is a useful control and Enter on Create a museum opens the builder
@@ -541,14 +543,14 @@ As a Creator, I want to know what I must fill in and what I can skip, so that I 
 - Given optional fields (for example, the closing message and museum title), when I view a step, then they are visually secondary to the required fields and I can leave them empty
 - Given I am on a phone in portrait, when I view any step, then the required fields appear before the optional ones
 
-### US-56: Help and errors appear where I need them (FR-87, FR-88, Should, Could)
+### US-56: Help and errors appear where I need them (FR-87, Should; FR-88 deferred)
 As a Creator, I want short guidance at each step and errors beside the field, so that I fix mistakes without hunting.
 
 **Acceptance criteria**
 - Given I open a builder step, when it loads, then a one-line statement says what the step is for
 - Given I leave a required field empty, when I leave the field or press Next, then a message appears next to that field saying how to fix it, and not before I have had a chance to type
 - Given I fix the problem, when the field becomes valid, then the message disappears and focus and the screen-reader announcement make the change clear
-- Given the step list is showing, when I look at it, then each step shows a rough time (for example, "about 2 minutes") based on observed usability-test times (Could)
+- Given the step list is showing, when I look at it, then each step shows a rough time (for example, "about 2 minutes") based on observed usability-test times (FR-88: **deferred in v0.6** until there is usability data; not built, not tested, not a release blocker)
 - Given a message is shown, when I read it, then it is in Australian English and contains no gendered pronouns (FR-76)
 
 ### US-57: Characters are clear and well defined (FR-89, FR-90, Must)
@@ -559,7 +561,7 @@ As a Creator and a Visitor, I want to see each character clearly, so that I reco
 - Given the default camera and the closer presentation camera, when a reviewer looks at each character, then they can identify the eyes, brows, nose and mouth, the hair as a distinct shape with volume, the facial hair when selected, the hands apart from the sleeves, and the outfit's top and bottom as separate regions
 - Given I switch between Woman, Man and Neutral, when I compare the shapes and faces, then the differences are at least as distinguishable as before the change
 - Given I view the same character in the customiser preview, the builder preview and the visit, when I compare them, then the improvements appear identically in all three, and a museum published before CR-4 shows the improved look with no change to its settings
-- Given a combination of options cannot reach 3:1 edge contrast (for example, a white outfit against a pale wall), when it is found, then the cause is recorded and a fix or an accepted exception is agreed
+- Given a combination of options cannot reach 3:1 edge contrast (for example, a white outfit against a pale wall), when it is found, then the cause is recorded and a fix or an accepted exception is agreed; the accepted exceptions are X-1 to X-8 in the requirements (7 of 240 hair edge-contrast cases, and the cream outfit on the oak floor at 2.29), which QA reports as known minor issues without failing this story, and any other combination under 3:1 is still a failure
 - Given the characters are still loading or fail to load in the preview, when that happens, then the loading or error state defined for US-6 is shown
 
 ### US-58: Walking and standing read clearly (FR-91, Should)
@@ -609,7 +611,7 @@ As a Visitor, I want to look at the museum from a high angle without the ceiling
 - Given reduced motion is requested, when the camera crosses the boundary, then the ceiling change is instant and the camera still never moves on its own
 - Given I roam for 60 seconds with the camera at the high angle in a 20-picture museum, when the frame rate is measured, then NFR-1 still passes
 
-### US-63: Choose a face shape (FR-96, Must)
+### US-63: Choose a face shape (FR-96, Must; FR-103, Should)
 As a Creator, I want to choose the face shape for the Guide and for the Visitor, so that each character looks more like the real person.
 
 **Acceptance criteria**
@@ -618,17 +620,18 @@ As a Creator, I want to choose the face shape for the Guide and for the Visitor,
 - Given I compare the five shapes within the same gender, when I look at the preview, then each is visibly distinct from the others, and Woman, Man and Neutral stay distinguishable from one another
 - Given I use only the keyboard, when I tab to Face shape, then it is a radiogroup, arrow keys move between options, the selection is announced and the preview updates
 - Given the 3D preview is loading or fails, when that happens, then Face shape stays usable, my choice is saved, and I see the loading or error state defined for US-6
+- (Should, FR-103) Given I select a face shape other than oval, when the preview description updates, then it names the face shape in neutral wording (for example "round face"), and with oval selected it may omit it
 
-### US-64: Choose a clothing style and a pattern (FR-97, FR-98, Must)
+### US-64: Choose a clothing style and a pattern (FR-97, FR-98, Must; FR-103, Should)
 As a Creator, I want to choose what each character wears and its pattern, so that the outfit matches the real person's style.
 
 **Acceptance criteria**
-- Given I open the customiser for either character, when I look at Clothing, then 12 or more styles are offered (today's six, unchanged, plus about six new ones), the current style is selected, and Pattern shows at least Plain, Stripes, Checks and Dots with Plain selected
+- Given I open the customiser for either character, when I look at Clothing, then 12 or more styles are offered (today's six, unchanged, plus about six new ones), the current style is selected, and Pattern shows at least Plain, Stripes, Checks and Dots with Plain selected, and the character with Plain looks the same as it did before this change
 - Given I choose a pattern, when I make the change, then the preview shows it within 1 second in tints of the chosen outfit colour, and the outfit colour control still changes the colour of the garment and the pattern together
 - Given I try every pattern with every clothing style and every outfit colour, when I view the preview, then every combination is allowed and renders, with the top and bottom still distinguishable
-- Given I choose Plain, when I compare the character with how it looked before this change, then it looks the same
 - Given I use only the keyboard, when I tab to Style and Pattern, then each is a radiogroup, arrow keys move between options, the selection is announced and the preview updates
 - Given a pattern is chosen, when the character is shown at the default visit camera and during a presentation, then the pattern reads clearly and does not reduce the character's edge contrast below 3:1 (FR-89)
+- (Should, FR-103) Given I select a pattern other than Plain, when the preview description updates, then it names the pattern together with the clothing style, in neutral wording (for example "striped sweater"), and with Plain selected it may omit it
 
 ### US-65: Every option is for everyone (FR-99, Must)
 As a Creator, I want the face shapes and clothes to be available whoever the characters are, so that I am never boxed in by a gender label.
@@ -671,7 +674,7 @@ As a Creator, I want the extra options out of the way until I want them, so that
 | MVP (all Must) | US-1, US-2, US-3, US-4, US-5, US-6, US-7, US-8, US-9, US-10, US-11, US-12, US-13, US-14, US-15, US-16, US-17, US-22, US-23, US-24, US-30, US-31 (message only), US-32, US-33, US-42, US-45 (NFR-25 part), US-46, US-47, US-48 (added in v0.3) |
 | CR-4 Improved UI, Must (build now, v0.4; US-53 removed in v0.5) | US-49, US-52, US-54, US-55, US-57, US-59, US-61 |
 | CR-4 user feedback, Must (build now, v0.5) | US-62 (ceiling bug, first), US-63, US-64, US-65, US-66, US-67 |
-| CR-4 Improved UI, Should and Could (build now if time allows, in this order: US-50, US-51, US-56, US-58, US-60, then US-53) | US-50, US-51, US-56 (FR-88 is Could), US-58, US-60, US-53 (FR-84 Should, FR-82 Could) |
+| CR-4 Improved UI, Should and Could (build now if time allows, in this order: US-50, US-51, US-56, US-58, US-60, then US-53) | US-50, US-51, US-56 (FR-88 deferred in v0.6), US-58, US-60, US-53 (FR-84 Should, FR-82 Could) |
 | Release 2 (Should) | US-18, US-19, US-20, US-21, US-25, US-26, US-27, US-28, US-29, US-31 (slideshow), US-34, US-35, US-36, US-43, US-44, US-45 (NFR-26 part) |
 | Later (Could) | US-37, US-38, US-39, US-40, US-41 |
 | Future (Won't this release) | Live mode with both characters controlled live (FR-66), Creator accounts (FR-67), multiple Visitors, VR and AR, native apps (FR-68) |
@@ -710,10 +713,11 @@ As a Creator, I want the extra options out of the way until I want them, so that
 | FR-79 | US-50 | FR-80 | US-51 |
 | FR-81, FR-83 | US-52 | FR-82 (Could), FR-84 (Should) | US-53 |
 | FR-85 | US-54 | FR-86 | US-55 |
-| FR-87, FR-88 | US-56 | FR-89, FR-90 | US-57 |
+| FR-87, FR-88 (deferred) | US-56 | FR-89, FR-90 | US-57 |
 | FR-91 | US-58 | FR-92 | US-59 |
 | FR-93 | US-60 | NFR-27 to NFR-31 | US-61 |
 | FR-94 | None (Won't, CR-4) | FR-95 | US-62 |
 | FR-96 | US-63 (also US-65, US-66, US-67) | FR-97, FR-98 | US-64 (also US-65, US-66, US-67) |
 | FR-99 | US-65 | FR-100, FR-101 | US-66 |
 | FR-102 | US-67 | NFR-27, NFR-29 (changed in v0.5) | US-61, US-66 |
+| FR-103 (Should, v0.6) | US-63, US-64 | | |
