@@ -1,6 +1,8 @@
 # Design spec: Surprise Museum
 
-Version 2.0.1 | 02/11/2026 | Owner: ux-ui-designer | Based on requirements v0.4 (CR-4, Epic E10), user stories v0.4 and architecture v1.0
+Version 2.0.2 | 10/11/2026 | Owner: ux-ui-designer | Based on requirements v0.4 (CR-4, Epic E10), user stories v0.4 and architecture v1.0
+
+**Change note, v2.0.2 (QA round 6, fix round 1, as built, 10/11/2026).** Records as-built behaviour only; no token changed. (1) 12.6.5 and 3.5: the finale card may grow past its placement height (up to 90% of the screen, then its body scrolls); bottom-docked cards grow upwards, others downwards; under a 22 rem card width the footer buttons stack full width; this replaces the v2.0.1 "one row at every width in the 136 px strip" decision (BUG-14). (2) 12.5.3: Escape closes More options and returns focus to its button (BUG-13); the Characters preview stops being sticky in the single-column layout when taller than half the window (BUG-17). (3) 12.6.8: scene name labels are 36vw wide at most on portrait phones, and a still-overlapping lower label drops 4 px below the upper one (BUG-15); the 360x640 picture 1 residual no longer occurs; in the builder the label keeps the full row width. BUG-16 (sideways scroll at 200% text) is a layout fix with no design change.
 
 **Change note, v2.0.1 (after the CR-4 build, 02/11/2026).** Records the build, no design change. (1) 6.3: the follow camera is capped 2 m above the ceiling (5.2 m) and the reduced-motion hysteresis is 2.85 m off, 2.65 m on. (2) 12.8.3: ceiling strip position stated (toward the exit, as built). (3) Tech-lead decisions on frontend deviations: one Preview visible at a time, so on step 4 from 640 px it sits beside Publish (12.4.1, 12.4.4, 12.5.4); preview turn buttons top-right (12.5.3); finale footer on one row in the 136 px strip (12.6.5); step 3 purpose line after the restored-draft notice (12.4.2). (4) 12.3: `--font-display` now includes `'Fraunces Fallback'`. No other token changed.
 
@@ -402,6 +404,8 @@ QA check: in Playwright at 360 by 640, 390 by 844, 844 by 390 and 1280 by 720, w
 - **G1 Copy.** The strip and fitted copy contain no he, she, her, him, his, girlfriend or boyfriend (FR-76 scan, 10.1).
 
 **With the presentation camera (v1.2).** The card appears only after the framing has settled or the Guide has arrived, whichever is later (6.12.3), so the dock function always measures the framed pose. The card's rectangle must also not intersect the Visitor's or the Guide's rectangle (labels included) at the framed pose. The framing reserves the card's default dock (top in portrait, right in landscape and wide) in its safe rectangle (6.12.2), so the first candidate placement normally wins. Repeat the QA check above with the framed pose.
+
+**Finale card exception (as built, v2.0.2).** The finale card may grow past its placement height, up to 90% of the screen, so its footer and message never clip. This is the only card allowed to exceed its placement size; see 12.6.5.
 
 ### 3.6 Builder layouts
 
@@ -1744,6 +1748,8 @@ Order and grouping change; every field, label, id and limit is unchanged.
 | Section tabs | Body, Face, Hair, Outfit as four equal segments (44 px, 8 px gap) | Same | Same |
 | Description | The live text description under the section tabs (not in the sticky area) | Same | Under the preview |
 
+**Preview un-sticks when tall (as built, v2.0.2, BUG-17).** In the single-column layout (phone portrait and tablet) the preview stops being sticky and scrolls with the page when it is taller than half the window, for example at 200% text on a short screen, where it would otherwise cover the option tabs. Desktop and phone landscape are not affected. At normal text on 360 by 640 the preview stays sticky.
+
 Purpose line: "Both characters already have a starting look. Change as much or as little as you like." The step is marked **Optional** as a whole (a tag by the h1's purpose line: "Optional: everything here has a starting look"). Reset keeps its place.
 
 **Where the groups sit.** "Closed" is exactly today's content. Every group inside More options is labelled "(optional)" in text (FR-86, like Gender) and starts on its default.
@@ -1770,6 +1776,7 @@ Why this split: today's controls, their order, their tiles and their accessible 
 | Button | 44 px tall (`--touch-target`), `--radius-md`, `--color-surface-sunken` fill, `--border-control` `--color-border-strong`, label "More options" (600), a chevron that turns 180 degrees in `--duration-fast` (instant under reduced motion). When any group inside is off its default a small count chip follows the label ("1", accent tint, with the visually hidden text " changed"), so a changed value is never hidden |
 | Content | Opens **under the row**, in the order of the table above, groups separated by `--space-4`, in the page flow (no inner scrolling). Closing hides it; choices are kept |
 | Semantics | `aria-expanded`, `aria-controls` the content. Hidden content is `hidden` so it leaves the tab order and the accessibility tree |
+| Escape (as built, v2.0.2, BUG-13) | While open, Escape pressed on the button or inside the panel closes the group and returns focus to the button. The key event is stopped (default prevented, propagation stopped), so a parent dialog does not also close. Choices are kept |
 | State | Open state is kept per character role and tab, in memory only (not in the draft). New draft: closed |
 | Open on load | Opens when any value inside is not its default (including a saved new clothing style) |
 | Keyboard and touch | Enter and Space toggle; focus stays on the button; the button is a 44 px target |
@@ -1870,7 +1877,14 @@ Allowed (they change no measured box): surface and shadow tokens (`--color-surfa
 
 Same shell as 5.7 with: a 40 px brass seal (radial brass gradient, heart icon in `--color-text`), the heading `--text-xl` Fraunces, a hairline brass rule with a small diamond ornament under the header, the message in `--caption-size` Fraunces, and footer buttons **Keep exploring** (primary, 56 px) and **Replay from the start** (secondary, 48 px, 8 px gap), stacked and full width under 480 px, side by side from 480 px. Placement, focus on Keep exploring, Escape and the reading sheet are unchanged.
 
-*Decision, 02/11/2026 (tech lead, matches the build): in the 136 px finale strip (`FINALE_STRIP_HEIGHT`) the footer stays on **one row at every width**, including under 480 px.* A stacked 56 px plus 48 px pair and the 8 px gap do not fit the strip. Full-height finale cards keep the stacked layout under 480 px.
+*Decision, 02/11/2026 (tech lead): in the 136 px finale strip (`FINALE_STRIP_HEIGHT`) the footer stays on one row at every width.* **Superseded 10/11/2026 by the as-built note below (BUG-14).**
+
+**As built, v2.0.2 (tech-lead decision after QA round 6, BUG-14): the footer and the closing message never clip.**
+- **The card may grow.** It may be taller than its placement height (the strip or fitted height from 3.5), up to **90% of the screen height**; past that its body scrolls inside the card, and the header and footer stay visible. The placement function in 3.5 is unchanged: only the finale card's height is allowed to exceed it.
+- **Growth direction.** Bottom-docked cards (`bottom`, `bottom-centre`) are anchored by their bottom edge and grow upwards. Others keep their top edge and grow downwards.
+- **Width.** The card's minimum width is capped at its placement width, so the 16 rem floor cannot push a card past the screen edge at 200% text.
+- **Footer.** Buttons are at least 48 px tall with an 8 px gap, and labels do not wrap while side by side. **Under a 22 rem card width** (320 px, or 360 px at 200% text) the buttons stack full width, and a label may wrap there. At 360x640 and 390x844 at normal text the footer keeps the **side-by-side row**. This replaces the "stacked under 480 px, side by side from 480 px" rule in the first paragraph above: the switch is now by card width (22 rem), not viewport width.
+- **Trade-off.** A grown card covers more of the scene than the 136 px strip. This is accepted so the closing message and both buttons are always readable; the finale has no picture to protect and the Visitor can press Keep exploring to dismiss it. The 3.5 rule that a card must not cover the Visitor or the picture is not enforced for the finale's extra height.
 
 #### 12.6.6 Overlays and sheets
 
@@ -1895,6 +1909,12 @@ A 24-character Guide name on a 360 px portrait screen is clipped at the left edg
 3. **Hidden only when the head is off-screen.** If the head anchor projects outside the viewport horizontally, the label is hidden as in 5.5 (the character is off-screen). A partly visible body keeps its label.
 4. **Precedence if rules conflict:** never over the picture, then inside the viewport, then no overlap between labels, then centred on the head. If the picture rule and the viewport rule cannot both hold, keep the picture clear and allow up to 40% of the label width to go past the edge (rare).
 5. **Solver input.** In the presentation framing (6.12.4) a label's horizontal extent counts as `min(label width, body width + 32 px)` around the head, because rules 1 and 2 move it sideways anyway. Today the full 158 px width makes the solver drop the Guide from the fit set, which is the cause of the off-screen Guide in N-10. Owner: scene-developer. QA: 360 by 640 and 390 by 844 with 24-character names for both characters: both labels fully inside the viewport, no overlap, the picture still clear.
+
+**As built, v2.0.2 (BUG-15, scene-developer).** These override the figures above where they differ.
+- **Width.** In the scene the label's maximum width is `min(var(--label-max-width), 36vw)` (was 44vw), about 130 px at 360. It only differs under about 489 px wide, so landscape and desktop are unchanged. The narrower label leaves room beside the picture, so the 40% edge overhang in rule 4 no longer triggers for two 24-character names. The `.name-label` CSS cap in the visit stylesheet matches.
+- **Stack when still overlapping.** After rules 1 to 4, if the two visible labels still overlap, the lower one drops **4 px below** the upper one. Labels never move up, so the caption-strip rule (5.5) holds. This is a last step and does not change the picture rule. It replaces "this always resolves" in rule 2 as the fallback.
+- **Result.** The 360x640 picture 1 residual (the accepted case) no longer occurs.
+- **Builder.** In the preview fallback and the Words step sample the label keeps the **full row width** (`min(var(--label-max-width), 100%)`), so long names look as before there. The 36vw cap is for the scene only.
 
 ### 12.7 Mobile: guard rails, not a redesign (FR-81 to FR-84)
 

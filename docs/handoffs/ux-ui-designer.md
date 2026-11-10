@@ -1,5 +1,29 @@
 # Handoff: ux-ui-designer
 
+## Update v2.0.2: QA round 6 fix round 1 recorded as built (10/11/2026)
+
+### Summary
+Spec is now v2.0.2 with a change note. Docs only; no tokens changed; nothing committed.
+
+### Files changed
+- `docs/design-spec.md`: header and v2.0.2 change note; 3.5 finale exception line; 12.5.3 Escape row in the More options table and the "preview un-sticks when tall" paragraph; 12.6.5 as-built finale card (grows to 90% of the screen, grows up or down by dock, stacks under 22 rem, 48 px and 8 px gap, trade-off) with the v2.0.1 one-row decision marked superseded; 12.6.8 as-built name label notes (36vw, 4 px drop, residual gone, builder full row width)
+- `docs/handoffs/ux-ui-designer.md`: this section
+
+### Conflicts with design intent (recorded, not resolved)
+- Finale: the grown card can cover the Visitor or the scene, which breaks the 3.5 principle that cards avoid both. I accepted it for the finale only, because clipped footers were worse; 3.5 now says so. Worth a look in QA at 320x568 and 200% text to confirm the card does not hide the Visitor in a way that confuses.
+- Finale: the one-row-in-the-strip decision of 02/11 is replaced, as asked. Stacking now depends on card width (22 rem), not viewport width (480 px).
+- Name labels: the old rule 2 claim "this always resolves" is now "stack as a fallback". The 4 px drop may place the lower label slightly over the Guide's head or body; the old accepted overlap with the head applies.
+- BUG-16 needed no design change (layout fix only), so it is mentioned in the change note only.
+
+### Open questions
+- None.
+
+### Requests for other agents
+- qa-engineer: remove the BUG-13, 14, 15, 16, 17 `test.fail` markers once they pass; re-record `finale.png`
+- frontend-developer: none
+
+---
+
 ## Update v2.0.1: spec matched to the CR-4 build (02/11/2026)
 
 ### Summary
