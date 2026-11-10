@@ -56,12 +56,27 @@ export function FinaleCard({
   }, []);
 
   const rect = placement.rect;
-  const style: CSSProperties = {
-    left: rect.x,
-    top: rect.y,
-    width: rect.width,
-    maxHeight: rect.height,
-  };
+  // BUG-14: the footer and the message must never clip, so the card may grow past the placement's
+  // height (never past 90% of the screen) and then its body scrolls. A card docked at the bottom grows
+  // upwards, any other grows downwards; the placement itself (section 3.5) is unchanged.
+  const bottomAnchored = placement.dock === 'bottom' || placement.dock === 'bottom-centre';
+  const style: CSSProperties = bottomAnchored
+    ? {
+        left: rect.x,
+        bottom: `calc(100% - ${rect.y + rect.height}px)`,
+        width: rect.width,
+        // The 16 rem floor must not push a 200% text card past the placement's right edge.
+        minWidth: `min(var(--card-min-width), ${rect.width}px)`,
+        maxHeight: `max(${rect.height}px, min(${rect.y + rect.height}px, 90%))`,
+      }
+    : {
+        left: rect.x,
+        top: rect.y,
+        width: rect.width,
+        // The 16 rem floor must not push a 200% text card past the placement's right edge.
+        minWidth: `min(var(--card-min-width), ${rect.width}px)`,
+        maxHeight: `max(${rect.height}px, min(calc(100% - ${rect.y}px), 90%))`,
+      };
   const heading = hasMessage ? `A note from ${guideName}` : 'The end';
 
   const footer = (

@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from '@/ui/components/Icon';
 import { MORE_OPTIONS_LABEL } from './extraOptions';
 
@@ -23,16 +23,28 @@ interface MoreOptionsProps {
  */
 export function MoreOptions({ available, open, onToggle, changed, reset, children }: MoreOptionsProps) {
   const panelId = useId();
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  // Escape closes the open group and returns focus to the disclosure button (US-67 AC-3, BUG-13).
+  // The event is consumed so it cannot also close a parent dialog (the native cancel is prevented).
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape' || !open || event.defaultPrevented) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onToggle();
+    buttonRef.current?.focus();
+  };
   return (
     <>
       <div className="characters__footer">
         {available ? (
           <button
+            ref={buttonRef}
             type="button"
             className="more-options__button"
             aria-expanded={open}
             aria-controls={panelId}
             onClick={onToggle}
+            onKeyDown={onKeyDown}
           >
             <span>{MORE_OPTIONS_LABEL}</span>
             {changed > 0 ? (
@@ -47,7 +59,7 @@ export function MoreOptions({ available, open, onToggle, changed, reset, childre
         {reset}
       </div>
       {available ? (
-        <div id={panelId} className="more-options__panel stack" hidden={!open}>
+        <div id={panelId} className="more-options__panel stack" hidden={!open} onKeyDown={onKeyDown}>
           {children}
         </div>
       ) : null}

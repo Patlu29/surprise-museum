@@ -14,6 +14,8 @@
 }
 .builder__content {
   display: grid;
+  /* BUG-16: a single shrinkable column, so wide content wraps instead of widening the page. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   align-content: start;
   min-width: 0;
@@ -40,6 +42,7 @@
 /* Sections of a step: more room between cards than inside them (design spec 12.1). */
 .step-sections {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-6);
   align-content: start;
 }
@@ -357,12 +360,16 @@
   gap: var(--space-2);
 }
 .still-to-do__item {
+  /* BUG-16: a long chip label wraps inside the column instead of widening the page at 200% text. */
+  min-width: 0;
+  max-width: 100%;
   transition: opacity var(--duration-fast) var(--ease-standard);
 }
 .still-to-do__item.is-leaving {
   opacity: 0;
 }
 .still-to-do__chip {
+  max-width: 100%;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -455,6 +462,7 @@
   margin: 0;
   padding: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
 }
 @media (min-width: 1024px) {
@@ -469,6 +477,7 @@
 /* Compact photo row (design spec 12.5.1): about 300 px tall at 360 px wide. */
 .photo-row {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   padding: var(--space-3);
   background: var(--color-surface);
@@ -490,6 +499,7 @@
 }
 .photo-row__top {
   display: flex;
+  flex-wrap: wrap; /* BUG-16: at large text the info drops under the grip and thumbnail */
   gap: var(--space-2);
   align-items: center;
 }
@@ -526,6 +536,7 @@
   display: block;
 }
 .photo-row__info {
+  flex: 1 1 6rem;
   min-width: 0;
   display: grid;
   gap: var(--space-1);
@@ -643,6 +654,12 @@
   padding-bottom: var(--space-2);
   background: var(--color-bg);
   align-content: start;
+}
+/* BUG-17: when the preview would take over half the screen it scrolls with the step (set in CharactersStep). */
+@media (max-width: 1023px) and (not ((orientation: landscape) and (max-height: 500px))) {
+  .characters__preview.is-unstuck {
+    position: static;
+  }
 }
 .preview-slot {
   position: relative;

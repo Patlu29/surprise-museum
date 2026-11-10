@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { AvatarConfig } from '@contract';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -23,6 +23,29 @@ import {
 } from './extraOptions';
 import { FaceShapeGlyph, GarmentGlyph, PatternGlyph } from './optionGlyphs';
 import { CHARACTERS_ROLE_LINE } from './stepCopy';
+
+/**
+ * BUG-17: the sticky preview stops sticking when it would take more than half the viewport, which
+ * happens on a short phone or with large text, so the option tabs are never covered. Only the
+ * single-column layout honours the class (builder.css).
+ */
+function useUnstickPreview(ref: RefObject<HTMLElement | null>): boolean {
+  const [unstuck, setUnstuck] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setUnstuck(el.offsetHeight > window.innerHeight * 0.5);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [ref]);
+  return unstuck;
+}
 
 type Section = 'face' | 'hair' | 'outfit' | 'body';
 
@@ -145,6 +168,8 @@ export function CharactersStep() {
   }
   const announced = useDebouncedValue(changed.role === 'guide' ? guideText : visitorText, 400);
 
+  const previewRef = useRef<HTMLDivElement>(null);
+  const unstuck = useUnstickPreview(previewRef);
   const groups = GROUPS[section];
   const backView = yaw === BACK_VIEW_DEGREES;
 
@@ -188,7 +213,10 @@ export function CharactersStep() {
 
   return (
     <div className="characters">
-      <div className="characters__preview">
+      <div
+        ref={previewRef}
+        className={unstuck ? 'characters__preview is-unstuck' : 'characters__preview'}
+      >
         <AvatarPreviewSlot
           guide={guide}
           visitor={visitor}

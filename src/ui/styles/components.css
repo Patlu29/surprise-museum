@@ -809,6 +809,7 @@ textarea.field__control--grow {
 }
 .step-card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr); /* BUG-16: shrinkable column */
   gap: var(--space-4);
   align-content: start;
   padding: var(--space-4);

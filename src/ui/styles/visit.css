@@ -27,11 +27,17 @@
 }
 
 /* ------------------------------------------------------------------ Name label (also used in the builder) */
+/* The 36vw cap matches the in-scene label (BUG-15). The builder's preview and sample sit in their own
+   wrapping rows, so they keep the wider cap and long names stay readable there. */
+.preview-slot__labels .name-label,
+.sample__labels .name-label {
+  max-width: min(var(--label-max-width), 100%);
+}
 .name-label {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  max-width: min(var(--label-max-width), 44vw);
+  max-width: min(var(--label-max-width), 36vw);
   padding: var(--label-padding-y) var(--label-padding-x);
   border: var(--label-ring-width) solid var(--label-ring);
   border-radius: var(--radius-pill);
@@ -858,24 +864,31 @@
 }
 .finale-card__footer {
   flex: none;
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
 }
-/* Stacked and full width under 480 px, side by side from 480 px (design spec 12.6.5). */
-@media (min-width: 480px) {
-  .finale-card__footer {
-    grid-template-columns: 1fr auto;
-    align-items: center;
-  }
-}
-/* A strip is only 136 px tall, so its two buttons stay on one row there. */
-.finale-card.is-strip .finale-card__footer {
-  grid-template-columns: 1fr 1fr;
-}
-.finale-card.is-strip .finale-card__footer .btn--large {
+/*
+ * BUG-14: labels stay on one line and the buttons wrap onto their own rows when the two do not fit
+ * side by side, so the footer is never squeezed or clipped. Each button is at least 48 px tall (FR-81).
+ */
+.finale-card__footer .btn {
+  flex: 1 1 auto;
+  white-space: nowrap;
   min-height: var(--touch-target-md);
+}
+/* A strip keeps the medium-size primary so the two buttons share a row on a 360 px phone. */
+.finale-card.is-strip .finale-card__footer .btn--large {
   font-size: var(--text-md);
   padding-inline: var(--space-3);
+}
+/* Under 22 rem (a 320 px phone, or a 360 px phone at 200% text) the buttons stack, full width. */
+@container (max-width: 22rem) {
+  .finale-card__footer .btn {
+    flex-basis: 100%;
+    /* A label that cannot fit even full width may wrap here; desktop sizes never reach this rule. */
+    white-space: normal;
+  }
 }
 .finale-card__reading {
   overflow: auto;
