@@ -13,6 +13,8 @@ import type { ScreenRect } from '@/state/screenRects';
  *     by half the overlap each (plus an 8 px gap, then re-clamped), and a label whose head anchor
  *     is off screen horizontally is hidden. The picture comes first: if keeping it clear and
  *     staying inside cannot both hold, up to 40% of the label may go past the edge.
+ *  4. Stacking (BUG-15): if the labels still overlap after the picture rule, the lower one drops below
+ *     the upper one (never up, so the strip rule holds).
  * Rectangles come from the projected head anchors and the labels' layout sizes, not from
  * `getBoundingClientRect`, so a transition in progress cannot feed back into the measurement.
  */
@@ -107,6 +109,11 @@ export function separateShiftX(
   const d1 = l1 - first.left;
   const d2 = l2 - second.left;
   return aFirst ? [d1, d2] : [d2, d1];
+}
+
+/** How far `lower` must move down to sit `gap` px under `upper` (0 when it already does). */
+export function stackShiftY(upper: { bottom: number }, lower: { top: number }, gap = 4): number {
+  return Math.max(0, upper.bottom + gap - lower.top);
 }
 
 /** Returns the final label rectangles (with their offsets), or null for a hidden label. */
@@ -228,6 +235,20 @@ export function layoutLabels(
           ? area.left + area.width - LABEL_EDGE_MARGIN + it.w * LABEL_EDGE_OVERHANG - r.right
           : area.left + LABEL_EDGE_MARGIN - it.w * LABEL_EDGE_OVERHANG - r.left;
       it.dx += away > 0 ? Math.min(move, Math.max(0, limit)) : Math.max(move, Math.min(0, limit));
+    }
+  }
+
+  // Still overlapping after the picture had its way (BUG-15): side by side cannot hold, so stack.
+  // The lower label drops below the upper one; labels never go up past the strip, so nothing rises.
+  const [stackA, stackB] = visible;
+  if (stackA && stackB) {
+    const ra = shiftBox(stackA.box, stackA.dx, stackA.dy);
+    const rb = shiftBox(stackB.box, stackB.dx, stackB.dy);
+    if (intersects(ra, rb)) {
+      const aUpper = (ra.top + ra.bottom) / 2 <= (rb.top + rb.bottom) / 2;
+      const [upper, lower] = aUpper ? [ra, stackB] : [rb, stackA];
+      const lowerBox = aUpper ? rb : ra;
+      lower.dy += stackShiftY(upper, lowerBox);
     }
   }
 

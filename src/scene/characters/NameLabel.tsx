@@ -58,7 +58,7 @@ export function NameLabelPill({
         // Size to the text, then clamp: without this the label collapses to a column of letters
         // when it sits near the right edge of its absolutely positioned wrapper.
         width: 'max-content',
-        maxWidth: 'min(var(--label-max-width, 11rem), 44vw)',
+        maxWidth: 'min(var(--label-max-width, 11rem), 36vw)',
         padding: 'var(--label-padding-y, 6px) var(--label-padding-x, 12px)',
         background: 'var(--label-bg, #1f1620)',
         color: 'var(--label-fg, #fbf6ee)',

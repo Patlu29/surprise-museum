@@ -6,6 +6,7 @@ import {
   layoutLabels,
   LABEL_EDGE_MARGIN,
   separateShiftX,
+  stackShiftY,
   type LabelActor,
 } from './labelLayout';
 
@@ -175,5 +176,31 @@ describe('layoutLabels on a 360x640 portrait screen (N-10)', () => {
     const r = out.guide!;
     expect(r.x).toBeGreaterThanOrEqual(-0.4 * 158 - LABEL_EDGE_MARGIN - 1e-6);
     expect(r.x + r.width).toBeLessThanOrEqual(360 - LABEL_EDGE_MARGIN + 0.4 * 158 + 1e-6);
+  });
+
+  it('stacks two labels vertically when the picture keeps them from sitting apart sideways (BUG-15)', () => {
+    const g = fakeLabel(158, 68);
+    const v = fakeLabel(158, 50);
+    // A wide picture that leaves no clear room at either side for two labels.
+    const picture = { x: 100, y: 150, width: 160, height: 300 };
+    const out = layoutLabels(actors(0.3, -0.3, g, v), camera, area, picture, 192);
+    const gr = out.guide!;
+    const vr = out.visitor!;
+    const apart =
+      gr.x + gr.width <= vr.x ||
+      vr.x + vr.width <= gr.x ||
+      gr.y + gr.height <= vr.y ||
+      vr.y + vr.height <= gr.y;
+    expect(apart).toBe(true);
+    expect(gr.y).toBeGreaterThanOrEqual(192 - 1e-9);
+    expect(vr.y).toBeGreaterThanOrEqual(192 - 1e-9);
+  });
+});
+
+describe('stackShiftY (BUG-15)', () => {
+  it('moves the lower label to sit under the upper one, never up', () => {
+    expect(stackShiftY({ bottom: 100 }, { top: 90 })).toBe(14);
+    expect(stackShiftY({ bottom: 100 }, { top: 120 })).toBe(0);
+    expect(stackShiftY({ bottom: 100 }, { top: 90 }, 0)).toBe(10);
   });
 });

@@ -456,3 +456,11 @@ Not drawn, by decision or by phase:
   - `domain/guide/simulation.ts` is a headless world for NFR-25 and NFR-26 style tests.
 - **backend-developer (FYI):** `npm run lint` currently fails in `src/api/mockClient.ts` (`no-unsafe-finally`, lines 271 and 272) and `src/api/__tests__/mockPersistence.test.ts` (`consistent-type-imports`). Not in my folders; I left them.
 - **performance-optimiser:** headless Chromium on a software GPU: 18 to 21 draw calls and about 12,000 triangles for a 9-picture museum with both characters; the 3D chunk is now 27 kB gzipped for `Experience` (the shared chunk carries three). Real-device timing is not measured. Textures are not evicted; `PhotoTextures` is the place if NFR-6 needs it.
+
+## BUG-15 fix round 1 (name labels with two 24-character names)
+
+- `src/scene/controllers/labelLayout.ts`: new last step in `layoutLabels` and exported `stackShiftY`. If the two visible labels still overlap after the clamp, separation and picture rules, the lower label drops below the upper one (gap 4 px). Labels never move up, so the caption-strip rule holds; the picture rule is untouched.
+- `src/scene/characters/NameLabel.tsx`: label max width `min(label-max-width, 44vw)` is now `36vw`. Only viewports under about 489 px are affected (landscape and desktop are unchanged). At 360/390/320 px the narrower label leaves room beside the picture, so the 40% edge overhang no longer triggers for these names.
+- `labelLayout.test.ts`: stacking test and `stackShiftY` tests.
+- Result: the BUG-15 test now passes at 360x640, 390x844 and 320x568 for pictures 1 to 3 (QA's `test.fail` shows "expected to fail, but passed" until QA removes it). The 360x640 picture 1 residual no longer occurs. tsc, eslint, vitest (1068) pass.
+- Note for ui-owned CSS: `src/ui/styles/visit.css` `.name-label` still says 44vw; the scene pill's inline style wins, so nothing changes in the museum, but the frontend may align it (builder preview uses the shared pill).
