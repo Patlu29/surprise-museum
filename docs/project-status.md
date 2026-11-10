@@ -1,6 +1,6 @@
 # Project status — Surprise Museum
 
-**Current phase:** CR-4 (improved UI, polish) built and performance-checked, QA next (spec v2.0.1, requirements v0.6); Release with CR-1 to CR-3: CR-1 to CR-3 built (gender, presentation camera, photo notice, readable caption card); QA complete (round 5: Go, 691 passed / 0 failed / 41 skipped); Phase 7 pipeline written (CI on push/PR; Pages, Supabase and Linux-baseline workflows manual only); nothing deployed
+**Current phase:** CR-4 (improved UI, polish) QA round 6 done (Go with conditions, 0 failing tests, BUG-13 to BUG-18 open), fix round 1 in progress (spec v2.0.1, requirements v0.6.1); Release with CR-1 to CR-3: CR-1 to CR-3 built (gender, presentation camera, photo notice, readable caption card); QA complete (round 5: Go, 691 passed / 0 failed / 41 skipped); Phase 7 pipeline written (CI on push/PR; Pages, Supabase and Linux-baseline workflows manual only); nothing deployed
 **Last updated:** 30/10/2026
 
 ## Phases
@@ -45,6 +45,12 @@
   - NFR-27 is signed off: worst character 5,862 of 6,000, 3 draw calls per character; scene at the entrance with 20 photos is Low 46 / High 49 calls; frame rate is the same as before CR-4 on the M4 setup.
   - The three.js chunk is split into `three-*` (921.4 kB, 985 kB guard) and `scene-shared-*` (66.2 kB). The CI check also guards the two together at 1,000 kB (987.6 kB today, 12.4 kB spare). Decision: the combined figure is the reading of NFR-27's "three.js chunk", and 12.4 kB spare is accepted for this release. Slimming the builder preview's unused materials (about 8 to 12 kB) is a follow-up, not a release blocker.
   - Not verified: real phones and laptops, Safari and Firefox frame rate, the 15-minute soak for CR-4. These go on the user's manual pre-release checks.
+- CR-4 QA round 6 (tech lead, 10/11/2026): 977 passed / 0 failed / 76 skipped across desktop-chromium, mobile-chromium and mobile-webkit (944 real passes plus 33 `test.fail` markers for open bugs). Team switched to the `application-builder` plugin (same roles) after the old plugin became unavailable. Decisions on QA's open questions:
+  - BUG-14 (finale footer clipped at 320 px and at 200% text; "Keep exploring" wraps at 1280x720): fix. The footer must never clip; on narrow or large-text layouts the strip may grow or the card may scroll. The designer records it afterwards.
+  - BUG-13 (Escape does not close More options): fix. Escape closes it and returns focus to the control; no requirement change needed.
+  - BUG-16, BUG-17 (200% text at 320 px): fix with BUG-14 in the same frontend round.
+  - BUG-15 (two 24-character names overlap on pictures 1 to 3 on phones): one fix attempt by the scene developer; the 360x640 picture 1 residual stays accepted.
+  - BUG-18 (lit-museum edge contrast under 3:1 well beyond X-1 to X-8): QA's lit-museum figures disagree with the technical-artist's earlier 7 of 240. Technical-artist to reconcile the two methods first, then fix real failures without new geometry where possible (default trousers on oak at 1.9 is a priority). If the remaining cases need geometry or a budget change, they come back to the tech lead.
 - CR-3 (user, 30/10/2026): builder shows a "photos were not kept" notice when a reloaded draft has no photos. Design then frontend-developer.
 
 ## Open questions (awaiting user)
@@ -64,6 +70,6 @@ Needing legal review before public launch: photo-consent and Privacy Act wording
 
 ## Bug count
 
-Round 5: 0 open bugs. BUG-1 to 4 and BUG-6 to 11 fixed; one minor known issue (N-10). Suite 691 passed / 0 failed / 41 skipped across 3 projects, no test.fail markers; desktop suite can flake under machine load. BUG-1 to 4 fixed, BUG-5 accepted upstream. See docs/qa-report.md. BUG-1 scope (tech lead, 29/10/2026): persist character choices and text fields per US-6 AC-3 (Must); photo restore stays with US-29 (Should, Release 2).
+Round 6: 6 open bugs (BUG-14 and BUG-18 major, BUG-13, 15, 16, 17 minor), 0 failing tests. Round 5: 0 open bugs. BUG-1 to 4 and BUG-6 to 11 fixed; one minor known issue (N-10). Suite 691 passed / 0 failed / 41 skipped across 3 projects, no test.fail markers; desktop suite can flake under machine load. BUG-1 to 4 fixed, BUG-5 accepted upstream. See docs/qa-report.md. BUG-1 scope (tech lead, 29/10/2026): persist character choices and text fields per US-6 AC-3 (Must); photo restore stays with US-29 (Should, Release 2).
 
 Open design question: in the presenting view the Visitor and her name label partly cover the picture (camera sits behind her). Intended?

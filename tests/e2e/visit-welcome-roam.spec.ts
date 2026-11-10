@@ -152,14 +152,17 @@ test.describe('US-15 move around the museum', () => {
 
   test('US-15 AC-4: she cannot leave the museum at the side or back walls', async ({ page }) => {
     await teleport(page, 0, -4);
+    // Walk until she reaches the wall, not for a fixed time: the walk runs in simulation time, which a loaded machine (software GL) advances slowly.
     await page.keyboard.down('d');
-    await page.waitForTimeout(5500);
+    await waitForSnap(page, (n) => n.visitor.x > 3, 40_000, 'to reach the side wall');
+    await page.waitForTimeout(1500); // keep pushing against the wall
     await page.keyboard.up('d');
     let s = await snap(page);
     expect(s.visitor.x).toBeLessThan(4);
     expect(s.visitor.x).toBeGreaterThan(3);
     await page.keyboard.down('s');
-    await page.waitForTimeout(4500);
+    await waitForSnap(page, (n) => n.visitor.z > -1, 40_000, 'to reach the back wall');
+    await page.waitForTimeout(1500);
     await page.keyboard.up('s');
     s = await snap(page);
     expect(s.visitor.z).toBeLessThanOrEqual(0);
@@ -171,11 +174,13 @@ test.describe('US-15 move around the museum', () => {
   }) => {
     const l = await layout(page);
     await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale());
+    const finaleRoom = l.rooms[l.rooms.length - 1]!;
     await page.keyboard.down('w');
-    await page.waitForTimeout(4000);
+    // Walk on until she is stopped (the podium stands in front of the end wall, so she halts about 3.8 m short of it), then keep pushing: she must stay inside.
+    await waitForSnap(page, (n) => n.visitor.z < finaleRoom.minZ + 4.5, 40_000, 'to be stopped by the podium or the end wall');
+    await page.waitForTimeout(1500);
     await page.keyboard.up('w');
     const s = await snap(page);
-    const finaleRoom = l.rooms[l.rooms.length - 1]!;
     expect(s.visitor.z).toBeGreaterThan(finaleRoom.minZ);
   });
 
@@ -198,10 +203,12 @@ test.describe('US-15 move around the museum', () => {
 
   test('US-15 AC-5: Q and E turn the view from the keyboard', async ({ page }) => {
     const before = await snap(page);
+    // Hold the key until the view has turned, not for a fixed time: the turn is per frame, and under load (software GL, three
+    // workers) 700 ms can be only a few frames. Focus is put on the scene first so the key goes to it.
+    await page.locator('.scene-root').focus();
     await page.keyboard.down('e');
-    await page.waitForTimeout(700);
+    const after = await waitForSnap(page, (n) => Math.abs(n.camera.yaw - before.camera.yaw) > 0.1, 10_000, 'the view to turn with E');
     await page.keyboard.up('e');
-    const after = await snap(page);
     expect(Math.abs(after.camera.yaw - before.camera.yaw)).toBeGreaterThan(0.1);
   });
 

@@ -38,12 +38,14 @@ const previewReady = (page: Page) => expect(page.locator('.preview-slot__loading
  * character off its plinth changes well over 10%, so 3% still catches BUG-6.
  */
 const sameLookLimit = async (page: Page) => ((await page.evaluate('window.devicePixelRatio')) as number) % 1 === 0 ? 0.0005 : 0.03;
-/** Put the stage 110 px below the top of the viewport first, so the sticky step bar on a phone never covers part of the shot. */
+/**
+ * The preview is sticky on a phone (spec 12.5.3), so its position depends on the scroll. Both shots of a comparison must be taken
+ * at the same scroll: the top of the page, where the sticky preview has not engaged and sits at its natural place, on a whole pixel.
+ */
 const stageShot = async (page: Page) => {
   const stage = page.locator('.preview-slot__stage');
-  // A whole-pixel scroll, so a rebuilt page lands on the same sub-pixel position.
-  await stage.evaluate((el) => window.scrollTo(0, Math.round(window.scrollY + el.getBoundingClientRect().top - 110)));
-  await page.waitForTimeout(150);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(250);
   return stage.screenshot({ animations: 'disabled' });
 };
 const PRONOUNS = /\b(she|her|hers|herself|he|him|his|himself|girlfriend|boyfriend)\b/i;
@@ -61,6 +63,8 @@ async function appText(page: Page): Promise<string> {
     .filter((line) => !['Sam', 'Alex'].includes(line.trim()))
     // The live scene description changes with the moment ("Finale room" or "Finale. Sam is sharing a note."), not with gender.
     .filter((line) => !/^Finale(\.| room)/.test(line.trim()))
+    // Likewise the polite scene status moves from "Gallery 1 of 1" to "Sam, photo 1 of 1: ..." as the Guide arrives; it is timing, not gender, and the caption card holds the same words.
+    .filter((line) => !/^(Gallery \d+ of \d+\.?|.+, photo \d+ of \d+:.*)$/.test(line.trim()))
     .join('\n');
 }
 
@@ -209,6 +213,10 @@ test.describe('US-46 choose each character gender in the builder', () => {
         await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible();
         await previewReady(page);
         await page.waitForTimeout(1500);
+        // Bring the stage fully into the viewport at a whole-pixel scroll (on a phone it starts below the fold, under the notice and the
+        // "Still to do" chips, and a clip outside the viewport captures nothing). Four fresh loads give the same layout, so the same scroll.
+        await page.locator('.preview-slot__stage').evaluate((el) => window.scrollTo(0, Math.round(window.scrollY + el.getBoundingClientRect().top - 110)));
+        await page.waitForTimeout(250);
         const box = (await page.locator('.preview-slot__stage').boundingBox())!;
         return page.screenshot({ clip: { x: box.x, y: box.y, width: Math.floor(box.width / 2), height: box.height }, animations: 'disabled' });
       };

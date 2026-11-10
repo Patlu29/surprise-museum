@@ -63,6 +63,10 @@ test('visual: the Guide presenting picture 1 with its caption', async ({ page, m
 });
 
 test('visual: the finale card', async ({ page, museum }) => {
+  // BUG-14: at 1280x720 the "Keep exploring" button is squeezed to a 90 px pill and its label wraps. The baseline is deliberately NOT re-recorded
+  // (it holds the intended look); this marker flips to "expected to fail but passed" once the footer is fixed, and the baseline is then
+  // re-recorded for the CR-4 card (seal, rule, trays) in the same change.
+  test.fail(true, 'BUG-14: the finale card footer squeezes Keep exploring at desktop width (frontend-developer)');
   await openVisit(page, museum.shareToken);
   await startVisit(page);
   await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale());
@@ -207,4 +211,91 @@ test.describe('gender previews and visits', () => {
     await page.waitForTimeout(1200);
     await expect(page).toHaveScreenshot('entrance.png', { maxDiffPixelRatio: 0.02 });
   });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Round 6 (CR-4): face shapes, new clothing styles and patterns in the builder preview, the More options group, and the
+// ceiling cutaway from above. Baselines are made from restored drafts (no click timing), reduced motion, desktop Chromium.
+// ---------------------------------------------------------------------------------------------
+
+test.describe('CR-4 character options', () => {
+  for (const shape of ['oval', 'round', 'square', 'heart', 'long']) {
+    test(`visual: builder preview, Guide with a ${shape} face`, async ({ page }) => {
+      await seedDraftAndOpen(page, {
+        step: 3,
+        visitorName: 'Alex',
+        guideName: 'Sam',
+        guideAvatar: { ...LEGACY_GUIDE_AVATAR, faceShape: shape },
+        visitorAvatar: { ...LEGACY_VISITOR_AVATAR },
+      });
+      await waitForPreview(page);
+      await expect(page.locator('.preview-slot__stage')).toHaveScreenshot(`face-${shape}.png`, { maxDiffPixelRatio: 0.02 });
+    });
+  }
+
+  test('visual: builder preview, a sweater with stripes and overalls with checks', async ({ page }) => {
+    await seedDraftAndOpen(page, {
+      step: 3,
+      visitorName: 'Alex',
+      guideName: 'Sam',
+      guideAvatar: { ...LEGACY_GUIDE_AVATAR, outfitStyle: 'sweater', outfitColor: 'teal', outfitPattern: 'stripes' },
+      visitorAvatar: { ...LEGACY_VISITOR_AVATAR, outfitStyle: 'overalls', outfitColor: 'mustard', outfitPattern: 'checks' },
+    });
+    await waitForPreview(page);
+    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot('styles-sweater-stripes-overalls-checks.png', { maxDiffPixelRatio: 0.02 });
+  });
+
+  test('visual: builder preview, a tracksuit with dots and a tunic', async ({ page }) => {
+    await seedDraftAndOpen(page, {
+      step: 3,
+      visitorName: 'Alex',
+      guideName: 'Sam',
+      guideAvatar: { ...LEGACY_GUIDE_AVATAR, outfitStyle: 'tracksuit', outfitColor: 'red', outfitPattern: 'dots' },
+      visitorAvatar: { ...LEGACY_VISITOR_AVATAR, outfitStyle: 'tunic', outfitColor: 'purple', outfitPattern: 'plain' },
+    });
+    await waitForPreview(page);
+    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot('styles-tracksuit-dots-tunic.png', { maxDiffPixelRatio: 0.02 });
+  });
+
+  test('visual: builder preview, a coat with stripes and a cardigan with checks', async ({ page }) => {
+    await seedDraftAndOpen(page, {
+      step: 3,
+      visitorName: 'Alex',
+      guideName: 'Sam',
+      guideAvatar: { ...LEGACY_GUIDE_AVATAR, outfitStyle: 'coat', outfitColor: 'charcoal', outfitPattern: 'checks' },
+      visitorAvatar: { ...LEGACY_VISITOR_AVATAR, outfitStyle: 'cardigan', outfitColor: 'coral', outfitPattern: 'stripes' },
+    });
+    await waitForPreview(page);
+    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot('styles-coat-checks-cardigan-stripes.png', { maxDiffPixelRatio: 0.02 });
+  });
+
+  test('visual: the Characters controls with More options open on the Outfit tab (spec 12.5.3)', async ({ page }) => {
+    // Tall viewport, so the sticky action bar is not drawn over the panel in the element screenshot.
+    await page.setViewportSize({ width: 1280, height: 1500 });
+    await seedDraftAndOpen(page, {
+      step: 3,
+      visitorName: 'Alex',
+      guideName: 'Sam',
+      guideAvatar: { ...LEGACY_GUIDE_AVATAR, outfitStyle: 'overalls', outfitPattern: 'dots', faceShape: 'round' },
+      visitorAvatar: { ...LEGACY_VISITOR_AVATAR },
+    });
+    await waitForPreview(page);
+    await page.getByRole('tab', { name: 'Outfit', exact: true }).click();
+    await expect(page.locator('.more-options__button')).toHaveAttribute('aria-expanded', 'true');
+    await page.waitForTimeout(500);
+    await expect(page.locator('.characters__controls')).toHaveScreenshot('more-options-open-outfit.png', { maxDiffPixelRatio: 0.002 });
+  });
+});
+
+test('visual: the entrance seen from above the ceiling at the top angle (the ceiling is cut away, FR-95)', async ({ page, museum }) => {
+  await openVisit(page, museum.shareToken);
+  await startVisit(page);
+  await waitForSnap(page, (n) => n.guide.opacity >= 1, 30_000, 'the Guide to arrive');
+  await page.mouse.move(640, 300);
+  await page.mouse.down();
+  await page.mouse.move(640, 600, { steps: 12 });
+  await page.mouse.up();
+  await waitForSnap(page, (n) => n.camera.pitch > 0.93, 10_000, 'the top angle');
+  await page.waitForTimeout(1500);
+  await expect(page).toHaveScreenshot('ceiling-cutaway-top-angle.png', { maxDiffPixelRatio: 0.02 });
 });

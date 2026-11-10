@@ -1,5 +1,189 @@
 # QA report: Surprise Museum
 
+## Round 6 (final): full re-test of CR-4 "Improved UI", HEAD 7e258fd, 10/11/2026
+
+Status log.
+
+### What the working tree already showed at takeover (previous agent, cut off)
+
+- New specs: `ceiling.spec.ts` (355 lines, no `test.fail` markers), `cr4-builder.spec.ts`, `cr4-visit.spec.ts`, `more-options.spec.ts`.
+- Modified: `accessibility.spec.ts` (+183 lines axe for new UI), `gender.spec.ts`, `visit-welcome-roam.spec.ts`, `visual.spec.ts` (+91), `tests/README.md`.
+- Audit scripts: `tests/audit/edge-contrast.mjs`, `lib.mjs`, `ui-audit.mjs`.
+- Darwin baselines: 10 re-recorded, 10 new (reviewed in step 6 below).
+- No run results had been recorded. Nothing had been run against HEAD.
+
+### Step 3: edge contrast (FR-89) in the lit museum, chromium, 360x640 at DPR 3, run 10/11/2026
+
+Command: `node tests/audit/edge-contrast.mjs chromium --patterns` (156 cases: 11 hair colours x 12 styles, 12 outfit colours, 3 patterns x 4 outfit colours; three places in the lit museum: gallery floor beside the runner, on the runner, facing the finale wall). Raw data: `test-results/cr4-audit/data/chromium-edge-contrast.json` (not committed). The script reports 1,269 zone results under 3:1 outside X-1 to X-8, but most are zones the option does not control (for example the head under an outfit colour). Restricted to the zone each option controls, with at least 25 samples:
+
+| Option | Zone | Backdrop | Cases | Under 3:1 | Lowest median | Highest median |
+|---|---|---|---|---|---|---|
+| 11 hair colours x 12 styles | hair | linen wall | 132 | 127 | 1.61 (curly-short black) | 3.16 |
+| | hair | finale wall | 132 | 93 | 1.14 (curly-short dark-brown) | 4.36 |
+| | hair | far sky and ceiling gap | 132 | 81 | 1.46 (curly-short black) | 4.37 |
+| | hair | finale floor | 56 | 9 | 2.53 (braids blonde) | 10.13 |
+| | hair | oak, runner | 1 each | 1 each | 2.3 and 1.29 (shaved black; the "hair" is the scalp) | |
+| 12 outfit colours | torso | linen wall | 12 | 10 | 1.95 (orange) | 3.63 |
+| | torso | claret runner | 12 | 11 | 2.10 (navy) | 3.38 |
+| | torso | finale wall | 12 | 6 | 2.35 (navy) | 5.36 |
+| | torso | finale floor | 12 | 11 | 2.03 (navy) | 3.24 |
+| | legs (trousers, not changed by the colour) | oak | 12 | 12 | 1.90 | 1.90 |
+| | legs | claret runner | 12 | 12 | 1.62 | 1.63 |
+| | legs | finale wall | 12 | 12 | 2.55 | 2.55 |
+| patterns (stripes, checks, dots) on navy, mustard, cream, charcoal | torso | linen wall, runner, finale | 12 each | 6 to 10 of 12 | 1.97 (mustard), 2.11, 2.03 | 3.35 |
+
+Hair by colour on the two backdrops where it is actually seen at the default camera (mean over the 12 styles): linen wall 1.99 (pink) to 2.58 (black); finale wall 2.15 (dark-brown) to 3.37 (white). Only platinum, white and pink on the finale wall average above 3:1. Hair in the oak and runner backdrops is almost never sampled at the default camera (the rays through the head leave the figure about 10 degrees below the horizontal), as the script header says.
+
+Reading:
+
+- Accepted exceptions seen in this run: X-6, X-2 and X-4 (finale-wall curly-short hair). X-1, X-3, X-5, X-7 and X-8 did not appear in the script's list (not enough samples on their backdrops in the lit museum, or above 3:1 there).
+- A-34 states that the exceptions cover only the flat-token cases listed, and that the other 7 hair colours, the lit museum, doorways, WebKit and Firefox were not covered. This run is the lit-museum measurement A-34 left open. It finds many cases under 3:1 that are not in X-1 to X-8: all 11 hair colours against the linen wall, most against the finale wall, the fixed default trousers on oak (1.9) and the runner (1.6), and every outfit colour except a few against at least one backdrop. Filed as BUG-18 for the technical-artist; under A-34 the tech lead decides whether to accept.
+- Caveat on the method: the figure is the TA's edge definition (rim band 0.3 px or contour band 1.0 px inside against 0.5 px outside), a proxy, not a luminance difference of the fills. The rim is a lightening, so a very dark hair against a light wall can still read under 3:1 by this measure. In the baseline screenshots (`entrance.png`, `presenting-photo-1.png`, `ceiling-cutaway-top-angle.png`) all of head, torso, arms, legs and feet are clearly separate to a human eye. The finding is real by the FR-89 definition, but is an acceptance decision, not a visible defect.
+- WebKit not run for edge contrast (the headless WebKit launch is used for the mobile-webkit project; the script accepts `webkit`, run time about 40 minutes per browser).
+
+### Step 5a: desktop-chromium (351 tests, 41 minutes, 3 workers, load average 16 to 21 from other work on the machine)
+
+First pass: **337 passed, 6 failed, 8 skipped** (the 8 skips: 3 Android keyboard, 4 touch-only, 1 phone-layout). The 6 failures were all in `visit-welcome-roam.spec.ts` (US-15 AC-2 ArrowLeft, AC-3 x2, AC-4 x2, AC-5 drag), each "Test timeout of 90000ms exceeded while running beforeEach" (publishing and opening the museum), near the end of the run when the host was most loaded. Re-run of the whole file alone with 2 workers: **24 of 24 passed**, including the Q and E test (yaw 0.05 against 0.1 flake) and the wall tests whose timing was reworked. Net: **343 passed, 0 failed, 8 skipped**.
+
+Of the 337 first-pass "passed", 10 are **expected failures** (`test.fail`), each an open bug (see the bug list): BUG-13 (1 test), BUG-14 (4: three finale footer cases and the finale visual), BUG-15 (3: name labels), BUG-16 and BUG-17 (1 each). They count as passed in the Playwright totals but are open defects; the other 327 passed for real.
+
+### Step 5b: mobile-chromium (Pixel 7, 351 tests, 16.6 minutes, 3 workers)
+
+**321 passed, 0 failed, 30 skipped** (no flakes, no retries). Of the 321, 11 are expected failures for open bugs: BUG-14 (6: the finale footer is clipped by the 136 px finale strip on a phone, here already at 320x568 with normal text, and at 200% text on 360x640), BUG-15 (3), BUG-13 (1), BUG-16 (1). The other 310 passed for real. The 30 skips: 24 visual baselines (desktop Chromium only), 2 of the 200% text reflow tests (skipped on this project because of BUG-16, a coverage gap here; they run on desktop and mobile-webkit), and 4 desktop-only tests (wheel zoom, keyboard camera controls, 20 uploads, preview size).
+
+### Step 5c: mobile-webkit (iPhone 13, 351 tests, 12.4 minutes, 3 workers)
+
+First pass: **309 passed, 4 failed, 38 skipped**. Of the 309, 12 are expected failures for open bugs (BUG-14 x6, BUG-15 x3, BUG-13, BUG-16, BUG-17). The 4 failures:
+
+| Test | Cause | Result |
+|---|---|---|
+| `gender.spec.ts` US-46 AC-2 Woman, Man and Neutral give three different Guide shapes | **Test bug, mine to fix** (introduced by the previous agent's `scrollTo(0, 0)` in `guideLook`): at the top of the page the stage is below the fold on a phone, under the restored-draft notice and the "Still to do" chips, so the clip captured nothing and every diff was 0 | Fixed: the stage is scrolled to 110 px from the top at a whole pixel before the clip. Passes on all three projects (also the body-type plinth test) |
+| `builder.spec.ts` US-6 AC-3 character choices survive a reload | Load flake (the hair-style click did not register in time) | Passed 3 times on re-run |
+| `mobile.spec.ts` US-15 AC-1 joystick; `visit-welcome-roam.spec.ts` US-15 AC-2 "d moves" | Load flake: "Clicking the checkbox did not change its state" on the consent box in the shared museum fixture | Passed on re-run (2 times for the joystick) |
+
+Net: **313 passed, 0 failed, 38 skipped**.
+
+### Step 4: earlier flakes
+
+| Earlier flake | Round 6 outcome |
+|---|---|
+| `gender.spec.ts` caption card read too early ("Gallery 1 of 1" against "Sam, photo 1 of 1") | Handled by the previous agent's filter in `appText` (both polite-status shapes are ignored; the caption card holds the same words). Passed on all three projects |
+| `visit-welcome-roam.spec.ts` Q and E yaw 0.05 against 0.1 | Test now holds the key until the yaw has moved more than 0.1 (focus put on the scene first). Passed on all three projects; wall-walking tests wait for position instead of a fixed time |
+| `restored-notice.spec.ts` photos not ready | No failure in any project this round |
+| New this round: first-step `beforeEach` timeouts (6 on desktop-chromium at the tail of a 41-minute run) and consent-checkbox clicks (2 on webkit) | Host load (load average 16 to 26 from other work). All passed when the file was re-run alone. Not app bugs. Recommendation stands: 2 workers for desktop-chromium, as in round 5 |
+
+### Totals
+
+| Project | Tests | Passed | Failed | Skipped | Expected failures inside "passed" | Passed for real |
+|---|---|---|---|---|---|---|
+| desktop-chromium | 351 | 343 (337 first pass + 6 after re-running the file) | 0 | 8 | 10 | 333 |
+| mobile-chromium | 351 | 321 | 0 | 30 | 11 | 310 |
+| mobile-webkit | 351 | 313 (309 first pass + 4 after fixing one test and re-running three) | 0 | 38 | 12 | 301 |
+| desktop-firefox | not run | | | | | Firefox cannot launch in this sandbox |
+| **Total** | 1,053 | **977** | **0** | 76 | 33 | **944** |
+
+Round 5 was 691 passed, 0 failed, 41 skipped. About 114 tests per project were added for CR-4 (new specs `cr4-builder`, `cr4-visit`, `more-options`, `ceiling`, plus additions to `accessibility`, `visual`).
+
+"Expected failures" are `test.fail` markers for open bugs. They count as passed in Playwright; they are defects, and each flips to "unexpected pass" (and so fails the run) when its bug is fixed.
+
+### Required fixes from the hand-over: confirmed
+
+| Required | State |
+|---|---|
+| `ceiling.spec.ts` has no `test.fail` markers | Confirmed (the one match is a comment). All 8 ceiling tests pass on desktop-chromium and mobile-webkit; on mobile-chromium 6 run and pass, 2 are skipped by design (keyboard camera controls, wheel zoom) |
+| gender.spec.ts body type change on its plinth (mobile): same scroll for both shots | Confirmed: `stageShot` scrolls to the top of the page and waits before both shots. Passes on all three projects. A second helper in the same file (Guide shapes) also needed the fix above |
+| Exact live description text allows FR-103 words | Confirmed: the description assertions are prefix patterns (`/^Sam: woman, medium height/`) or `toContainText`; `more-options.spec.ts` checks the FR-103 words and a 720-combination sweep with no gendered word beyond the gender word (FR-99). All pass |
+| 6 m boom at 55 degrees replaced by the capped figure | Confirmed: `ceiling.spec.ts` asserts the longest boom at pitch 55 is 5.1 to 5.3 m on every room type on desktop ("not 6 m"); no other spec asserts a 6 m boom |
+
+### Coverage map (acceptance criterion to test)
+
+| Required coverage | Tests (all pass unless marked) |
+|---|---|
+| Three-Next path to Publish (US-55 AC-3, US-67 AC-5, FR-86) | `cr4-builder.spec.ts` "only 1 photo, a Visitor name, a Guide name and consent: Next three times, then Publish" |
+| One Preview visible at a time, step 4 at 640 px and up (FR-82, spec 12.4.1) | `cr4-builder.spec.ts` "steps 1 to 4 at every width: one visible Preview, one in the accessibility tree"; "Back and Preview are not rendered while publishing"; the phone action bar test |
+| Add more photos (US-55, spec 12.5.1) | `cr4-builder.spec.ts` "absent with no photos; with 1 to 19 photos a secondary button..." and "at 20 photos the button is gone and Add photos says why" |
+| Still to do chips and Ready to publish (US-54, FR-85) | `cr4-builder.spec.ts` chips on every step, leading to the field, leaving once fixed; the stepper; the polite announcement |
+| Blur validation (US-56 AC-2, FR-87) | `cr4-builder.spec.ts` "no message on first render, none while typing, one after leaving the field"; tabbing through empty names; a failed Next shows messages and a summary |
+| Done and Carry on on phone portrait with the docked card (US-52, spec 12.7) | `cr4-visit.spec.ts` Done at 360x640 and 390x844, not offered on landscape or wide; Carry on on the finale card at both sizes |
+| More options closed: same height and controls (FR-102, US-67 AC-1) | `more-options.spec.ts` at 360x640 and 390x844, measured against the pre-CR-4 build |
+| Keyboard path and count chip (US-67 AC-3, FR-102) | `more-options.spec.ts` Enter and Space; arrow keys in the radiogroups; the count chip. **Escape: expected failure (BUG-13)** |
+| Face shapes, styles, patterns saved, reload, share link, validated (FR-100, FR-101, US-63, US-64, US-66) | `more-options.spec.ts` each of the 5 shapes, 12 styles and 4 patterns saved and reloaded; 3 published museums opened from the share link; Preview equals the published copy; unknown values rejected and an unknown stored shape throws no error |
+| Missing values read as defaults (US-66 AC-3) | `more-options.spec.ts` a draft saved before CR-4; a museum published before CR-4 (and AC-6) |
+| FR-103 words, no gendered words (FR-99, US-65) | `more-options.spec.ts` description words in neutral, woman and man; Review step, preview alt text and announcement; 720-combination sweep; option labels and helper text |
+| N-10 labels inside and apart | `cr4-visit.spec.ts` 24-character names at 844x390 pass; the accepted 360x640 picture 1 residual passes; an off-screen character's label is hidden. **At 360x640, 390x844 and 320x568 pictures 1 to 3: expected failure (BUG-15)** |
+| FR-95 at the capped boom on every room type, reduced motion | `ceiling.spec.ts` (entrance, 10 m gallery, 6 m gallery, finale), the slow rise through the fade band, the flicker band, reduced-motion on/off, the builder Preview. Pass |
+| Finale footer at 320 px and with large text | `cr4-visit.spec.ts` 7 cases. Pass at 360x640 normal, 390x844 largest caption, and 320x568 on desktop-chromium (full card); **fail (expected, BUG-14) on a phone at 320x568 and at 200% text** |
+| axe on the new builder, landing and visit UI | `accessibility.spec.ts` new CR-4 tests (builder steps, More options open, landing, welcome and HUD at 360 and 844 wide). Pass on all three projects with no new violation |
+| Landing page (US-51, FR-80) | `cr4-visit.spec.ts`: above the fold at 360x640 and 1280x720, three steps, interactive in 5 s on throttled 4G with CLS under 0.1, first Tab stop. Pass |
+
+### Baselines (desktop-chromium, darwin; reviewed by eye)
+
+No baseline was changed by this run: all visual tests passed against the files in the tree, except `finale.png`, which is **deliberately not re-recorded** (BUG-14, expected failure). The 10 re-recorded and 10 new baselines left by the previous agent were each viewed and are accepted as intended CR-4 changes:
+
+| Baseline | Verdict | Reason |
+|---|---|---|
+| home.png | Accept | New landing (eyebrow, serif headline, one description, framed picture, three how-it-works cards): CR-4 FR-80 |
+| welcome-card.png | Accept | CR-4 card finish (seal, serif title, rule) |
+| entrance.png, entrance-man-woman.png, entrance-woman-man.png | Accept | HUD pills, ceiling strip toward the exit, name labels, character definition (face and rim), finished museum |
+| presenting-photo-1.png | Accept | Caption card finish; HUD; hair and rim changes |
+| preview-man-woman.png, preview-woman-man.png, preview-woman-man-back.png | Accept | Character definition (faces, hair volume, rim); plinth and labels unchanged |
+| brows-woman-deep-skin.png | Accept with note | Brows read against deep skin; a faint light dotted outline from the rim shows around the dark hair at this crop (technical-artist to be aware, no action asked) |
+| face-oval, face-round, face-square, face-heart, face-long (new) | Accept | Five different images (different hashes); faces are small in the crop, differences are in head width and jaw. A pixel-difference test also requires 150 pixels between every pair |
+| styles-tracksuit-dots-tunic, styles-coat-checks-cardigan-stripes, styles-sweater-stripes-overalls-checks (new) | Accept | Each of the 6 new styles with a pattern; open cardigan shows its inner layer |
+| more-options-open-outfit.png (new) | Accept | More options open: count chip "2", six more styles, four patterns, helper text |
+| ceiling-cutaway-top-angle.png (new) | Accept | Camera at the 2 m cap: ceiling not drawn, both characters and the room in view, HUD intact |
+| finale.png | Not re-recorded | Still the pre-CR-4 look. The fresh render shows the card moved to the top right with the new seal and rule (intended) but "Keep exploring" squeezed to a two-line pill (BUG-14). Re-record once BUG-14 is fixed |
+
+**Linux baselines cannot be made now**: GitHub Actions is billing-locked (since 2/11/2026). The `visual-baselines-linux` workflow must run once billing is fixed, then CI visual tests compare against Linux baselines. Until then CI has no Linux baseline for the 20 changed and new images.
+
+### Bugs found in round 6
+
+Numbering continues the previous agent's markers in the tests (BUG-13 to BUG-17), then BUG-18.
+
+| # | Severity | Owner | Summary | Evidence |
+|---|---|---|---|---|
+| BUG-13 | minor | frontend-developer | Escape does not close the open More options group (US-67 AC-3 says "Escape or the control closes it again"; the disclosure button does close it, so the AC is arguably met by "or"; product-manager to say which is meant) | `more-options.spec.ts` "US-67 AC-3: Escape closes the open group" (expected failure, all projects). `MoreOptions.tsx` has no key handler. On WebKit the test stops earlier (Safari does not Tab into radios), so the Escape result on Safari is unverified |
+| BUG-14 | major on phones at 320 px and at 200% text (accessibility, FR-83); minor on desktop | frontend-developer (ux-ui-designer for the strip height) | Finale card footer: (a) on a phone in portrait the 136 px finale strip is shorter than the footer, so "Keep exploring" and "Replay from the start" are cut off and the closing message is hidden, already at 320x568 with normal text; (b) with the root text at 200% the full card has the same problem at 320x568 and 360x640 (the card's height is fixed, the content grows); (c) at 1280x720 "Keep exploring" is squeezed into a two-line pill (90 px wide) beside Replay. 360x640 and 390x844 at normal text are fine | `cr4-visit.spec.ts` finale footer cases (6 expected failures on phones, 3 on desktop); `visual.spec.ts` "visual: the finale card"; fresh render reviewed at 1280x720 |
+| BUG-15 | minor (needs two 24-character names) | scene-developer | Name labels with two 24-character names: at 360x640 pictures 2 and 3 the two labels overlap by 90 to 120 px; at 390x844 picture 1 the Visitor label is 6 px past the 8 px margin, picture 2 overlaps, picture 3 is 19 px past the edge; 320x568 is worse (guide label 56 px past the edge and over the picture). Spec 12.6.8 point 5 requires no overlap and both inside at 360x640 and 390x844. Only the 360x640 picture 1 residual is accepted. 844x390 holds | `cr4-visit.spec.ts` N-10 tests (3 expected failures per project) |
+| BUG-16 | minor (200% text on a 320 px phone) | frontend-developer | Step 1 with a photo at 320 px with the root text at 200%: the page scrolls sideways by 64 px (the photo row does not reflow). US-52 AC-4, FR-83 | `accessibility.spec.ts` BUG-16 (expected failure, all projects); on mobile-chromium it also makes the 200% reflow test unstable, so 2 tests are skipped there |
+| BUG-17 | minor (200% text on a 320x640 phone) | frontend-developer | At 320x640 with text at 200% the sticky preview (352 px) and the sticky action bar cover the option tabs: tapping "Hair" is intercepted by the canvas and then by the action bar for 8 seconds | `accessibility.spec.ts` BUG-17 (expected failure on desktop-chromium and mobile-webkit) |
+| BUG-18 | major by the FR-89 definition (Must); a decision for the tech lead under A-34. In screenshots the characters read clearly | technical-artist | FR-89 edge contrast in the lit museum is under 3:1 outside X-1 to X-8: hair of all 11 colours against the linen wall (127 of 132 style and colour cases), 93 of 132 on the finale wall, the fixed default trousers on oak (1.9) and the runner (1.6), torso colours on the runner and finale floor (11 of 12 colours), and outfit patterns likewise. Only platinum, white and pink hair average above 3:1 on the finale wall | Step 3 table; `test-results/cr4-audit/data/chromium-edge-contrast.json`; method caveat above |
+
+Not bugs, for the record: the one `THREE.Clock` warning (round 1, BUG-5) is unchanged and ignored by the console collector. The bundle split (NFR-27) is covered by the performance-optimiser's report and the CI guard; QA did not re-measure it.
+
+### Not tested
+
+Firefox (cannot launch in this sandbox; the `desktop-firefox` project is configured and stays for CI), WebKit edge contrast, real phones, the live Supabase backend, Linux baselines.
+
+### Verdict: **Go, with conditions** (the release lead decides)
+
+- No test fails in any project. Every CR-4 acceptance criterion in US-49 to US-67 has a passing test except the items in the bug table.
+- No critical bug and no data-loss bug. Face shape, styles and patterns save, survive reload and the share link, and old data reads as defaults.
+- Conditions before release: (1) BUG-14: fix, or accept knowingly, because the finale (the surprise moment) is clipped on 320 px phones and at 200% text; the closing message is hidden in the strip. This is the one I would fix first. (2) BUG-18: the tech lead decides under A-34 whether to accept the lit-museum edge contrast; the table is above. (3) The Linux baselines (billing) and the manual checks below.
+- BUG-13, BUG-15, BUG-16 and BUG-17 can ship as known minor issues.
+
+### Manual pre-release checks for the user (cannot be done in this sandbox)
+
+1. Real phones (an iPhone and a mid-range Android): the full flow, upload from the photo library, share link opened from a messaging app, the finale card at the phone's text size.
+2. Frame rate on Safari (macOS and iOS) and Firefox; headless software rendering numbers are not performance data.
+3. The 15-minute soak (leave a museum open and walk through it; watch memory and the context-lost dialog).
+4. The iOS keyboard fallback: the builder with the on-screen keyboard open (the `interactive-widget` setting is not honoured by iOS Safari; only the Android emulation is tested).
+5. The Georgia fallback for the display font (Fraunces) on Safari and iOS: the headline, welcome card and caption card widths and line breaks, with the font blocked or slow.
+6. Run the `visual-baselines-linux` workflow once billing is fixed, then check the 20 new and changed images in CI.
+7. Firefox: run the full suite on a machine that can launch it.
+
+### Progress
+
+| Step | State |
+|---|---|
+| 1 Section added | Done |
+| 2 Build and preview | Done: `VITE_API_MODE=mock npm run build -- --mode test` built clean; `vite preview` started on 4173 (base path `/surprise-museum/`) |
+| 3 Edge contrast | Done (chromium, 156 cases, see below); new failures outside X-1 to X-8, filed as BUG-18 |
+| 4 Flake re-check | Done (below) |
+| 5 Full suite per project | Done: all three projects (below); Firefox cannot launch in this sandbox |
+| 6 Baseline review | Done (below) |
+| 7 Verdict | Done (below) |
+
 ## Round 5 (final check after fix round 2: BUG-10, BUG-11; spec v1.5 label rule), 2/11/2026
 
 Tested at HEAD fbf516c (a73b42f for the BUG-10 fix, cbda396 for BUG-11; fbf516c is the spec v1.5 commit). Test-mode mock build (`VITE_API_MODE=mock npm run build -- --mode test`) rebuilt at HEAD and served by the existing `vite preview` on port 4173 (`PW_REUSE_SERVER=1`), one project at a time, 3 workers. No application code touched. Owner: qa-engineer.

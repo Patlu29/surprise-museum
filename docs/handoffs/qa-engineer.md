@@ -1,5 +1,42 @@
 # Handoff: qa-engineer
 
+## Round 6 (CR-4 "Improved UI" full re-test, HEAD 7e258fd)
+
+### Summary
+Took over the previous agent's uncommitted work, checked it, and ran the whole suite one project at a time: desktop-chromium 343 passed, mobile-chromium 321, mobile-webkit 313; 0 failed, 76 skipped (Firefox cannot launch here). 33 of the passes are `test.fail` markers for six open bugs (BUG-13 to BUG-18). Verdict: Go with conditions (BUG-14 first). Full detail in `docs/qa-report.md` round 6.
+
+### Files changed (tests and docs only)
+- `tests/e2e/gender.spec.ts`: the Guide-shapes helper scrolls the stage into view at a whole pixel (the previous agent's `scrollTo(0, 0)` left it below the fold on a phone, so every diff was 0 on mobile-webkit); also the earlier caption-card filter and the plinth-test scroll
+- `tests/README.md`: new specs, audit scripts section, load-sensitivity note
+- `docs/qa-report.md`: round 6 section (edge contrast table, totals, coverage map, baselines, bugs, verdict, manual checks)
+- Kept as found: `ceiling.spec.ts`, `cr4-builder.spec.ts`, `cr4-visit.spec.ts`, `more-options.spec.ts`, additions to `accessibility`, `visual`, `visit-welcome-roam`, `tests/audit/*`, and the 20 darwin baselines (each viewed)
+- This note
+
+### Decisions
+- Kept the previous agent's `test.fail` markers for BUG-13 to BUG-17 after checking each failure message: they are real defects, not test faults. `finale.png` is deliberately not re-recorded until BUG-14 is fixed.
+- Reported the lit-museum edge contrast as BUG-18 but flagged the method (TA's rim/contour proxy) and that A-34 leaves acceptance to the tech lead.
+- Treated first-step `beforeEach` timeouts and checkbox-click failures under host load as flakes only after each passed alone on re-run.
+
+### Assumptions
+- Escape closing More options (US-67 AC-3 "Escape or the control closes it again") is meant; the "or" is ambiguous.
+- 320x568 and 200% text are in scope (FR-83, spec 12.6.5, 12.7).
+
+### Open questions
+- Is BUG-13 a defect or satisfied by the button? (product-manager)
+- Accept or fix the lit-museum edge contrast (BUG-18)? (tech lead, technical-artist)
+- Is a 136 px finale strip meant to hold the footer on 320 px phones? (ux-ui-designer)
+
+### Requests for other agents
+- frontend-developer: BUG-14 (finale footer: strip height, 200% text, desktop squeeze), BUG-13 (Escape), BUG-16, BUG-17. After BUG-14 is fixed the `finale.png` baseline must be re-recorded by QA.
+- scene-developer: BUG-15 (two 24-character names overlap and run past the edge on pictures 1 to 3).
+- technical-artist: BUG-18 (lit-museum edge contrast; data in `test-results/cr4-audit/data/chromium-edge-contrast.json`, rerun `node tests/audit/edge-contrast.mjs chromium --patterns`).
+- devops-engineer: run `visual-baselines-linux` once GitHub billing is fixed; 2 workers for desktop-chromium on loaded runners.
+- Coordinator: commit the specs, baselines, `tests/audit/`, `tests/README.md`, `docs/qa-report.md` and this note (I did not commit). Do not kill the vite preview on 4173 if still wanted; I started it.
+
+---
+
+# Handoff: qa-engineer
+
 ## Round 5 (final check after fix round 2)
 
 ### Summary

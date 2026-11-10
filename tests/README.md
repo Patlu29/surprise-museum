@@ -37,10 +37,14 @@ Projects: `desktop-chromium`, `desktop-firefox`, `mobile-webkit` (iPhone 13), `m
 | `share-edit-delete.spec.ts` | US-23, US-24, US-25, US-30 AC-4 |
 | `home-and-demo.spec.ts` | Home, footer, demo-storage notice |
 | `csp-blob.spec.ts` | `blob:` photos under the production CSP (every browser project) |
-| `accessibility.spec.ts` | axe (WCAG 2.2 AA), keyboard-only visit, focus visibility, reflow |
+| `accessibility.spec.ts` | axe (WCAG 2.2 AA), keyboard-only visit, focus visibility, reflow, and (round 6) the CR-4 builder, landing and visit surfaces and 200% text at 320 px |
 | `mobile.spec.ts` | Touch controls, phone layout, pinch zoom |
 | `android-keyboard.spec.ts` | `interactive-widget` and the builder with an emulated keyboard |
-| `visual.spec.ts` | Stable screenshots (desktop Chromium only): the original six, plus gender previews, gender entrances and the brow close-up |
+| `cr4-builder.spec.ts` | CR-4 builder shell: the three-Next path to Publish, one visible Preview at a time (360 to 1280 px, steps 1 to 4), Add more photos, Still to do chips and Ready to publish, the stepper, blur validation (US-54 to US-56, FR-82, FR-85 to FR-87) |
+| `more-options.spec.ts` | CR-4 character options: the closed group leaves the step as it was (FR-102, measured against the pre-CR-4 build), keyboard path and count chip, every face shape, style and pattern saved, reloaded, shared and validated (FR-96 to FR-101), older data reads as defaults, FR-103 description words and the 720-combination wording sweep (US-63 to US-67) |
+| `cr4-visit.spec.ts` | CR-4 visit: Done and Carry on on a phone in portrait, the finale footer at 320 px and with large text, N-10 name labels inside the viewport and apart, the landing page (US-51, FR-80) |
+| `ceiling.spec.ts` | FR-95 (US-62): the ceiling never blocks a high camera, the 2 m height cap (about 5.25 m boom at 55 degrees), every room type, smooth fade, reduced-motion hysteresis, Preview |
+| `visual.spec.ts` | Stable screenshots (desktop Chromium only): the original six, gender previews and entrances, the brow close-up, and (round 6) the five face shapes, new styles with patterns, More options open and the ceiling cutaway |
 | `support/` | Image generator and PNG diff, builder and visit helpers, camera and card helpers (`presentation.ts`), fixtures |
 
 ## Conventions
@@ -76,3 +80,12 @@ Round 3: `presenting-photo-1.png` was re-recorded on purpose (the camera now fra
 original baseline is unchanged and Neutral still matches them. New baselines were added with
 `--update-snapshots=missing`. The gender preview baselines are taken from a restored draft, not after a click,
 because changing a gender in place currently moves the character off its plinth (BUG-6).
+
+## Audit scripts (not part of the Playwright run)
+
+`tests/audit/` holds repeatable measurements that need the test-mode mock build served on port 4173 (`VITE_API_MODE=mock npm run build -- --mode test`, then `npx vite preview --port 4173 --strictPort`):
+
+- `node tests/audit/edge-contrast.mjs chromium --patterns` : FR-89 edge contrast in the lit museum (156 cases, about 40 minutes on a busy machine). Writes `test-results/cr4-audit/data/chromium-edge-contrast.json`. Exit code 1 lists cases under 3:1 outside X-1 to X-8, including zones the option does not control; read the per-zone table in `docs/qa-report.md` round 6.
+- `ui-audit.mjs`, `lib.mjs`: UI measurement helpers shared by the audit.
+
+Run Playwright against that preview with `PW_REUSE_SERVER=1 npx playwright test --project=<name>`, one project at a time. The suite is sensitive to host load: first-step timeouts in `beforeEach` and `checkbox did not change` clicks appear when the machine is busy and pass when the file is re-run alone.
