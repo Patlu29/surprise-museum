@@ -224,20 +224,29 @@ test.describe('US-63, US-64 and US-67: keyboard path, count chip and the open st
     await expect(page.locator('.characters__reset')).toBeFocused();
   });
 
-  test('US-67 AC-3: Escape closes the open group (the AC says "Escape or the control closes it again")', async ({ page }, testInfo) => {
-    test.fail(true, 'BUG-13: Escape does not close the More options group (MoreOptions.tsx has no key handler; US-67 AC-3). Frontend-developer.');
+  test('US-67 AC-3: Escape closes the open group (the AC says "Escape or the control closes it again")', async ({ page, browserName }, testInfo) => {
     await openCharacters(page);
     await tab(page, 'Face');
     await more(page).focus();
     await page.keyboard.press('Enter');
     await expect(group(page, 'Face shape (optional)')).toBeVisible();
-    await page.keyboard.press('Tab'); // Reset sits between the disclosure button and its panel
-    await page.keyboard.press('Tab'); // into the face shape group
-    await expect(group(page, 'Face shape (optional)').getByRole('radio', { name: 'Oval', exact: true })).toBeFocused();
+    const oval = group(page, 'Face shape (optional)').getByRole('radio', { name: 'Oval', exact: true });
+    if (browserName === 'webkit') {
+      // Safari does not Tab into radios (Full Keyboard Access is off), so put focus in the group directly, as a click would. Escape is the part under test.
+      await oval.focus();
+    } else {
+      await page.keyboard.press('Tab'); // Reset sits between the disclosure button and its panel
+      await page.keyboard.press('Tab'); // into the face shape group
+    }
+    await expect(oval).toBeFocused();
     await page.keyboard.press('Escape');
     const closed = (await more(page).getAttribute('aria-expanded')) === 'false';
     testInfo.annotations.push({ type: 'escape-closes', description: String(closed) });
     expect(closed, 'Escape inside the group closes it').toBe(true);
+    // stopPropagation: Escape must not also leave the step (no navigation, the Characters heading stays) and the page keeps working.
+    await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible();
+    await expect(page).toHaveURL(/#\/create/);
+    testInfo.annotations.push({ type: 'focus-after-escape', description: await page.evaluate(() => (document.activeElement?.getAttribute('aria-controls') ? 'on the disclosure button' : `on ${document.activeElement?.tagName}.${document.activeElement?.className}`)) });
   });
 
   test('US-63 AC-4 and US-64 AC-4: Face shape, Style and Pattern are radiogroups; arrow keys move and select, the description and draft follow', async ({ page, browserName }) => {

@@ -56,6 +56,7 @@ Projects: `desktop-chromium`, `desktop-firefox`, `mobile-webkit` (iPhone 13), `m
 - `openVisit` always does a fresh page load, as the recipient would.
 - `test.fail(true, 'BUG-n ...')` marks a known product bug. The suite stays green, and goes red
   ("expected to fail but passed") when the bug is fixed. Remove the `test.fail` line then.
+  None is left after round 7. The finale visual test retries the visit until the card docks right (observation N-11).
 - `tests/e2e` is type-checked by `tsc -b` (tsconfig.node.json, no DOM lib). Browser-side code reaches
   the page through `globalThis as unknown as PageGlobals`.
 
@@ -85,7 +86,7 @@ because changing a gender in place currently moves the character off its plinth 
 
 `tests/audit/` holds repeatable measurements that need the test-mode mock build served on port 4173 (`VITE_API_MODE=mock npm run build -- --mode test`, then `npx vite preview --port 4173 --strictPort`):
 
-- `node tests/audit/edge-contrast.mjs chromium --patterns` : FR-89 edge contrast in the lit museum (156 cases, about 40 minutes on a busy machine). Writes `test-results/cr4-audit/data/chromium-edge-contrast.json`. Exit code 1 lists cases under 3:1 outside X-1 to X-8, including zones the option does not control; read the per-zone table in `docs/qa-report.md` round 6.
+- `node tests/audit/edge-contrast.mjs chromium --patterns` : FR-89 edge contrast in the lit museum (156 cases, about 40 minutes on a busy machine; add `--dpr=1` for the 1.0 stretch case, which is reported and never a pass condition, and `--styles=a,b` to cut the hair styles). Since round 7 the renderer pixel ratio is pinned at 1.5 (requirements v0.6.2, "Test conditions for FR-89"), the screen scale factor stays 3 (the technical-artist's method; `--screen=1.5` reads whole render pixels and gives much higher figures), a warm-up case is thrown away, and the 8 s hint is waited out. Writes `<AUDIT_OUT or test-results/cr4-audit>/data/chromium-edge-contrast-dpr1.5.json`. Exit code 1 lists cells under 3:1 outside the provisional class X-1 to X-7; read the per-zone table in `docs/qa-report.md` round 7. Playwright empties `test-results/` at the start of a run, so set `AUDIT_OUT` to another folder.
 - `ui-audit.mjs`, `lib.mjs`: UI measurement helpers shared by the audit.
 
 Run Playwright against that preview with `PW_REUSE_SERVER=1 npx playwright test --project=<name>`, one project at a time. The suite is sensitive to host load: first-step timeouts in `beforeEach` and `checkbox did not change` clicks appear when the machine is busy and pass when the file is re-run alone.

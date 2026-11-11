@@ -416,9 +416,7 @@ test.describe('axe: CR-4 surfaces (spec section 12, NFR-30, US-61 AC-5)', () => 
 });
 
 test.describe('reflow at 200% text (US-52 AC-4, FR-83)', () => {
-  test('BUG-17: at 320x640 with the root text at 200% the option tabs on step 3 can be reached', async ({ page, isMobile, browserName }) => {
-    test.skip(isMobile && browserName === 'chromium', 'BUG-16 consequence: on Pixel 7 emulation at 320 px with 200% text the sideways overflow makes the page unstable and Next is never clickable; re-enable when BUG-16 is fixed');
-    test.fail(true, 'BUG-17: the sticky preview (352 px) and the sticky action bar leave no room to tap the option tabs at 200% text on 320x640 (frontend-developer, US-52 AC-4)');
+  test('US-52 AC-4 (was BUG-17): at 320x640 with the root text at 200% the option tabs on step 3 can be reached', async ({ page }) => {
     test.setTimeout(150_000);
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('./#/create');
@@ -434,8 +432,7 @@ test.describe('reflow at 200% text (US-52 AC-4, FR-83)', () => {
     await page.getByRole('tab', { name: 'Hair', exact: true }).click({ timeout: 8000 });
   });
 
-  test('BUG-16: step 1 with a photo has no horizontal scrolling at 320 px with the root text at 200%', async ({ page }) => {
-    test.fail(true, 'BUG-16: the photo row does not reflow, the page scrolls sideways by 64 px at 320 px with 200% text (frontend-developer, US-52 AC-4)');
+  test('US-52 AC-4 (was BUG-16): step 1 with a photo has no horizontal scrolling at 320 px with the root text at 200%', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('./#/create');
     await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
@@ -444,8 +441,7 @@ test.describe('reflow at 200% text (US-52 AC-4, FR-83)', () => {
     expect(overflow, 'horizontal overflow in px').toBeLessThanOrEqual(0);
   });
 
-  test('the builder steps and the visit overlays have no horizontal scrolling at 320 px with the root text at 200%', async ({ page, isMobile, browserName }) => {
-    test.skip(isMobile && browserName === 'chromium', 'BUG-16 consequence: on Pixel 7 emulation at 320 px with 200% text the sideways overflow makes the page unstable and Next is never clickable; re-enable when BUG-16 is fixed');
+  test('the builder steps and the visit overlays have no horizontal scrolling at 320 px with the root text at 200%', async ({ page }) => {
     test.setTimeout(240_000);
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('./#/create');
@@ -453,7 +449,7 @@ test.describe('reflow at 200% text (US-52 AC-4, FR-83)', () => {
     const overflow = () => page.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth') as Promise<number>;
     expect(await overflow(), 'step 1 empty').toBeLessThanOrEqual(0);
     await addPhotos(page, makePhotos(1));
-    // (Step 1 with a photo in the list is BUG-16 and has its own test below.)
+    // (Step 1 with a photo in the list was BUG-16, fixed, and has its own test below.)
     // Every action is still reachable: Next is on screen after scrolling the page, never clipped.
     const next = page.getByRole('button', { name: 'Next' });
     await next.scrollIntoViewIfNeeded();
@@ -467,7 +463,7 @@ test.describe('reflow at 200% text (US-52 AC-4, FR-83)', () => {
     await next.click();
     await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible();
     expect(await overflow(), 'step 3').toBeLessThanOrEqual(0);
-    // (Reaching the option tabs at this size is BUG-17 and has its own test below.)
+    // (Reaching the option tabs at this size was BUG-17, fixed, and has its own test below.)
     await next.click();
     expect(await overflow(), 'step 4').toBeLessThanOrEqual(0);
     // The stepper never clips its labels at 200%: a 2 by 2 grid, text inside each segment.

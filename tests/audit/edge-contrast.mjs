@@ -1,5 +1,11 @@
 /*
- * FR-89 edge contrast in the LIT museum (QA round 6, 03/11/2026). A repeatable audit, not part of the Playwright suite.
+ * FR-89 edge contrast in the LIT museum (QA round 6, 03/11/2026; round 7, 11/11/2026: pixel ratio pinned, polluted first case discarded).
+ *
+ * Round 7 method (requirements v0.6.2, "Test conditions for FR-89"): the pixel ratio is pinned at 1.5 by default (`--dpr=1.0` is the stretch case:
+ * reported, never a pass condition). The context keeps the phone's screen scale factor (3), the canvas renders at the pin (the browser scales it up, as on a phone), and every frame
+ * wrapper re-applies the pin if the app's governor lowered it. A warm-up case is measured first and discarded (the first case of a run is polluted
+ * by extra samples), and the 8 s coaching hint is waited out. The run is rejected if the renderer pixel ratio is not the pin when sampling.
+ * A repeatable audit, not part of the Playwright suite.
  *
  * What it does
  *   Opens a published one-photo museum at the 360x640 phone viewport, device scale factor 3, with the default follow camera. The Visitor is
@@ -44,21 +50,38 @@ const SKINS = ['skin-01', 'skin-02', 'skin-03', 'skin-04', 'skin-05', 'skin-06',
 const styles = (opt('styles')?.split(',') ?? HAIR_STYLES).filter((s) => HAIR_STYLES.includes(s));
 const PATTERN_COLOURS = (opt('pattern-colours')?.split(',') ?? ['navy', 'cream', 'charcoal', 'mustard']).filter((c) => OUTFIT_COLOURS.includes(c));
 const QUICK = flag('quick');
+const DPR = Number(opt('dpr') ?? 1.5);
+if (![1, 1.5].includes(DPR)) throw new Error('--dpr must be 1 or 1.5');
+const STRETCH = DPR === 1;
+/**
+ * The phone's screen scale factor (default 3, like a Pixel 7 or an iPhone 13). The canvas renders at the pinned pixel ratio (1.5) and the browser
+ * scales it up to the screen, which is what a phone does; the 0.3 / 1.0 / 0.5 CSS px bands are then sampled in screen pixels. Sampling a context
+ * whose scale factor equals the pin (`--screen=1.5`) reads whole render pixels instead and gave much higher figures in round 7 (linen torso
+ * 4.1 against 2.6), so it is not comparable with the technical-artist's method.
+ */
+const SCREEN = Number(opt('screen') ?? 3);
 /** Backdrops reported: oak, the runner, the two kinds of wall and the finale floor. Others (the ceiling, rays that leave the museum) are kept in the JSON only. */
 const REPORTED = ['oak', 'runner', 'linen-wall', 'finale-wall', 'finale-floor'];
 const MIN_SAMPLES = 25;
 
-/** Accepted exceptions (requirements v0.6, FR-89 table). Key: hair|style|colour|backdrop, or torso|outfit colour|backdrop. */
-const ACCEPTED = new Map([
-  ['hair|curly-short|blonde|runner', 'X-1'],
-  ['hair|curly-short|blonde|finale-wall', 'X-2'],
-  ['hair|curly-short|pink|runner', 'X-3'],
-  ['hair|curly-short|pink|finale-wall', 'X-4'],
-  ['hair|curly-short|black|runner', 'X-5'],
-  ['hair|curly-short|black|finale-wall', 'X-6'],
-  ['hair|bob|black|runner', 'X-7'],
-  ['torso|cream|oak', 'X-8'],
-]);
+/**
+ * Provisional accepted class X-1 to X-7 (requirements v0.6.2, pixel ratio 1.5). X-8 is reserved. Returns the reference, or undefined when the
+ * cell is a failure. Hair outside afro, braids and curly-short on linen, and every cell on oak, the runner and the finale floor, are never excepted.
+ */
+function acceptedClass(c, backdrop, zone) {
+  if (backdrop === 'linen-wall') {
+    if (zone === 'torso') return 'X-1'; // outfit sweep about 2.64, hair sweep about 2.77
+    if (zone === 'head') return 'X-2';
+    if (zone === 'hair' && c.style === 'afro') return 'X-3';
+    if (zone === 'hair' && c.style === 'braids') return 'X-4';
+    if (zone === 'hair' && c.style === 'curly-short') return 'X-5';
+  }
+  if (backdrop === 'finale-wall' && zone === 'hair') {
+    if (c.style === 'afro' || c.style === 'braids') return 'X-6';
+    if (c.style === 'curly-short') return 'X-7';
+  }
+  return undefined;
+}
 
 /* ---------- image maths ---------- */
 const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
@@ -167,14 +190,16 @@ const classifyInPage = (page, points, size, rooms) => page.evaluate(([points, si
 }, [points, size, rooms]);
 
 const browser = await launch(browserName);
-const ctx = await newContext(browser, browserName, '360x640', { reducedMotion: 'reduce', deviceScaleFactor: 3 });
+const ctx = await newContext(browser, browserName, '360x640', { reducedMotion: 'reduce', deviceScaleFactor: SCREEN });
 await ctx.addInitScript(DEVTOOLS_INIT);
 const page = await ctx.newPage();
-const dsf = 3;
+const dsf = SCREEN;
+await ctx.addInitScript((d) => { window.__pinDpr = d; }, DPR);
 const token = await publishMuseum(page);
 await page.goto('about:blank');
 await page.goto(`./?e2e=1#/m/${token}`);
 await page.getByRole('button', { name: 'Start' }).click();
+await page.waitForTimeout(9000); // the coaching hint toast (8 s) must be gone before sampling (it can cover the legs)
 await page.waitForFunction(() => globalThis.__surpriseMuseum?.snapshot().ready && globalThis.__surpriseMuseum.snapshot().guide.opacity >= 1, null, { timeout: 60000 });
 const lay = await page.evaluate(() => globalThis.__surpriseMuseum.layout());
 const gallery = lay.rooms.find((r) => r.kind === 'gallery');
@@ -221,6 +246,8 @@ async function applyAvatar(changes) {
  */
 async function measure(withHair) {
   for (let attempt = 0; attempt < 6; attempt++) {
+    const pr = await page.evaluate(() => window.__last?.renderer?.getPixelRatio());
+    if (pr !== DPR) { console.log(`  (pixel ratio ${pr}, not ${DPR}: waiting)`); await page.waitForTimeout(600); continue; }
     const A = await frame(page, 150);
     const A2 = await frame(page, 80);
     const drift = diffMask(A, A2).reduce((n, v) => n + v, 0);
@@ -257,6 +284,13 @@ for (const colour of OUTFIT_COLOURS) cases.push({ sweep: 'outfit', option: colou
 if (flag('patterns')) for (const pattern of PATTERNS) for (const colour of PATTERN_COLOURS) cases.push({ sweep: `pattern-${pattern}`, option: colour, avatar: { ...defaults, outfitColor: colour, outfitPattern: pattern } });
 if (flag('skin')) for (const skin of SKINS) cases.push({ sweep: 'skin', option: skin, avatar: { ...defaults, skinTone: skin } });
 
+// The first case of a run is polluted by extra samples (647 against about 213): measure one warm-up case and throw it away.
+{
+  const warm = { ...defaults, hairStyle: 'short-crop', hairColor: 'brown' };
+  await applyAvatar(warm);
+  for (const placeName of Object.keys(PLACES)) { await place(placeName); await measure(true); }
+  console.log('warm-up case measured and discarded');
+}
 const pooled = cases.map(() => []);
 for (const [i, c] of cases.entries()) {
   await applyAvatar(c.avatar);
@@ -282,15 +316,14 @@ for (const [i, c] of cases.entries()) {
     for (const [zone, z] of Object.entries(zones)) {
       if (z.n < MIN_SAMPLES || z.median >= 3) continue;
       const label = `${backdrop} ${c.sweep} ${c.style ? c.style + ' ' : ''}${c.option}: ${zone} median ${z.median} (${z.n} samples)`;
-      // X-1 to X-7 are hair, X-8 is torso and arms in cream on oak. Legs and head are never excepted.
-      const accepted = zone === 'hair' ? ACCEPTED.get(`hair|${c.style}|${c.option}|${backdrop}`) : zone === 'torso' && c.sweep === 'outfit' ? ACCEPTED.get(`torso|${c.option}|${backdrop}`) : undefined;
+      const accepted = acceptedClass(c, backdrop, zone);
       if (accepted) (row.accepted ??= []).push(`${accepted}: ${backdrop} ${zone}`); else fails.push(label);
     }
   }
   rows.push(row);
 }
 const accepted = rows.filter((r) => r.accepted);
-save(`${browserName}-edge-contrast`, { browserName, viewport: '360x640 at device scale factor 3', places: PLACES, rows, accepted: accepted.flatMap((r) => r.accepted.map((a) => `${a} (${r.style ?? ''} ${r.option})`)), failures: fails });
+save(`${browserName}-edge-contrast-dpr${DPR}${SCREEN === 3 ? '' : `-screen${SCREEN}`}`, { browserName, viewport: `360x640, screen scale ${SCREEN}, render pixel ratio ${DPR}`, places: PLACES, rows, accepted: accepted.flatMap((r) => r.accepted.map((a) => `${a} (${r.style ?? ''} ${r.option})`)), failures: fails });
 
 // Summary table: the worst (lowest) reported median per sweep value and backdrop.
 console.log('\nLowest median per sweep, over zones with at least', MIN_SAMPLES, 'samples (oak / runner / finale-wall):');
@@ -307,4 +340,4 @@ console.log('\nAccepted exceptions seen:', accepted.flatMap((r) => r.accepted).j
 console.log(`\n${cases.length} cases, ${fails.length} zone results under 3:1 outside X-1 to X-8`);
 for (const f of fails) console.log('  FAIL', f);
 await browser.close();
-process.exit(fails.length ? 1 : 0);
+process.exit(fails.length && !STRETCH ? 1 : 0);

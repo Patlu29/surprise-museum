@@ -296,7 +296,13 @@ export const DEVTOOLS_INIT = () => {
     const o = e.detail;
     if (o.isWebGLRenderer) {
       const r = o.render.bind(o);
-      o.render = (s, c) => { window.__last = { scene: s, camera: c }; return r(s, c); };
+      // window.__pinDpr (set by the audit): hold the renderer at that pixel ratio. The app's governor lowers the cap under load
+      // (software WebGL is always slow), and an unpinned run is not valid FR-89 evidence (requirements v0.6.2, "Test conditions").
+      o.render = (s, c) => {
+        if (window.__pinDpr && o.getPixelRatio() !== window.__pinDpr) o.setPixelRatio(window.__pinDpr);
+        window.__last = { scene: s, camera: c, renderer: o };
+        return r(s, c);
+      };
     }
   });
 };
