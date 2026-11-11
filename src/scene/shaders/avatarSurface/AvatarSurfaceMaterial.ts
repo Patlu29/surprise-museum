@@ -44,11 +44,21 @@ import edgeGlsl from './avatarEdge.glsl?raw';
 import patternFragGlsl from './avatarPattern.frag.glsl?raw';
 import patternVertGlsl from './avatarPattern.vert.glsl?raw';
 
+/**
+ * BUG-18 tuning (fix round 1), applied on top of the LOOK tokens, which are unchanged. Measured in the lit
+ * museum at pixel ratio 1.5 (the phone cap): the contour is scaled to a deeper ink and the rim to 0.7 so the
+ * rim's tail does not lift the contour pixel on mid backdrops (linen, oak), and the band maxima are raised so
+ * the rim carries dark backdrops (runner, finale). Proposed token values: rim-max 0.85, contour-max 1.0.
+ */
+const EDGE_TUNING = { rimScale: 0.7, contourScale: 0.25, rimMax: 0.85, contourMax: 1 } as const;
+
 /** Edge uniforms are shared by every avatar material. */
 const EDGE_UNIFORMS: Record<'uEdgeContour' | 'uEdgeRim' | 'uEdgeParams', IUniform> = {
-  uEdgeContour: { value: new Color(LOOK.contour) },
-  uEdgeRim: { value: new Color(LOOK.rim) },
-  uEdgeParams: { value: new Vector4(LOOK.rimPx, LOOK.contourPx, LOOK.rimMax, LOOK.contourMax) },
+  uEdgeContour: { value: new Color(LOOK.contour).multiplyScalar(EDGE_TUNING.contourScale) },
+  uEdgeRim: { value: new Color(LOOK.rim).multiplyScalar(EDGE_TUNING.rimScale) },
+  uEdgeParams: {
+    value: new Vector4(LOOK.rimPx, LOOK.contourPx, EDGE_TUNING.rimMax, EDGE_TUNING.contourMax),
+  },
 };
 
 let lastPixelRatio = 1;
@@ -61,8 +71,8 @@ function syncPixelRatio(renderer: WebGLRenderer): void {
   (EDGE_UNIFORMS.uEdgeParams.value as Vector4).set(
     LOOK.rimPx * ratio,
     LOOK.contourPx * ratio,
-    LOOK.rimMax,
-    LOOK.contourMax,
+    EDGE_TUNING.rimMax,
+    EDGE_TUNING.contourMax,
   );
 }
 
@@ -70,13 +80,12 @@ function syncPixelRatio(renderer: WebGLRenderer): void {
  * Edge tuning per material (`EDGE_K`, `EDGE_W1`, `EDGE_W2` in avatarEdge.glsl). `k` scales the
  * `ndv / fwidth(ndv)` distance (a flat facet reads as the pixel distance, a smooth part as twice
  * it, and a coarse facet adds half its width). `w1` and `w2` scale the rim and the contour width.
- * Body 0.7, 1, 1: chosen on the limbs and head. Hair 0.7, 1.2, 2: hair shells have coarse facets, so
+ * Body 0.7, 1.2, 2 (BUG-18: the 0.7 distance factor overstates the pixel distance by about 1.4 times on smooth parts, so the nominal 1.5 px contour was about 1 px wide; doubling it restores the specified width at the phone's pixel ratio of 1.5). Hair 0.7, 1.2, 2: hair shells have coarse facets, so
  * a plain contour was too thin to show on mid and light backdrops; measured over 12 styles,
  * 4 colours and 5 backdrops, hair failures fell from 51 to 7 (docs/handoffs/technical-artist.md).
  */
-const BODY_EDGE = { k: 0.7, w1: 1, w2: 1 };
+const BODY_EDGE = { k: 0.7, w1: 1.2, w2: 2 };
 const HAIR_EDGE = { k: 0.7, w1: 1.2, w2: 2 };
-
 /** Pattern index for the `uOutfitPattern` uniform. */
 export const PATTERN_INDEX: Readonly<Record<AvatarOutfitPattern, number>> = {
   plain: 0,

@@ -51,6 +51,12 @@
   - BUG-16, BUG-17 (200% text at 320 px): fix with BUG-14 in the same frontend round.
   - BUG-15 (two 24-character names overlap on pictures 1 to 3 on phones): one fix attempt by the scene developer; the 360x640 picture 1 residual stays accepted.
   - BUG-18 (lit-museum edge contrast under 3:1 well beyond X-1 to X-8): QA's lit-museum figures disagree with the technical-artist's earlier 7 of 240. Technical-artist to reconcile the two methods first, then fix real failures without new geometry where possible (default trousers on oak at 1.9 is a priority). If the remaining cases need geometry or a budget change, they come back to the tech lead.
+- CR-4 fix round 1 (tech lead, 11/11/2026): BUG-13, 14, 15, 16, 17 fixed (70c6b54, 50e6f86; spec v2.0.2 9b9df9f). BUG-18 part-fixed with shader constants only (no triangles or draw calls). The two contrast methods differed because of pixel ratio: phones in Auto render at 1.5, stepping down to 1.0 when slow. Decisions:
+  - FR-89 is measured at pixel ratio 1.5 (phone Low tier), not supersampled. 1.0 is a stretch case.
+  - The governor floor stays as it is (frame rate wins over edge contrast at 1.0).
+  - QA's audit pins the ratio and drops the polluted first case.
+  - Round 2: the technical artist undoes the curly-short regression on the finale wall, and the designer brings the `--look-*` rim and contour tokens into line with the shader.
+  - Remaining cases under 3:1 at 1.5 (torso and head on linen at 2.0 to 2.8; afro, braids and curly-short hair on linen) are accepted as recorded minor issues if round 2 cannot clear them. Characters read clearly in QA's screenshots. Darkening the linen wall is offered to the user as an option, not done by default.
 - CR-3 (user, 30/10/2026): builder shows a "photos were not kept" notice when a reloaded draft has no photos. Design then frontend-developer.
 
 ## Open questions (awaiting user)

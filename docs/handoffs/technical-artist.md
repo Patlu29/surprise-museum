@@ -2,6 +2,61 @@
 
 The newest rounds (CR-4 hair contrast, 03/11/2026, then CR-4, 02/11/2026) are the first sections. Earlier sections below describe the v1.0 and CR-1 kit; where they quote 5,878 triangles per character or 970.7 kB, the CR-4 figures replace them.
 
+## BUG-18 fix round 1 (11/11/2026): reconciliation, fix, before and after
+
+**Why QA's figures and mine differ: the pixel ratio the canvas renders at.** Everything else in the two methods is the same (same band definition, same 0.3 / 1.0 px inside and 0.5 px outside samples). Measured on the same default Visitor, same three places, 4 hair colours and 4 outfit colours, with the renderer pixel ratio pinned (`gl.setPixelRatio`) and the audit unchanged otherwise:
+
+| Pixel ratio | Cases under 3:1 (of about 104) | What it is |
+|---|---|---|
+| 3 (supersampled, my CR-4 method) | **1** | The spec 12.8.6 "supersampled" method. A real phone never renders this |
+| 1.5 (the phone cap in `Experience.tsx`: `dprMax` is 1.5 for coarse pointers) | **27** | A real phone in Auto: coarse pointer means the Low tier, `antialias: false`, 1.5 |
+| 1.0 (what the DPR governor falls to on a slow device) | **68** | A phone that cannot hold 30 fps |
+| QA's unforced run (Pixel 7 emulation on SwiftShader under load) | 53 to 189 | The governor drops the ratio 1.5 to 1.25 to 1 during the run (`data-render-dpr-cap`), so the figure depends on machine load |
+
+Further causes: (1) My earlier tables used flat token backdrops, a 3 times supersampled canvas and no tier; the lit museum on a phone is the Low tier at 1.5 with no multisampling, so a 0.6 px rim and 1.5 px contour fall on at most one raster pixel and, without antialiasing, the rim is present on only some rows of a staircase edge. (2) The audit's "linen-wall" class is by ray against planes, so the partition between rooms counts as linen although, seen from the gallery, it can be the deep claret finale wall (outside luminance around 0.01 to 0.03, not linen's 0.5). (3) The audit is deterministic at a pinned ratio (two runs gave identical medians), so the differences are real, not noise. (4) The coaching hint toast (8 s) can cover the legs in the first 20 s after Start; the audit should wait it out (it hardly changed the medians).
+
+**Which method represents what a visitor sees:** QA's, at pixel ratio 1.5. The 3 times figure describes no real device. Dropping to 1.0 is real for weak phones, so I report 1.5 as the pass target and 1.0 as the stretch.
+
+**Fix search so far (live-tuned in the lit museum at pixel ratio 1.5, default Visitor, 5 avatars x 3 places, medians over matched cells).**
+- Why the edge fails at 1.5 and 1.0: with `k = 0.7` the distance estimate overstates the pixel distance on smooth parts by about 1.4 times, so the 1.5 px contour is really about 1 css px wide. The sample 1.0 css px inside is the second raster pixel, which still carries the tail of the bright rim (luminance 0.04 against 0.001 for pure contour), giving 2.6 to 3.0 against mid backdrops (linen, oak, outside luminance about 0.19).
+- Things that did not help: minimum band widths in canvas px (27 to 36 failures at 1.5; helps 1.0 but hurts light backdrops), darkening the contour alone, `k` 0.5 or 0.6 alone, swapping the order (dark outer contour, light inner rim: passes light backdrops at 3.3 to 4.2 but torso and legs on the runner and finale floor fall to 1.2 to 1.7).
+- Best so far (shader parameters only): body contour twice as wide (`EDGE_W2` 2), rim 1.2 wide, rim colour scaled by 0.7, contour colour scaled by 0.4 (a deeper ink), rim max 0.85 and contour max 1.0. About 8 failures of 65 cells, against 15 to 20.
+
+**Final figures** (unchanged audit logic; pixel ratio pinned with `gl.setPixelRatio`; default Visitor, 3 places; a cell is an (option, zone, backdrop) median with at least 25 samples; Low tier, coarse pointer, no multisampling, as on a phone). The first case of every run (black hair) is polluted by extra samples (647 against about 213 for the others); QA's script should discard or repeat its first case. Measured alone as case 2 or 3, black hair on linen is 3.2.
+
+| Run | Before | After |
+|---|---|---|
+| Pixel ratio 1.5 (phone cap): 11 hair x 12 outfit x 3 patterns, short-crop | 115 of 442 cells under 3:1 | **48 of 439** |
+| Pixel ratio 1.5, 4 hair x 4 outfit subset | 79 of 298 | **36 of 298** |
+| Pixel ratio 1.0, 4 x 4 subset | 68 of 104 | 50 of 104 |
+| Pixel ratio 3 (my CR-4 method), 4 x 4 subset | 1 of 104 | 0 of 104 (5 of 99 with the polluted first case) |
+| QA's unmodified script, unforced, short-crop (the governor fell to about 1 under load) | 189 of 295 | **133 of 298** |
+| Hair, 5 styles x 4 colours at 1.5 (56 hair cells) | 21 under | 17 under (bob and long-wavy pass on linen; curly-short pink and platinum on the finale wall are worse, 3.75 to 1.62 and 2.56 to 1.69) |
+
+Priority items at pixel ratio 1.5 (medians, worst over colours):
+
+| Item | Before | After |
+|---|---|---|
+| Default trousers, oak | 3.17 clean run (1.9 in QA's run, where the ratio had fallen to 1) | 3.15 |
+| Default trousers, runner | 3.16 (1.62 in QA's run) | 3.65 |
+| Default trousers, finale wall | 2.25 | 3.44 |
+| Default trousers, linen wall | 3.23 | 3.46 |
+| Head, linen wall (outfit sweep) | 2.82 | 3.19 |
+| Torso, linen wall | 2.04 | 2.64 (still under) |
+| Torso, runner and finale floor | 3.72 | 3.73 (already passing at 1.5) |
+| Hair, linen wall (short-crop, 11 colours) | 2.11 (10 of 11 under) | 2.94 (2 of 11 under) |
+
+**What changed (`AvatarSurfaceMaterial.ts` only; `avatarEdge.glsl` and the LOOK tokens are untouched):** body edge width factors 1, 1 became 1.2, 2 (the 0.7 distance factor overstates the pixel distance about 1.4 times on smooth parts, so the nominal 1.5 px contour was about 1 px); contour colour scaled by 0.25 (a deeper ink) and rim colour by 0.7, so the rim's tail no longer lifts the contour pixel on mid backdrops (linen, oak, luminance about 0.19); rim max 0.85 and contour max 1.0 (token values are 0.6 and 0.95). Tried and rejected: minimum band widths in canvas px, k 0.5 or 0.6, a dark outer contour with a light inner rim (passes light backdrops at 3.3 to 4.2 but torso and legs on the runner fall to 1.2 to 1.7), full-strength hair rim (24 hair cells under, worse).
+
+**Cost.** No geometry, no new draw call, no new pass, no new uniform: the same shader with different constants. Triangles unchanged (worst character 5,862 of 6,000), 3 draw calls per character, same ALU. typecheck, eslint and 1,068 tests pass. Visual baselines will change (the outline is darker and wider on the body; the rim is slightly dimmer).
+
+**Still under 3:1 at pixel ratio 1.5 (needs geometry, a palette or token change, or a budget decision, for the tech lead):**
+1. Torso and arms against the linen wall, all 12 outfit colours and 3 patterns, 2.6 to 2.8. The contour pixel cannot get darker than about 0.027 luminance because the rim's bilinear tail bleeds into it, and lit linen is about 0.16. Options: darker lit linen at the character's height (palette: `--scene-wall` or lighting), or an AA canvas on phones (cost), or accept.
+2. Hair against linen for afro, braids and curly-short (1.8 to 2.7) and curly-short on the finale wall (1.5 to 1.9; the pink and blonde cases are accepted X-2 to X-6, black and platinum are not). Blob geometry (6-sided curls) is the cause, as in X-1 to X-7; needs more triangles per curl, and the worst character has 88 left.
+3. Head (face and neck) against linen in the hair sweep, about 2.0 with dark hair.
+4. Pixel ratio 1.0 (a phone that cannot hold 30 fps): trousers on oak 1.77 and runner 1.68, torso on the runner 2.7, hair on linen 2.2. Bands under 1 raster pixel cannot be seen without antialiasing; proposal for the scene developer: keep the phone at 1.25 or more.
+5. Method note for QA and the requirements: pin the pixel ratio (or record `data-render-dpr-cap`) in the audit, and discard the first case. Proposed tokens for the ux-ui-designer: `--look-rim-max` 0.85, `--look-contour-max` 1.0 (the shader already applies them above the token values), and a note that the rim colour is applied at 0.7 and the contour at 0.25 strength.
+
 ## CR-4 hair contrast update (03/11/2026)
 
 Tech lead approved raising the hair tessellation for the light-hair edge failures (FR-89). The numbers in the CR-4 section below are superseded where this section says so.
