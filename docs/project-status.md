@@ -1,6 +1,6 @@
 # Project status — Surprise Museum
 
-**Current phase:** CR-4 (improved UI, polish) QA round 6 done (Go with conditions, 0 failing tests, BUG-13 to BUG-18 open), fix rounds 1 and 2 done (spec v2.0.3, requirements v0.6.2), QA re-test in progress; Release with CR-1 to CR-3: CR-1 to CR-3 built (gender, presentation camera, photo notice, readable caption card); QA complete (round 5: Go, 691 passed / 0 failed / 41 skipped); Phase 7 pipeline written (CI on push/PR; Pages, Supabase and Linux-baseline workflows manual only); nothing deployed
+**Current phase:** CR-4 (improved UI, polish) QA round 6 done (Go with conditions, 0 failing tests, BUG-13 to BUG-18 open), fix rounds 1 and 2 done (spec v2.0.3, requirements v0.6.2), QA round 7 done (Go, 979 passed / 0 failed / 74 skipped; BUG-15 1 px residual and BUG-18 linen residuals open, awaiting user decision); Release with CR-1 to CR-3: CR-1 to CR-3 built (gender, presentation camera, photo notice, readable caption card); QA complete (round 5: Go, 691 passed / 0 failed / 41 skipped); Phase 7 pipeline written (CI on push/PR; Pages, Supabase and Linux-baseline workflows manual only); nothing deployed
 **Last updated:** 11/11/2026
 
 ## Phases
@@ -77,6 +77,6 @@ Needing legal review before public launch: photo-consent and Privacy Act wording
 
 ## Bug count
 
-Round 6: 6 open bugs (BUG-14 and BUG-18 major, BUG-13, 15, 16, 17 minor), 0 failing tests. Round 5: 0 open bugs. BUG-1 to 4 and BUG-6 to 11 fixed; one minor known issue (N-10). Suite 691 passed / 0 failed / 41 skipped across 3 projects, no test.fail markers; desktop suite can flake under machine load. BUG-1 to 4 fixed, BUG-5 accepted upstream. See docs/qa-report.md. BUG-1 scope (tech lead, 29/10/2026): persist character choices and text fields per US-6 AC-3 (Must); photo restore stays with US-29 (Should, Release 2).
+Round 7: 2 open bugs after the two allowed fix rounds: BUG-18 (major under FR-89; 13 cells under 3:1 at pixel ratio 1.5, all on the linen wall, rows 6 to 13 not yet in the exception class) and BUG-15 (minor, Guide label up to 1 px inside the 8 px margin). Observations N-11 (finale dock flips on loaded hosts), N-12 (HUD pills touch at 200% text on 320 px), N-13 (stacked label covers the Guide at the 24-character name limit). BUG-13, 14, 16, 17 fixed. FR-89 sampling method: screen scale 3 with the canvas pinned at 1.5 (the stricter of the two; tech lead, 11/11/2026). Round 6: 6 open bugs, 0 failing tests. Round 5: 0 open bugs. BUG-1 to 4 and BUG-6 to 11 fixed; one minor known issue (N-10). Suite 691 passed / 0 failed / 41 skipped across 3 projects, no test.fail markers; desktop suite can flake under machine load. BUG-1 to 4 fixed, BUG-5 accepted upstream. See docs/qa-report.md. BUG-1 scope (tech lead, 29/10/2026): persist character choices and text fields per US-6 AC-3 (Must); photo restore stays with US-29 (Should, Release 2).
 
 Open design question: in the presenting view the Visitor and her name label partly cover the picture (camera sits behind her). Intended?
