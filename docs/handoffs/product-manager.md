@@ -1,5 +1,7 @@
 # Handoff: product-manager
 
+**v0.6.2 (11/11/2026):** BUG-18 decisions recorded. FR-89 is measured at pixel ratio 1.5 (1.0 is a reported stretch case); new "Test conditions for FR-89" (pin the ratio, drop the polluted first case); X-1 to X-8 redefined as a provisional accepted class (torso, arms and head vs linen; afro, braids, curly-short hair vs linen and finale wall), final list to come from QA's re-test after fix round 2. IDs changed: FR-89, X-1 to X-8, A-34, US-57. Open: X-6 (afro and braids on the finale wall) has no separate measurement; X-8 is reserved and unused. Requests: qa-engineer to pin the ratio and re-test; technical-artist to supply per-case figures for X-6.
+
 **v0.6.1 (03/11/2026):** NFR-27 now reads "three.js chunk" as `three-*.js` (921.4 kB) plus `scene-shared-*.js` (66.2 kB) = 987.6 kB against 1,000 kB (12.4 kB spare, accepted by the tech lead); the old 969 to 971 kB and 988.70 kB figures are superseded, so the first open question below on 988.70 kB is closed. Builder-preview material slimming (about 8 to 12 kB) is a follow-up, not a blocker. Changed `requirements.md` (header, change log, NFR-27) and `user-stories.md` (header, US-61 criterion). The performance-optimiser and QA should measure the combined figure.
 
 ## Summary

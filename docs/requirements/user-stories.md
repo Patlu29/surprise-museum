@@ -1,6 +1,8 @@
 # User stories: Virtual 3D Photo Museum
 
-Version 0.6.1 | 03/11/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.6.1)
+Version 0.6.2 | 11/11/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.6.2)
+
+Change in v0.6.2 (tech-lead decisions, 11/11/2026): US-57 now measures edge contrast at pixel ratio 1.5 with a pinned ratio, treats 1.0 as a reported stretch case, and points to the provisional accepted class X-1 to X-8 (pending QA's re-test after fix round 2).
 
 Change in v0.6 (tech-lead decisions during the CR-4 build, 03/11/2026): US-51 allows a description of up to two sentences (FR-80). US-56 marks FR-88 (time hints) deferred; that criterion is not built or tested. US-57 records the accepted FR-89 exceptions (X-1 to X-8 in the requirements). US-63 and US-64 each gain one Should criterion for the live description naming face shape and pattern (new FR-103). US-61 is unchanged: its 6,000-triangle criterion stands because NFR-27 stays at 6,000. No Must is added or removed.
 
@@ -561,7 +563,8 @@ As a Creator and a Visitor, I want to see each character clearly, so that I reco
 - Given the default camera and the closer presentation camera, when a reviewer looks at each character, then they can identify the eyes, brows, nose and mouth, the hair as a distinct shape with volume, the facial hair when selected, the hands apart from the sleeves, and the outfit's top and bottom as separate regions
 - Given I switch between Woman, Man and Neutral, when I compare the shapes and faces, then the differences are at least as distinguishable as before the change
 - Given I view the same character in the customiser preview, the builder preview and the visit, when I compare them, then the improvements appear identically in all three, and a museum published before CR-4 shows the improved look with no change to its settings
-- Given a combination of options cannot reach 3:1 edge contrast (for example, a white outfit against a pale wall), when it is found, then the cause is recorded and a fix or an accepted exception is agreed; the accepted exceptions are X-1 to X-8 in the requirements (7 of 240 hair edge-contrast cases, and the cream outfit on the oak floor at 2.29), which QA reports as known minor issues without failing this story, and any other combination under 3:1 is still a failure
+- Given the edge-contrast audit runs with the pixel ratio pinned at 1.5 (phone Low tier) and the first case discarded, when each cell (option, body zone, backdrop, at least 25 samples) is measured, then its median is at least 3:1; pixel ratio 1.0 is reported as a stretch case and does not fail this story
+- Given a combination of options cannot reach 3:1 edge contrast at pixel ratio 1.5, when it is found, then the cause is recorded and a fix or an accepted exception is agreed; the **provisional** accepted class is X-1 to X-8 in the requirements (torso, arms and head against linen; afro, braids and curly-short hair against linen and the finale wall), which QA reports as known issues without failing this story until QA's re-test after fix round 2 sets the final list, and any other cell under 3:1 is still a failure
 - Given the characters are still loading or fail to load in the preview, when that happens, then the loading or error state defined for US-6 is shown
 
 ### US-58: Walking and standing read clearly (FR-91, Should)
