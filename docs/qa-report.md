@@ -6,6 +6,8 @@
 
 `dist/` was rebuilt (`VITE_API_MODE=mock npm run build -- --mode test`; the copy being served was from 10/11) and the preview on 4173 left running. All `test.fail` markers for BUG-13 to BUG-17 were removed (they showed as unexpected passes) and the two mobile-chromium skips that existed only because of BUG-16 were removed. No `test.fail` is left in `tests/e2e`. The `BUG-13` Escape test now puts focus in the radio directly on WebKit (Safari does not Tab into radios), so Escape is really exercised there.
 
+Audit class update (11/11/2026, after requirements v0.6.3): `tests/audit/edge-contrast.mjs` now encodes the final accepted class X-1 to X-5 (linen wall only; X-6 to X-8 removed). Re-classifying the saved round 7 JSON (156 cases, pixel ratio 1.5, screen scale 3) gives 0 results under 3:1 outside X-1 to X-5; no re-run was needed.
+
 ### Result per bug
 
 | Bug | Result | Evidence |

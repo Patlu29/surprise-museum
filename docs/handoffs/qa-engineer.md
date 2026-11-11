@@ -11,8 +11,11 @@ Rebuilt `dist/`, removed the `test.fail` markers for BUG-13 to BUG-17 (all five 
 - `tests/e2e/accessibility.spec.ts`: BUG-16 and BUG-17 markers and the two mobile-chromium skips removed; titles renamed "(was BUG-n)"
 - `tests/e2e/visual.spec.ts`: BUG-14 marker removed; the finale test waits for the follow camera to be still for 1.2 s and retries the visit (max 4) until the card docks right (N-11), recording each dock
 - `tests/e2e/__screenshots__/desktop-chromium-darwin/visual.spec.ts/`: re-recorded finale, entrance (3), presenting-photo-1, ceiling-cutaway, preview (3), face (5), styles (3), brows (18 files); home, welcome-card, more-options-open-outfit and viewer kept as before
-- `tests/audit/edge-contrast.mjs`, `tests/audit/lib.mjs`: `--dpr=1.5|1` pin (re-applied before every frame, run rejects a different ratio), `--screen` scale (default 3), warm-up case discarded, 9 s hint wait, X-1 to X-7 class of requirements v0.6.2, output file named by ratio
+- `tests/audit/edge-contrast.mjs`, `tests/audit/lib.mjs`: `--dpr=1.5|1` pin (re-applied before every frame, run rejects a different ratio), `--screen` scale (default 3), warm-up case discarded, 9 s hint wait, accepted class (now final X-1 to X-5, requirements v0.6.3; see the update line below), output file named by ratio
 - `tests/README.md`, `docs/qa-report.md`, this note
+
+### Update 11/11/2026 (requirements v0.6.3)
+`classify` in `tests/audit/edge-contrast.mjs` now encodes the final class X-1 to X-5 (linen wall only; X-6 to X-8 removed). Re-classifying the saved round 7 JSON gives 0 outside the class at pixel ratio 1.5. `docs/qa-report.md` round 7 and `tests/README.md` carry one line each.
 
 ### Decisions
 - Kept the screen scale factor at 3 with the canvas pinned at 1.5 (the technical-artist's method). A run with the context scale set to 1.5 reads whole render pixels and gave much higher figures (linen torso 4.1 against 2.64); recorded as a method note, not used.

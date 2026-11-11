@@ -32,7 +32,7 @@
  * Usage (needs the test-mode mock build served on :4173, see tests/README.md):
  *   node tests/audit/edge-contrast.mjs [chromium|webkit] [--patterns] [--skin] [--styles=bob,afro] [--quick]
  * Output: test-results/cr4-audit/data/<browser>-edge-contrast.json (override the folder with AUDIT_OUT=...), and a table on stdout. Each case under
- * 3:1 is checked against the accepted exceptions X-1 to X-8 (docs/requirements/requirements.md, FR-89). Anything else is listed as a failure
+ * 3:1 is checked against the final accepted exceptions X-1 to X-5 (v0.6.3, linen wall only; docs/requirements/requirements.md, FR-89). Anything else is listed as a failure
  * (exit code 1) and goes to the technical-artist.
  */
 import { launch, newContext, publishMuseum, save, DEVTOOLS_INIT, png } from './lib.mjs';
@@ -65,21 +65,29 @@ const REPORTED = ['oak', 'runner', 'linen-wall', 'finale-wall', 'finale-floor'];
 const MIN_SAMPLES = 25;
 
 /**
- * Provisional accepted class X-1 to X-7 (requirements v0.6.2, pixel ratio 1.5). X-8 is reserved. Returns the reference, or undefined when the
- * cell is a failure. Hair outside afro, braids and curly-short on linen, and every cell on oak, the runner and the finale floor, are never excepted.
+ * Final accepted class X-1 to X-5 (requirements v0.6.3, FR-89, accepted by the user 11/11/2026; measured at pixel ratio 1.5). Every cell is against
+ * the linen wall only. X-6 to X-8 are removed and must not be reused. Returns the reference, or undefined when the cell is a failure. Every cell on
+ * oak, the runner, the finale wall and the finale floor, trousers on every backdrop, and any hair or colour not listed, is never excepted.
  */
+const X4_PONYTAIL_PASS = ['black', 'dark-brown'];
+const X4_SHAVED_PASS = ['ginger', 'blonde', 'grey', 'blue'];
+const X5_PALE = {
+  'long-wavy': ['blonde', 'platinum', 'white'],
+  'long-straight': ['platinum', 'white'],
+  'short-crop': ['platinum', 'white'],
+};
 function acceptedClass(c, backdrop, zone) {
-  if (backdrop === 'linen-wall') {
-    if (zone === 'torso') return 'X-1'; // outfit sweep about 2.64, hair sweep about 2.77
-    if (zone === 'head') return 'X-2';
-    if (zone === 'hair' && c.style === 'afro') return 'X-3';
-    if (zone === 'hair' && c.style === 'braids') return 'X-4';
-    if (zone === 'hair' && c.style === 'curly-short') return 'X-5';
-  }
-  if (backdrop === 'finale-wall' && zone === 'hair') {
-    if (c.style === 'afro' || c.style === 'braids') return 'X-6';
-    if (c.style === 'curly-short') return 'X-7';
-  }
+  if (backdrop !== 'linen-wall') return undefined;
+  if (zone === 'torso') return 'X-1'; // torso and arms
+  if (c.sweep !== 'hair') return undefined;
+  if (zone === 'head') return 'X-2'; // head, hair sweep
+  if (zone !== 'hair') return undefined;
+  const { style, option: colour } = c;
+  if (['afro', 'braids', 'curly-short'].includes(style)) return 'X-3';
+  if (['side-part', 'bun', 'buzz'].includes(style)) return 'X-4';
+  if (style === 'ponytail' && !X4_PONYTAIL_PASS.includes(colour)) return 'X-4';
+  if (style === 'shaved' && !X4_SHAVED_PASS.includes(colour)) return 'X-4';
+  if (X5_PALE[style]?.includes(colour)) return 'X-5';
   return undefined;
 }
 
@@ -337,7 +345,7 @@ for (const sweep of [...new Set(rows.map((r) => r.sweep))]) {
   console.log(`  ${sweep}: ${line.join(' | ')}`);
 }
 console.log('\nAccepted exceptions seen:', accepted.flatMap((r) => r.accepted).join('; ') || 'none');
-console.log(`\n${cases.length} cases, ${fails.length} zone results under 3:1 outside X-1 to X-8`);
+console.log(`\n${cases.length} cases, ${fails.length} zone results under 3:1 outside X-1 to X-5`);
 for (const f of fails) console.log('  FAIL', f);
 await browser.close();
 process.exit(fails.length && !STRETCH ? 1 : 0);
