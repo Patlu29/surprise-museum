@@ -1,7 +1,7 @@
 # Project status — Surprise Museum
 
-**Current phase:** CR-4 (improved UI, polish) QA round 6 done (Go with conditions, 0 failing tests, BUG-13 to BUG-18 open), fix round 1 in progress (spec v2.0.1, requirements v0.6.1); Release with CR-1 to CR-3: CR-1 to CR-3 built (gender, presentation camera, photo notice, readable caption card); QA complete (round 5: Go, 691 passed / 0 failed / 41 skipped); Phase 7 pipeline written (CI on push/PR; Pages, Supabase and Linux-baseline workflows manual only); nothing deployed
-**Last updated:** 30/10/2026
+**Current phase:** CR-4 (improved UI, polish) QA round 6 done (Go with conditions, 0 failing tests, BUG-13 to BUG-18 open), fix rounds 1 and 2 done (spec v2.0.3, requirements v0.6.2), QA re-test in progress; Release with CR-1 to CR-3: CR-1 to CR-3 built (gender, presentation camera, photo notice, readable caption card); QA complete (round 5: Go, 691 passed / 0 failed / 41 skipped); Phase 7 pipeline written (CI on push/PR; Pages, Supabase and Linux-baseline workflows manual only); nothing deployed
+**Last updated:** 11/11/2026
 
 ## Phases
 
@@ -56,7 +56,8 @@
   - The governor floor stays as it is (frame rate wins over edge contrast at 1.0).
   - QA's audit pins the ratio and drops the polluted first case.
   - Round 2: the technical artist undoes the curly-short regression on the finale wall, and the designer brings the `--look-*` rim and contour tokens into line with the shader.
-  - Remaining cases under 3:1 at 1.5 (torso and head on linen at 2.0 to 2.8; afro, braids and curly-short hair on linen) are accepted as recorded minor issues if round 2 cannot clear them. Characters read clearly in QA's screenshots. Darkening the linen wall is offered to the user as an option, not done by default.
+  - Remaining cases under 3:1 at 1.5 (torso and head on linen at 2.0 to 2.8; afro, braids and curly-short hair on linen) are accepted as recorded minor issues if round 2 cannot clear them. Characters read clearly in QA's screenshots. Lightening the linen wall and dado (the outline needs a lighter backdrop; darkening would make it worse) is offered to the user as an option, not done by default.
+- CR-4 fix round 2 (tech lead, 11/11/2026, 9f576e2): `--look-rim-max` 0.85 and `--look-contour-max` 1 in tokens and code (the shader reads them from LOOK); hair rim widens on coarse shells, so curly-short on the finale wall is back above 3:1 (black 3.23, pink 3.5) and no hair case on the finale wall is under 3:1. Afro and braids pass on the finale wall (3.28 to 4.24). Outline checked by eye at 360x640: reads as ink, not a sticker; EDGE_W2 stays 2. Still under 3:1 at 1.5: torso and arms on the linen dado (2.64 to 2.77), head on linen (about 2.0), hair on linen (curly-short 1.85 to 1.99, braids 1.97 to 2.10, afro 2.35 to 2.63, long-wavy blonde 2.9 and platinum 2.8, short-crop platinum and white about 2.95). Lighter-linen option measured in a scratch build: wall and dado x1.25 in linear colour clears all 13 linen cells in the 4x4 subset, but the cream mount no longer separates from the wall by tone and the room looks flatter and sandier. Waiting for the user's decision; not shipped.
 - CR-3 (user, 30/10/2026): builder shows a "photos were not kept" notice when a reloaded draft has no photos. Design then frontend-developer.
 
 ## Open questions (awaiting user)
