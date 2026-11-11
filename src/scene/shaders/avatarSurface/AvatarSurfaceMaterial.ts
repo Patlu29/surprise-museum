@@ -48,9 +48,14 @@ import patternVertGlsl from './avatarPattern.vert.glsl?raw';
  * BUG-18 tuning (fix round 1), applied on top of the LOOK tokens, which are unchanged. Measured in the lit
  * museum at pixel ratio 1.5 (the phone cap): the contour is scaled to a deeper ink and the rim to 0.7 so the
  * rim's tail does not lift the contour pixel on mid backdrops (linen, oak), and the band maxima are raised so
- * the rim carries dark backdrops (runner, finale). Proposed token values: rim-max 0.85, contour-max 1.0.
+ * the rim carries dark backdrops (runner, finale). The band maxima now come from the tokens (rim-max 0.85, contour-max 1).
  */
-const EDGE_TUNING = { rimScale: 0.7, contourScale: 0.25, rimMax: 0.85, contourMax: 1 } as const;
+const EDGE_TUNING = {
+  rimScale: 0.7,
+  contourScale: 0.25,
+  rimMax: LOOK.rimMax,
+  contourMax: LOOK.contourMax,
+} as const;
 
 /** Edge uniforms are shared by every avatar material. */
 const EDGE_UNIFORMS: Record<'uEdgeContour' | 'uEdgeRim' | 'uEdgeParams', IUniform> = {
@@ -86,6 +91,14 @@ function syncPixelRatio(renderer: WebGLRenderer): void {
  */
 const BODY_EDGE = { k: 0.7, w1: 1.2, w2: 2 };
 const HAIR_EDGE = { k: 0.7, w1: 1.2, w2: 2 };
+
+/**
+ * Hair only (BUG-18 round 2). Where `fwidth(ndv)` is large the shell is coarse (the 6-sided curl blobs of
+ * curly-short, the braids), so the rim is up to 2.6 times wider between 0.18 and 0.4. Smooth hair (bob,
+ * long, short crop) stays at 1.2, which keeps its light-backdrop contrast; this restores curly-short on the
+ * finale wall (black 1.52 to 3.2, pink 1.62 to 3.5) without touching the others.
+ */
+const HAIR_COARSE = { lo: 0.18, hi: 0.4, rimGain: 2.6 };
 /** Pattern index for the `uOutfitPattern` uniform. */
 export const PATTERN_INDEX: Readonly<Record<AvatarOutfitPattern, number>> = {
   plain: 0,
@@ -114,6 +127,9 @@ export function createPatternUniforms(): PatternUniforms {
 /** The edge band (both materials) and the per-vertex mask it shares with the pattern. */
 function patchEdge(shader: WebGLProgramParametersWithUniforms, pattern: boolean): void {
   const e = pattern ? BODY_EDGE : HAIR_EDGE;
+  const hairCoarse = pattern
+    ? ''
+    : `#define EDGE_COARSE\n#define EDGE_CLO ${HAIR_COARSE.lo.toFixed(2)}\n#define EDGE_CHI ${HAIR_COARSE.hi.toFixed(2)}\n#define EDGE_CW1 ${HAIR_COARSE.rimGain.toFixed(2)}\n`;
   Object.assign(shader.uniforms, EDGE_UNIFORMS);
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', `#include <common>\n${patternVertGlsl}`)
@@ -130,7 +146,7 @@ function patchEdge(shader: WebGLProgramParametersWithUniforms, pattern: boolean)
   shader.fragmentShader = shader.fragmentShader
     .replace(
       '#include <common>',
-      `#include <common>\n#define EDGE_K ${e.k.toFixed(2)}\n#define EDGE_W1 ${e.w1.toFixed(2)}\n#define EDGE_W2 ${e.w2.toFixed(2)}\n${fragmentPars}\n${edgeGlsl}`,
+      `#include <common>\n#define EDGE_K ${e.k.toFixed(2)}\n#define EDGE_W1 ${e.w1.toFixed(2)}\n#define EDGE_W2 ${e.w2.toFixed(2)}\n${hairCoarse}${fragmentPars}\n${edgeGlsl}`,
     )
     .replace(
       '#include <opaque_fragment>',

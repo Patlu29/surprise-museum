@@ -1,5 +1,44 @@
 # Handoff: ux-ui-designer
 
+## Update v2.0.3: BUG-18 edge tokens, acceptance method, outline review (11/11/2026)
+
+### Summary
+Spec is now v2.0.3 with a change note. Two token values changed to match the shader, 12.8.6 now accepts edge contrast at pixel ratio 1.5, and the outline and linen-wall review is below. Nothing committed; no test run (no shell).
+
+### Files changed
+- `src/styles/tokens.css`: `--look-rim-max` 0.6 to **0.85**; `--look-contour-max` 0.95 to **1** (written as `1`, parsed value 1); comment above them on the 0.7 rim and 0.25 contour colour scaling. No other token touched. The comment text contains no `--look-<name>:` pattern, so the drift-test parser cannot pick it up
+- `docs/design-spec.md`: version and change note; 12.8.2 constants (0.85, 1.0) and an as-built note; 12.8.6 edge contrast now "pixel ratio 1.5, phone Low tier", "supersampled" removed, pixel ratio 1.0 named as the stretch case, governor floor unchanged, pin the ratio and discard the first case
+- `docs/handoffs/ux-ui-designer.md`: this section
+
+### Exact tokens for `look.ts` (drift test)
+- `--look-rim-max: 0.85`
+- `--look-contour-max: 1`
+- Unchanged: `--look-rim-px` 0.6, `--look-contour-px` 1.5, `--look-contour` #2a1620, `--look-rim` #ffe3bd. The 0.7 and 0.25 colour scalings and the 1.2 and 2 band widths are shader constants, not tokens, so `look.ts` needs no entry for them
+
+### Review: darker, wider outline against 12.8 "ink-aubergine"
+- **Fits the direction, with one honest caveat.** The contour colour is #2a1620 scaled by 0.25, about #0a0508 at full strength, so on screen it reads as a near-black ink. At a 3 px width the aubergine hue is no longer visible; what the user sees is a deep warm-black line. That suits the catalogue-ink look and the warm cream rim (now 0.7) still carries the warmth. I would keep `--look-contour` as the hue identity and not change it
+- **Risk to check by eye, not measure:** a 3 px dark outline on a 360 px wide phone can read as a sticker or cartoon outline against pale linen, more than the earlier fine line. Check at 360 by 640 follow camera and in the builder preview. If it looks heavy, first reduce `EDGE_W2` toward 1.6, before touching the colour. Hair keeps its own tuning (3 px) so it is unchanged
+- No design change needed now
+
+### Option for the user: darker lit linen (not done)
+- **My view: darkening the wall would probably not help the torso, and lightening it slightly would.** The torso fails on linen at 2.64 because the contour pixel cannot drop below about 0.027 luminance (the rim tail bleeds in) while lit linen is about 0.16. Contrast is (lighter + 0.05) over (darker + 0.05), so the linen has to be lighter to gain: to reach 3:1 it needs a lit luminance of about 0.19 to 0.20, roughly 20 to 25% lighter at character height. Making the wall darker moves it toward the contour's own luminance and lowers the ratio, until it is dark enough (lit luminance under about 0.06, a very different room) for the rim band to take over. Mid-tone is the worst backdrop for this dark-over-light edge, and lit linen is close to the worst point
+- **A lighter-wall change is cheaper and keeps the mood:** lift the picture-light wash or the wall's lit value near the characters by about a fifth, not a darker palette. Costs: less separation between cream mounts and the wall (check frames), and it works against the warm, low-light gallery mood in 1.4 if overdone. Same arithmetic should help head and hair on linen
+- **Darkening instead** (a dusk-tone wall) would change the whole room and the 1.4 mood, and risk the ceiling, frame and caption contrasts already recorded. I do not recommend it
+- Caveat: the 0.16 and 2.64 figures are the technical artist's measurements; my threshold is arithmetic from them. The technical artist should test a lit linen about 20 to 25% lighter at pixel ratio 1.5 before the user decides. Decision is the user's; I changed no wall token
+
+### Conflicts with requirements
+- FR-89 text in `requirements.md` may still say "supersampled" or a different method; if so it needs the pixel-ratio 1.5 wording (product-manager). I did not edit requirements
+
+### Open questions
+- User: after the technical artist's lighter-linen test, accept torso 2.6 to 2.8 on linen, lighten the lit linen, or pay for antialiasing on phones (tech lead)
+
+### Requests for other agents
+- technical-artist: set `src/scene/materials/look.ts` to `rim-max` 0.85 and `contour-max` 1 so the drift test passes; try a lit linen about 20 to 25% lighter at ratio 1.5 and report torso, head and hair ratios
+- qa-engineer: use pixel ratio 1.5 (pinned or recorded) as the FR-89 pass bar, 1.0 as stretch, discard the first case
+- product-manager: check FR-89 wording for "supersampled"
+
+---
+
 ## Update v2.0.2: QA round 6 fix round 1 recorded as built (10/11/2026)
 
 ### Summary

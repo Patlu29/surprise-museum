@@ -20,8 +20,8 @@ export const LOOK = {
   rimPx: 0.6,
   /** Outer limit of the contour band, CSS pixels from the silhouette. */
   contourPx: 1.5,
-  contourMax: 0.95,
-  rimMax: 0.6,
+  contourMax: 1,
+  rimMax: 0.85,
   /** Adjacent regions below this contrast ratio get a seam trim (12.8.2 B). */
   separationThreshold: 1.3,
   // Face definition (12.8.2 C).

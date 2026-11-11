@@ -190,8 +190,11 @@
   --look-rim: #ffe3bd; /* warm cream rim colour */
   --look-rim-px: 0.6; /* rim band width in CSS pixels (multiply by the pixel ratio in the shader) */
   --look-contour-px: 1.5; /* outer limit of the contour band, CSS pixels from the silhouette */
-  --look-contour-max: 0.95; /* contour strength, 0 to 1 (0.95 reaches 3:1 on oak for every region colour) */
-  --look-rim-max: 0.6; /* rim strength, 0 to 1 */
+  /* BUG-18 (11/11/2026): the shader applies --look-rim at 0.7 strength and --look-contour at 0.25 strength
+     (a deeper ink; the rim's tail no longer lifts the contour pixel on mid backdrops), and widens the body
+     band, so the maxima below are the effective values. FR-89 is measured at pixel ratio 1.5 (phone Low). */
+  --look-contour-max: 1; /* contour strength, 0 to 1 (was 0.95) */
+  --look-rim-max: 0.85; /* rim strength, 0 to 1 (was 0.6) */
   --look-separation-threshold: 1.3; /* adjacent regions below this contrast ratio get a seam trim */
   /* Face definition. */
   --look-eye-scale: 1.1; /* multiplies the eye radii, on top of the gender eye multiplier */

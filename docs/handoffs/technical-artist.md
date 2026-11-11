@@ -2,6 +2,65 @@
 
 The newest rounds (CR-4 hair contrast, 03/11/2026, then CR-4, 02/11/2026) are the first sections. Earlier sections below describe the v1.0 and CR-1 kit; where they quote 5,878 triangles per character or 970.7 kB, the CR-4 figures replace them.
 
+## BUG-18 fix round 2 (11/11/2026)
+
+**Method** as in round 1: lit museum, Low tier, coarse pointer, pixel ratio pinned at 1.5 (FR-89, requirements v0.6.2), default Visitor, 3 places, medians with at least 25 samples. The first case of a run is polluted; I ordered cases so it is not a reported one.
+
+**1. Tokens.** `src/scene/materials/look.ts` mirrors `--look-rim-max` 0.85 and `--look-contour-max` 1; `npx vitest run src/scene/materials` passes (5 files, 38 tests). `AvatarSurfaceMaterial.ts` now reads the two maxima from `LOOK`, so the shader and the tokens cannot disagree.
+
+**2. Curly-short on the finale wall: restored.** The round 1 change was global; the curl blobs (6-sided) need a wider rim than the smooth hair. Hair now widens its rim from 1.2 up to 2.6 times where the shell is coarse, found from `fwidth(ndv)` between 0.18 and 0.4 (`#ifdef EDGE_COARSE` in `avatarEdge.glsl`, hair only; the body is unchanged). I could not use the other options: a wider rim for all hair costs bob, long-wavy and short-crop their linen gains (bob black 3.3 to 2.1); a style flag would need `hair.ts` or `rig.ts` (scene developer). Hair at 1.5, median:
+
+| Hair, finale wall | HEAD before round 1 | Round 1 | Now |
+|---|---|---|---|
+| curly-short black | 1.54 | 1.52 | **3.23** |
+| curly-short blonde | 1.96 | 1.64 | **4.5** |
+| curly-short pink | 3.75 | 1.62 | **3.5** |
+| curly-short platinum | 2.56 | 1.69 | **4.8** |
+| Hair, all 5 styles x 4 colours (56 cells), under 3:1 | 21 | 17 | **14** |
+
+Round 1 gains kept: bob and long-wavy on linen 3.0 to 3.3 (long-wavy blonde 2.9 and platinum 2.8 fall just under; round 1 was 3.1 and 3.0), short-crop on linen 2.9 to 3.3, trousers 3.1 to 3.7 on every backdrop, head on linen 3.0 to 3.2. Full short-crop run (11 hair x 12 outfit x 3 patterns): 48 of 442 cells under 3:1, same as round 1 (HEAD: 115).
+
+**3. Eyeball, 360x640 museum and builder preview, pixel ratio 1.5.** The roughly 3 px contour reads as an ink line on the linen and on the pale preview stage, not as a sticker: there is no light halo (the cream rim is a faint tail inside the line), it is thin on limbs, and it keeps the hair, sleeves and trousers apart. Heaviest on the head crop at 4 times zoom, where it is about 3 device px; at real size it is clean. I did not lower `EDGE_W2` (kept at 2). Caveat: judged from headless SwiftShader screenshots, not a real phone, and by one reviewer. Crops are in the session scratchpad.
+
+**4. Lighter-linen option (scratch builds only, nothing committed).** The torso failures are against the dado, not the upper wall: the lower wall is drawn with `uDadoColour` (`--look-dado` `#d9c3a6`), the upper wall with `--scene-wall`. To see the effect I scaled both in linear colour by 1.25 and 1.4 (dado `#f0d7b8` and `#fce2c1`; wall colour by multiplying the material). The lit linen median (outside luminance) goes 0.194 to 0.227 (x1.25) and 0.254 (x1.4). 4 hair x 4 outfit subset at 1.5:
+
+| Linen, medians on linen | Now | x1.25 | x1.4 |
+|---|---|---|---|
+| Torso (outfit sweep) | 2.64 | **3.26** | 3.62 |
+| Torso (hair sweep) | 2.77 | **3.41** | 3.79 |
+| Head | 2.00 to 3.13 | 3.30 to 4.14 | 4.62 to 5.73 |
+| Hair (short-crop) | 2.97 | 3.66 | 4.15 |
+| Cells under 3:1 (of 104) | 13 | **0** | 0 |
+
+The needed lift is about 17% in lit luminance (0.194 to 0.227), about 25% in colour, which is the designer's figure. Side effects: (a) the cream mount (`#f3ebdd`, not scaled) was only 1.2 to 1.4 times the wall's luminance; at x1.25 the wall (0.29) is lighter than the mount (0.24), so the mount stops separating from the wall by tone alone (the walnut frame and brass fillet still do; mount against frame is unchanged). (b) Mood: the room goes from a dim, candle-lit ochre to a flatter, sandy daylight; the wall against the oak floor (0.19) loses separation (0.29 against 0.19 instead of 0.22 against 0.19), and picture-light washes read less. Oak and the runner are unchanged (the trousers on oak move 3.15 to 3.06). A cheaper variant to try next: lift only the dado and the wall up to head height (a graded wash), keeping the ceiling end dark. This is an option for the user; it is not shipped.
+
+**5. Per-case figures at 1.5, afro and braids (median, 11 hair colours), finale wall / linen wall:**
+
+| Colour | Afro finale | Afro linen | Braids finale | Braids linen |
+|---|---|---|---|---|
+| black | 3.28 | 2.63 | 3.52 | 2.10 |
+| dark-brown | 3.31 | 2.63 | 3.52 | 2.09 |
+| brown | 3.33 | 2.59 | 3.57 | 2.07 |
+| auburn | 3.39 | 2.58 | 3.59 | 2.04 |
+| ginger | 3.55 | 2.54 | 3.69 | 1.99 |
+| blonde | 3.80 | 2.39 | 3.93 | 1.97 |
+| platinum | 4.00 | 2.35 | 4.18 | 2.01 |
+| grey | 3.64 | 2.48 | 3.76 | 2.00 |
+| white | 4.09 | 2.39 | 4.24 | 2.03 |
+| pink | 3.68 | 2.44 | 3.79 | 2.00 |
+| blue | 3.49 | 2.56 | 3.65 | 2.01 |
+
+Afro and braids pass on the finale wall for every colour (minimum 3.28 and 3.52), so they need no exception there. On linen they fail for every colour (afro 2.35 to 2.63, braids 1.97 to 2.10), and curly-short fails on linen too (1.85 to 1.99). Braids on the oak floor (pink) 1.52, one case with few samples.
+
+**Residual list for the exception class at 1.5 (still under 3:1):**
+1. Torso and arms against linen (dado), all 12 outfit colours and 3 patterns, 2.64 to 2.77 (passes with the lighter-linen option).
+2. Head (face and neck) against linen in the hair sweep, 2.0 (3.0 in the outfit sweep, borderline); passes with the lighter-linen option.
+3. Hair against linen: curly-short 1.85 to 1.99, braids 1.97 to 2.10, afro 2.35 to 2.63, long-wavy blonde 2.9 and platinum 2.8, short-crop platinum 2.97 and white 2.94 (all pass with x1.25 linen except curly-short and braids, not measured).
+4. Pixel ratio 1.0 (stretch case): trousers on oak 1.77 and runner 1.68, torso on the runner 2.7.
+No finale-wall hair case is under 3:1 now (the previous X-2, X-4, X-6 cases, curly-short blonde, pink and black, now pass: 4.5, 3.5, 3.2; black was X-5/X-6 territory). Runner: no hair case is under 3:1 at 1.5 in the samples (hair is rarely seen against the runner).
+
+**Cost.** No geometry, no draw call, no new pass or texture. Hair adds one `fwidth` compare and a mix in the hair fragment shader only; the body shader is unchanged. Triangles unchanged (worst 5,862 of 6,000, 88 under the 5,950 hard stop). Checks: `npx tsc -b --noEmit` and `npx eslint .` clean; `npx vitest run` 70 files, 1,068 tests passed. All preview servers I started are stopped (4173 was never touched).
+
 ## BUG-18 fix round 1 (11/11/2026): reconciliation, fix, before and after
 
 **Why QA's figures and mine differ: the pixel ratio the canvas renders at.** Everything else in the two methods is the same (same band definition, same 0.3 / 1.0 px inside and 0.5 px outside samples). Measured on the same default Visitor, same three places, 4 hair colours and 4 outfit colours, with the renderer pixel ratio pinned (`gl.setPixelRatio`) and the audit unchanged otherwise:
