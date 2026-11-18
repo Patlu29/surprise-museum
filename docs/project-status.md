@@ -33,6 +33,8 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 | A1 scope | 4 | Approved (the user's own answers set the scope) | User | 18/11/2026 | Supabase Free plus a scheduled keep-alive; GitHub Pages with the existing Actions pipeline; museums promised for 7 days, then the whole museum and photos are deleted; free-limit guardrail is docs plus a usage check, no new in-app handling |
 
 ## Decisions and answers
+- 18/11/2026 (user): the internal npm-mirror hostname found in three deno.lock files (no credentials) is removed from current files; git history is left as it is (user chose "Leave history").
+- 18/11/2026 (user): add a project .npmrc.
 - 18/11/2026 (user): host on free tiers only. Backend: Supabase Free with a keep-alive workflow so the project never reaches the 7-day idle pause.
 - 18/11/2026 (user): GitHub billing lock is fixed. Not yet confirmed by a CI run (last refused run 11/11/2026).
 - 18/11/2026 (user): first asked to auto-clear photos every 2 days; on being told this breaks the 90-day promise (NFR-16, Must), chose "change that as one week promise". The tech lead reads this as: the whole museum and its photos are deleted 7 days after first publish, and the link shows the existing expired message. Drafts already expire 7 days after creation.
@@ -44,7 +46,8 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 - Q-35 (user, at A2): FR-105 publish-screen notice stays Must (recommended, provisionally accepted), Should, or dropped.
 
 ## Open requests (owner)
-- CI first real run 44297927703 (18/11/2026): Deno job failed at `deno check`; other jobs pending. Route to backend-developer once logs are available.
+- CI first real runs (18/11/2026): typecheck, lint, unit tests, build and bundle check PASS on Linux. Deno job failed: lockfiles held private-mirror tarball URLs (fixed by backend-developer, lockfiles regenerated against the public registry; deno check, lint, test pass on Deno 2.9.6 locally). Linux e2e (run 44298737907, cancelled by the user after about 10 min): mobile-webkit fails on the console message `Viewport argument key "interactive-widget" not recognized and ignored.`; mobile-chromium US-2 AC-5 file chooser timeout. Routed to qa-engineer.
+- Project .npmrc pinning the public registry (user request 18/11/2026): routed to architect with the design task.
 
 ## Environment notes
 - Node v26.7.0, npm 11.19.0, public npm registry reachable (18/11/2026).

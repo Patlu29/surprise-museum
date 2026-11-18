@@ -1,5 +1,9 @@
 # Handoff: backend-developer
 
+## Iteration 4 CI fix (18/11/2026): Deno lockfiles
+
+The first real run of the `deno` CI job failed because the three committed lockfiles (`supabase/functions/deno.lock`, `create-museum/deno.lock`, `manage-museum/deno.lock`) held `"tarball"` URLs on a private corporate npm mirror (9 per file). Deno rejects them against the public registry, and the repo is public. I regenerated all three with Deno 2.9.6 (run through `npx`, with `NPM_CONFIG_REGISTRY=https://registry.npmjs.org` and a scratch `DENO_DIR`, per command only) in a scratch copy, then copied the lockfiles back. Only the `tarball` lines are gone; every `integrity` value is unchanged. `git grep -i "energyaustralia\|nexus"` now finds nothing. With the fresh lockfile, `deno check`, `deno lint` and `deno test` (the exact CI commands) passed: 4 entry points checked, 24 files linted, 27 tests passed. Deno 2.9.8 (the CI version) is not on npm (latest 2.9.6), so that exact version was not run. The Deno commands are now Verified on 2.9.6, which supersedes the "Deno not run" statements below. Reminder: regenerate lockfiles with the public registry only (ADR 0013). The per-function lockfiles are not used by the CI commands, which use the root `deno.json`.
+
 ## Summary
 **CR-1 update (30/10/2026):** the shared validator accepts and normalises the optional avatar `gender`, the Visitor facial hair rule is gone, the presenters and the mock always return `gender` (old rows read as `neutral`, nothing rewritten), tests are added or inverted, and the "not implemented yet" note is removed from `docs/api.md`. Deno is not installed on this machine, so `deno check`, `deno lint` and `deno test` were NOT run; the Deno test and smoke-test edits are unverified. The earlier summary follows.
 
