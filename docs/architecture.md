@@ -1,17 +1,18 @@
 # Architecture: Surprise Museum
 
-Version 1.5 | 03/11/2026 | Owner: architect | Based on requirements v0.6.1 and user stories v0.5
+Version 1.6 | 18/11/2026 | Owner: architect | Based on requirements v0.7 and user stories v0.7
 
-Version 1.1 synced this document with what was built in the build phase and integration round 1. Version 1.2 adds the QA phase 6 changes (ADRs 0018 and 0019). Version 1.3 adds change request CR-1, the per-character gender option and facial hair for both characters (ADR 0020). Version 1.4 adds face shape, outfit pattern and six more outfit styles from the user's CR-4 feedback (requirements v0.5, ADR 0021). Version 1.5 records the split of the shared 3D chunk into `three-*` and `scene-shared-*` with a combined NFR-27 guard, and the NFR-27 triangle sign-off at 6,000 (requirements v0.6.1, ADR 0021 amendment). Changes are listed in section 17.
+Version 1.1 synced this document with what was built in the build phase and integration round 1. Version 1.2 adds the QA phase 6 changes (ADRs 0018 and 0019). Version 1.3 adds change request CR-1, the per-character gender option and facial hair for both characters (ADR 0020). Version 1.4 adds face shape, outfit pattern and six more outfit styles from the user's CR-4 feedback (requirements v0.5, ADR 0021). Version 1.5 records the split of the shared 3D chunk into `three-*` and `scene-shared-*` with a combined NFR-27 guard, and the NFR-27 triangle sign-off at 6,000 (requirements v0.6.1, ADR 0021 amendment). Version 1.6 is iteration 4: published museums last 7 days from first publish with purge within 24 hours and no backups (NFR-16 v0.7, ADR 0010 amendment), free-tier hosting with a daily keep-alive (NFR-32, ADR 0022), and the publish-screen end date (FR-105). Changes are listed in section 17.
 
 ## 1. Summary
 
 | Concern | Decision | ADR |
 |---|---|---|
 | Frontend | Vite + React + TypeScript + React Three Fiber + drei + Zustand (default stack, no deviation) | 0001 |
-| Hosting | Static site on GitHub Pages at `https://patlu29.github.io/surprise-museum/`, Vite `base: '/surprise-museum/'` | 0002 |
+| Hosting | Free tiers only (NFR-32): static site on GitHub Pages from the public repository at `https://patlu29.github.io/surprise-museum/`, Vite `base: '/surprise-museum/'`; Supabase Free plan | 0002, 0022 |
 | Deep links | **Hash routing** (`/#/m/<token>`), using `wouter` | 0002 |
-| Backend | Supabase in Sydney (ap-southeast-2): Postgres, one private Storage bucket, four Edge Functions, pg_cron | 0003 |
+| Backend | Supabase in Sydney (ap-southeast-2): Postgres, one private Storage bucket, five Edge Functions, pg_cron | 0003 (amended by 0022) |
+| Keep-alive | A daily GitHub Actions workflow calls the read-only `keep-alive` Edge Function with the public anon key; it runs one service-role query and writes nothing. Usage is checked in the Supabase dashboard only | 0022 |
 | Access control | Edge Functions are the only gateway. RLS on, no policies, privileges revoked from `anon`. Tokens stored as SHA-256 hashes | 0003 |
 | Photo processing | In the browser before upload: decode (HEIC via a lazy decoder), resize, re-encode JPEG (strips all metadata). The server verifies | 0004 |
 | Photo delivery | Three renditions (2048 px full, 1024 px wall, 24 px inline placeholder), signed URLs, loaded nearest-first | 0005 |
@@ -23,7 +24,7 @@ Version 1.1 synced this document with what was built in the build phase and inte
 | Museum layout | Deterministic linear chain: entrance hall (7.5 m), 1 to 5 gallery rooms (4 photos each), finale room. 65.5 m at most | 0009 (amended) |
 | Camera | Composition from screen-space targets (design spec 3.4); partition walls fade to 0.25 opacity instead of shortening the boom | 0014 |
 | Graphics tier | Automatic: `low` on phones and weak GPUs, `high` otherwise; the Visitor's setting wins | 0016 |
-| Retention | Hourly pg_cron job calls the `purge-expired` Edge Function through pg_net | 0010 |
+| Retention | Published museums last 7 days from first publish (`LIMITS.retentionDays`), drafts 7 days from creation; re-publishing never extends it. Hourly pg_cron job calls the `purge-expired` Edge Function through pg_net, so content leaves live storage within 24 hours. No backups (Free plan) | 0010 (amended 18/11/2026) |
 | Name labels | DOM labels (drei `Html`) hidden by a cheap 2D line-of-sight test | 0011 |
 | Browser API client | Thin `fetch`/`XMLHttpRequest` client, no `supabase-js` in the bundle | 0012 |
 | API mode | `VITE_API_MODE`: production builds are live unless `mock` is explicit; `VITE_API_MODE=live` builds fail without a usable Supabase configuration; the demo mock persists in IndexedDB | 0015 |
@@ -85,8 +86,10 @@ flowchart LR
   end
 
   GHP["GitHub Pages<br/>static files only"]
-  subgraph Supabase["Supabase (Sydney, ap-southeast-2)"]
+  GHA["GitHub Actions<br/>keep-alive.yml, daily"]
+  subgraph Supabase["Supabase Free (Sydney, ap-southeast-2)"]
     EF["Edge Functions<br/>create-museum, get-museum,<br/>manage-museum, purge-expired"]
+    KA["Edge Function<br/>keep-alive (read-only)"]
     PG[("Postgres<br/>museums, photos<br/>RLS: deny all")]
     SB[("Storage<br/>private bucket 'photos'")]
     CRON["pg_cron + pg_net<br/>hourly"]
@@ -99,9 +102,11 @@ flowchart LR
   EF -- service_role --> PG
   EF -- service_role --> SB
   CRON -- "POST x-cron-secret" --> EF
+  GHA -- "POST {} with the anon key" --> KA
+  KA -- "service_role: select keep_alive()" --> PG
 ```
 
-The browser never talks to Postgres. It talks to the Edge Functions, and to Storage only through URLs that an Edge Function has signed.
+The browser never talks to Postgres. It talks to the Edge Functions, and to Storage only through URLs that an Edge Function has signed. The keep-alive is not part of the app: only the scheduled workflow calls it (ADR 0022).
 
 ## 4. Source layout and module boundaries
 
@@ -227,10 +232,13 @@ sequenceDiagram
   end
   Note over C: captions, names, avatars stay local until publish; preview uses local blobs
   C->>EF: manage-museum publish { document }
-  EF-->>C: shareToken, expiresAt (90 days)
+  EF-->>C: shareToken, publishedAt, expiresAt (first publish + 7 days)
+  Note over C: Publish screen: "available for 7 days", ends DD/MM/YYYY HH:mm local (FR-105), from expiresAt
 ```
 
 Uploading starts as soon as each photo is processed, not at publish, so publishing a 20-photo museum is one small request (NFR-18). A failed upload is retried alone with `renew-upload` (FR-4).
+
+The end date the Creator sees always comes from the server's `expiresAt`, never from the browser clock plus 7 days, so it is right after a re-publish (which keeps the first `expiresAt`) and on a device with a wrong clock (FR-105, US-71 AC-2 and AC-3).
 
 ### 5.3 Preview equals published
 
@@ -429,7 +437,7 @@ The tier is published as `<html data-graphics-quality>`. Rendering is capped at 
 | `content_version` | smallint | Contract version |
 | `photo_reservations` | smallint, 0 to 100 | Abuse cap |
 | `created_at`, `updated_at`, `published_at` | timestamptz | |
-| `expires_at` | timestamptz | Draft: created + 7 days. Published: first publish + 90 days |
+| `expires_at` | timestamptz | Draft: created + 7 days. Published: first publish + 7 days (`LIMITS.retentionDays`, passed to `publish_museum` as `p_retention_days`); never extended |
 
 **`photos`**
 
@@ -444,7 +452,7 @@ The tier is published as `<html data-graphics-quality>`. Rendering is capped at 
 | `lqip` | text, up to 4,096 | `data:image/jpeg;base64,...` only |
 | `created_at`, `confirmed_at` | timestamptz | |
 
-Support tables: `storage_purge_queue` (museum ids whose storage still needs deleting) and `rate_limits` (fixed windows keyed by a salted IP hash). Functions: `rate_limit_hit`, `reserve_photo` (atomic limit of 20 live photos and 100 reservations) and `delete_museum_rows` (delete and queue in one transaction). All are `service_role` only.
+Support tables: `storage_purge_queue` (museum ids whose storage still needs deleting) and `rate_limits` (fixed windows keyed by a salted IP hash). Functions: `rate_limit_hit`, `rate_limit_blocked`, `reserve_photo` (atomic limit of 20 live photos and 100 reservations), `publish_museum` (sets `expires_at` on the first publish only), `delete_museum_rows` (delete and queue in one transaction), `expire_museums` (used by the purge) and, from iteration 4, `keep_alive` (returns `now()`, writes nothing; migration `20261118000100_keep_alive.sql`, ADR 0022). All are `service_role` only.
 
 **Storage:** bucket `photos`, private, 2 MiB per object, `image/jpeg` only. Keys are `<museum_id>/<photo_id>/full.jpg` and `.../wall.jpg`. Uploads set `cache-control: private, max-age=3600`.
 
@@ -471,6 +479,7 @@ All calls: `POST {VITE_SUPABASE_URL}/functions/v1/<name>` with headers `Content-
 | `get-museum` | Share-token holder | `{ shareToken }` | 200 `{ museum: MuseumContent, urlsExpireAt }` | 60 per minute, and 20 misses per 10 minutes (then every lookup is 429 until the window ends) |
 | `manage-museum` | Edit-token holder | `{ action, editToken, ... }` (below) | Per action | 120 per minute per client, 600 per hour per museum, and the same 20 misses per 10 minutes |
 | `purge-expired` | pg_cron only | `{}` with `x-cron-secret` header | 200 `{ purged, retried, failed }` | Secret check (constant-time); a wrong secret gets the uniform 404 |
+| `keep-alive` (iteration 4, ADR 0022) | The scheduled keep-alive workflow only; no CORS | `{}` with the anon key | 200 `{ ok: true, checkedAt }` (`checkedAt` is Postgres `now()`) | **None by design**: it writes nothing, so it writes no rate-limit row and counts no miss |
 
 `manage-museum` actions:
 
@@ -498,15 +507,50 @@ Errors use `ApiError { error, message, field? }`; `field` is a JSON path and app
 
 **Mock mode** (ADR 0015): `src/api` also contains a mock that follows every rule above except rate limits, and persists in the browser (IndexedDB, then `localStorage`, then memory). Which implementation runs is set by `VITE_API_MODE` (section 13 and `docs/api.md` section 12).
 
-### 7.4 Retention (NFR-16, ADR 0010)
+### 7.4 Retention (NFR-16 v0.7, ADR 0010 as amended 18/11/2026)
 
 | Event | Effect |
 |---|---|
-| Publish | `expires_at = published_at + 90 days`. Re-publishing an edited museum (Release 2) does not extend it |
-| Draft never published | Purged 7 days after creation |
+| First publish | `expires_at = published_at + 7 days` (168 hours; `LIMITS.retentionDays = 7`). Re-publishing an edited museum (Release 2) does not extend it, and the first `expiresAt` is what every later response returns |
+| Draft never published | Purged 7 days after creation (`LIMITS.draftRetentionDays`). A draft published on day 6 then lasts 7 days from that publish |
+| `expires_at` passes | Share and edit links return the uniform 404 at once, before any purge (lookups filter `expires_at > now()`). The screen is the not-found screen with wording that covers deletion and the end of the 7 days (Q-33 (a), provisional) |
 | Creator deletes | Rows gone at once (share link returns not found, FR-52). Objects removed in the same request; if that fails, the hourly job retries |
-| Hourly job | `pg_cron` at minute 17 calls `purge-expired` through `pg_net` with the Vault `cron_secret`. It deletes expired museums and drains `storage_purge_queue` |
-| Backups | Database backups follow the Supabase plan (all at most 30 days). Storage objects are not in database backups |
+| Hourly job | `pg_cron` at minute 17 calls `purge-expired` through `pg_net` with the Vault `cron_secret`. It deletes expired museums and drains `storage_purge_queue`, up to 100 of each per run |
+| Out of live storage | Within 24 hours of the end or the delete (NFR-16(e)): normally at the first run after it (at most about 60 minutes), with 23 hourly retries for storage failures |
+| Backups | **None.** The Supabase Free plan has no backups, so nothing is held outside live storage (NFR-16(f)). If backups are ever enabled, NFR-16 must be revised first |
+| Creator-set expiry (FR-54, Should) | Not built. When built it may only lower `expires_at`, to between now + 1 hour and first publish + 7 days (ADR 0010 amendment) |
+| Project paused | pg_cron stops, so the purge stops. The keep-alive (7.5) prevents the pause |
+
+The published retention is the one constant `LIMITS.retentionDays` in `contract.ts`; no SQL default or migration hard-codes it (ADR 0010 amendment lists every file that mentions the old 90 days). Nothing is deployed, so no stored row has a 90-day `expires_at` and **no data migration is needed**.
+
+### 7.5 Keep-alive (NFR-32 (b), ADR 0022)
+
+| Item | Decision |
+|---|---|
+| Why | Supabase pauses Free projects after 7 days without activity. A paused project takes the app offline and stops the purge |
+| Caller | `.github/workflows/keep-alive.yml` (devops-engineer): daily at 20:37 UTC plus manual runs; `permissions: {}`; skipped while the repository variable `VITE_SUPABASE_URL` is empty |
+| Request | `POST {VITE_SUPABASE_URL}/functions/v1/keep-alive`, `Content-Type: application/json`, `apikey: <anon key>`, body `{}`. Both values are existing public repository variables; no secret |
+| What it reaches | The API gateway (with the project key), an Edge Function, PostgREST and Postgres (`select public.keep_alive()`, which returns `now()`) |
+| What it never does | Creates or changes nothing; no rate-limit row, no IP hash; never calls purge; reads no museum; returns no counts or sizes |
+| Response | 200 `{ "ok": true, "checkedAt": "<ISO 8601 from Postgres>" }`. Errors as in `docs/api.md`: 400, 405, 413, 415 (`bad_request`), 500 (`server_error`) |
+| Failure signal | Any non-200 or wrong body fails the job after 3 retries: a red run and GitHub's failure e-mail to the user who last changed the `cron` line |
+| Usage check | Dashboard only (storage, database and egress); never through the keep-alive |
+| 60-day rule | GitHub switches off scheduled workflows in a public repository after 60 days without repository activity. The guide gives the user a 50-day check and the re-enable steps; no automatic workaround |
+
+### 7.6 Iteration 4 requirement coverage
+
+| Requirement | Delivered by | Verified by |
+|---|---|---|
+| NFR-16 (a) 7 days from first publish | `LIMITS.retentionDays = 7`, `publish_museum` (7.4) | Deno `flow_test.ts`, `purge_test.ts`; `mockClient.test.ts`; e2e with a fixed clock (US-68) |
+| NFR-16 (b) re-publish does not extend | `publish_museum` keeps the first `expires_at` | Same tests |
+| NFR-16 (c) drafts 7 days | Column default and `LIMITS.draftRetentionDays` | Same tests |
+| NFR-16 (d) no content after the end | Lookups filter `expires_at > now()`; uniform 404; not-found wording (Q-33 (a)) | Deno tests; e2e US-68 AC-2 |
+| NFR-16 (e) out of live storage within 24 hours | Hourly purge with 23 retries (ADR 0010) | Deno purge tests; on the live project, the job history checks in the deployment guide (US-68 AC-5, AC-6) |
+| NFR-16 (f) no backups | Free plan; nothing copies content | Dashboard check by the user (Q-34) |
+| NFR-16 (g), NFR-32 (b) no idle pause | `keep-alive` function and daily workflow (7.5, ADR 0022) | Deno tests (nothing created); workflow run history (US-69) |
+| NFR-32 (a) zero cost | GitHub Pages from the public repository, Supabase Free, public-repo Actions | Manual check (US-69 AC-1) |
+| NFR-32 (c) to (f) guide, limits, capacity, limit behaviour | `docs/deployment.md` free-tier section (devops-engineer), section 13.1 here | Manual review (US-70) |
+| FR-105 publish-screen notice | `builderStore.publish.expiresAt` (already filled from `PublishResponse.expiresAt`), a pure date formatter and the notice on `PublishedScreen` (8.1) | Unit test of the formatter; e2e US-71 |
 
 ## 8. State stores (`src/state`, owner: frontend-developer)
 
@@ -521,6 +565,36 @@ Errors use `ApiError { error, message, field? }`; `field` is a JSON path and app
 
 Rules: the scene reads stores with `useStore.getState()` inside `useFrame` or with narrow selectors, never by subscribing to whole stores. Per-frame data never goes into a store. The full field-by-field contract is in `docs/handoffs/frontend-developer.md` (Store API).
 
+### 8.1 Contracts: iteration 4 changes (NFR-16, NFR-32, FR-105)
+
+**Store contract: no new field.** FR-105 reads a field that already exists:
+
+| Field | Type | Written by | Read by | Change |
+|---|---|---|---|---|
+| `builderStore.publish.expiresAt` | `string \| null`, ISO 8601 UTC | `publishDraft()` in `src/state/publish.ts`, from `PublishResponse.expiresAt` | `PublishedScreen` (new: the 7-day notice); QA through the test hook | None to the store. It is already set on success and cleared by `reset()` |
+
+The edit page (`#/edit/:editToken`) already receives `ManageGetResponse.expiresAt` in its component state; showing the same end date there for a published museum (recommended, see the open question in `docs/handoffs/architect.md`) needs no store field either.
+
+**Date formatting (frontend-developer).** One pure function in `src/lib/format.ts`, for example `formatEndDateTime(iso: string): string | null`:
+- Parse with `Date.parse`; return `null` when the result is not finite. The live client does not validate response shapes (ADR 0012), so the value is treated as untrusted.
+- Return `DD/MM/YYYY HH:mm` in the device's local time zone, built from `getDate()`, `getMonth() + 1`, `getFullYear()`, `getHours()` and `getMinutes()`, zero-padded, 24-hour. Do not use `toLocaleString`, whose output differs between engines and is 12-hour for `en-AU`.
+- The notice takes the number of days from `LIMITS.retentionDays`, never a literal 7, and puts the date in `<time dateTime={expiresAt}>`, so tests can read the exact instant. When the formatter returns `null`, the notice still says the museum is available for 7 days and omits the date. The wording and placement come from the design spec (open question: the designer is not scheduled in this iteration).
+- Never compute the end date as "now + 7 days" in the browser.
+
+**Test hook: no change.** `window.__APP_TEST__` (development and test builds, `src/main.tsx`) is a flat object that already exposes `useBuilderStore`, so QA reads `window.__APP_TEST__.useBuilderStore.getState().publish.expiresAt` and compares it with the `<time datetime>` attribute and the rendered text. No test-mode URL parameter is added. In mock mode the end date comes from the mock's clock (`Date.now()`), so Playwright's `page.clock` and a fixed `timezoneId` make US-71 deterministic.
+
+**Asset manifest: no change** (iteration 4 adds no model, texture or environment map).
+
+**API contract** (`docs/api.md` wins; the backend-developer updates it):
+
+| Item | Change |
+|---|---|
+| `LIMITS.retentionDays` | 90 to **7**. `CONTRACT_VERSION` stays 1 |
+| `PublishResponse.expiresAt`, `ManageGetResponse.expiresAt` | Already returned; now first publish + 7 days. Nothing new for FR-105 |
+| `GetMuseumResponse` | Unchanged. The Visitor view does not show the end date and gets no `expiresAt` |
+| Expired links | Unchanged: the uniform `not_found` (Q-33 (a)). Only the screen's wording changes |
+| `keep-alive` | New function: `FUNCTION_NAMES.keepAlive`, `KeepAliveRequest`, `KeepAliveResponse { ok: true; checkedAt: string }` (7.5, ADR 0022) |
+
 ## 9. Routes (hash routing, ADR 0002)
 
 | Route | Screen | Purpose | Loads 3D |
@@ -529,7 +603,7 @@ Rules: the scene reads stores with `useStore.getState()` inside `useFrame` or wi
 | `#/create` | `CreateScreen` | Builder: photos, names and messages, characters, review and publish | Avatar preview canvas only |
 | `#/create/preview` | `PreviewScreen` | The full Visitor experience from the local draft, with an Exit preview bar | Yes |
 | `#/m/:shareToken` | `VisitScreen` | Welcome, then the museum | Yes, after the welcome screen appears |
-| `#/edit/:editToken` | `EditScreen` | MVP: view, copy share link, delete. Release 2: full edit using the builder | Thumbnails only |
+| `#/edit/:editToken` | `EditScreen` | MVP: view, copy share link, delete. Iteration 4 (recommended, pending the tech lead): the same 7-day end date as the publish screen for a published museum, from `ManageGetResponse.expiresAt`. Release 2: full edit using the builder | Thumbnails only |
 | `#/privacy`, `#/terms` | Static pages | Linked from the builder and welcome screen (NFR-13) | No |
 | anything else | `NotFoundScreen` | Friendly, reveals nothing (FR-55) | No |
 
@@ -557,7 +631,8 @@ Deriving the share token from the edit token means the edit screen can show the 
 | Database read leak | Only token hashes are stored |
 | Photo location leak | Client re-encoding drops all metadata; `confirm-photo` rejects files with EXIF, XMP or IPTC segments (FR-10) |
 | Malicious upload | Bucket allows `image/jpeg` up to 2 MiB; `confirm-photo` checks magic bytes, segment structure and dimensions (NFR-15) |
-| Free-hosting abuse | Private bucket, 20 live photos and 100 reservations per museum, 10 drafts per hour per IP, drafts purged after 7 days |
+| Free-hosting abuse | Private bucket, 20 live photos and 100 reservations per museum, 10 drafts per hour per IP, drafts and published museums purged 7 days after creation or first publish. Filling the 1 GB free storage on purpose is still possible from several addresses; it is documented, not handled in the app (NFR-32 (f), FR-104 deferred) |
+| Keep-alive endpoint misuse | `keep-alive` is public and unthrottled but read-only: it writes nothing, reads no museum and returns only `ok` and the database time. Spamming it costs function invocations, as spamming any endpoint does (ADR 0022) |
 | Cross-site scripting stealing tokens | React escapes all text; CSP meta in the build (`script-src 'self'`); no `dangerouslySetInnerHTML` |
 | Indexing | `robots` meta `noindex, nofollow, noarchive` on the whole site (FR-49); link previews see only generic Open Graph tags |
 | Account creation | Supabase Auth sign-ups disabled, so nobody can obtain the `authenticated` role |
@@ -591,8 +666,9 @@ Builder and preview photos are `blob:` URLs, which `img-src` allows; this was ch
 | Unit, domain | Vitest (Node) | Layout for 1 to 20 photos; nav graph and A*; collision; director edge cases (US-12, US-13); Guide state machine; NFR-26 30-minute soak | scene-developer writes alongside code (`src/**/*.test.ts`); QA reviews |
 | Unit, contract and media | Vitest | Validators, JPEG segment scanner, size targets | backend-developer, frontend-developer |
 | NFR-25 | Vitest with `@react-three/test-renderer` (QA to add) | Drive an avatar with `ScriptedCharacterSource`; assert transform, animation and label follow | qa-engineer |
-| Edge Functions | `deno test` | Token handling, actions, uniform 404, rate limits | backend-developer |
-| Database | pgTAP (`supabase test db`) | `anon` cannot read or write any table or list Storage | backend-developer |
+| Edge Functions | `deno test` | Token handling, actions, uniform 404, rate limits, 7-day retention with a moved clock, `keep-alive` (200 shape, nothing created, no rate-limit row, errors) | backend-developer |
+| Database | pgTAP (`supabase test db`) | `anon` cannot read or write any table or list Storage, and cannot execute `keep_alive()` | backend-developer |
+| Live retention and keep-alive | Manual, after deploy | Purge history (`cron.job_run_details`, `net._http_response`), row and object counts 24 hours after an end (US-68 AC-5, AC-6); keep-alive run history (US-69) | devops-engineer writes the steps; the user or tech lead runs them |
 | End to end | Playwright (desktop Chromium, iPhone WebKit, Pixel Chromium) and `@axe-core/playwright`. Type-checked by `npm run typecheck` through `tsconfig.e2e.json`, not by `npm run build` (ADR 0019) | Builder against the demo mock (`VITE_API_MODE=mock` build) or mocked `/functions/v1/*`, preview, visit, not found, keyboard-only path, reduced motion, both graphics tiers. Scene hooks: `window.__surpriseMuseum` (with `__SURPRISE_E2E__`); app hooks: `window.__APP_TEST__` (dev and test builds) | qa-engineer |
 | Deploy guard | Vitest and a real `vite build` | `check-live-config.mjs` rules; live build fails without variables; mock and ordinary builds pass | backend-developer |
 | Performance | Manual on reference devices, plus Lighthouse on 4G throttling | NFR-1 to NFR-6 | performance-optimiser |
@@ -638,7 +714,7 @@ Vite's own global warning is raised to the `heic-to` ceiling as a backstop. The 
 |---|---|
 | Scripts | `dev`, `build` (`tsc -b tsconfig.app.json tsconfig.node.json && vite build`, ADR 0019), `typecheck` (`tsc -b`, all three projects including e2e), `check:live` (`node supabase/scripts/check-live-config.mjs`, ADR 0015), `preview`, `lint`, `typecheck`, `test`, `test:watch`, `test:e2e`, `format`, `format:check` |
 | TypeScript projects | `tsconfig.app.json` (`src`, `tests/unit`, the shared contract), `tsconfig.node.json` (`vite.config.ts`), `tsconfig.e2e.json` (`playwright.config.ts`, `tests/e2e`, with DOM types). The root `tsconfig.json` references all three (ADR 0019) |
-| Registry | Project `.npmrc` pins `https://registry.npmjs.org/` so the lockfile works in GitHub Actions (ADR 0013) |
+| Registry | Project `.npmrc` pins `https://registry.npmjs.org/` (plus `save-exact` and `engine-strict`) so the lockfile works in GitHub Actions (ADR 0013). Deno ignores the root file and reads only the `.npmrc` beside the `deno.json` it is given, otherwise `~/.npmrc`, so `supabase/functions/` and each function folder with a `deno.json` carry their own one-line `.npmrc` (ADR 0013 amendment, 18/11/2026). A `"tarball"` key in a `deno.lock` means it was resolved from another registry |
 | Output | `dist/` with assets under `/surprise-museum/assets/`; `public/.nojekyll` stops Jekyll processing |
 | Vite plugins (`vite.config.ts`) | `react()`; `requireLiveBackend()` from `supabase/scripts/check-live-config.mjs` (build only; enforces only when `VITE_API_MODE=live`); `contentSecurityPolicy()` (build only; CSP meta and Supabase preconnect); `chunkSizeBudgets()` (section 12). `build.rolldownOptions.output.codeSplitting.groups` names the `three` and `scene-shared` chunks (section 12) |
 | Viewport meta (`index.html`) | `width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content`. The last part makes the on-screen keyboard shrink the layout viewport and `dvh` on Chromium and Firefox for Android, so builder fields and sticky actions stay above it (design spec request). iOS Safari ignores it. A keyboard rarely opens on the Visit screen; if it does, the canvas resizes once |
@@ -667,7 +743,35 @@ Environment variables:
 | `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD` | GitHub Actions **secrets** | **Yes** | CI deploy of migrations and functions (devops-engineer) |
 | Vault `project_url`, `cron_secret` | Supabase SQL editor | `cron_secret` yes | Used by the pg_cron job |
 
-Deployment (devops-engineer): one workflow builds on push to `main` (`npm ci`, `lint`, `typecheck`, `test`, then `npm run check:live` and `npm run build`, both with `VITE_API_MODE=live`, `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from repository variables), uploads `dist/` with `actions/upload-pages-artifact` and deploys with `actions/deploy-pages`. CI also runs `deno test`, `deno lint` and `deno check` with `--config supabase/functions/deno.json`. A second, manual workflow runs `supabase db push`, `supabase functions deploy --no-verify-jwt` and then `node supabase/scripts/smoke-test.mjs`. Step-by-step Supabase setup is in `supabase/README.md`; the ready-to-paste workflow steps are in `docs/api.md` section 12.
+Deployment (devops-engineer, `docs/deployment.md` is the detail): CI runs on pull requests and pushes to `main`. The Pages deploy is a manual workflow that re-runs CI, then `npm run check:live` and `npm run build` with `VITE_API_MODE=live` and `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from repository variables, and publishes `dist/` with `actions/upload-pages-artifact` and `actions/deploy-pages`. CI also runs `deno test`, `deno lint` and `deno check` with `--config supabase/functions/deno.json`. A second, manual workflow runs `supabase db push`, `supabase functions deploy --no-verify-jwt` (which deploys every function folder, so `keep-alive` needs no workflow change) and then `node supabase/scripts/smoke-test.mjs`. From iteration 4 a third, scheduled workflow, `keep-alive.yml`, keeps the Supabase project active (13.1). Step-by-step Supabase setup is in `supabase/README.md`; the ready-to-paste workflow steps are in `docs/api.md` section 12.
+
+### 13.1 Hosting on free tiers (NFR-32, ADR 0022)
+
+User decision 18/11/2026: free tiers only. No paid plan, add-on or service is needed to run the app.
+
+| Part | Service | Free-tier condition |
+|---|---|---|
+| Frontend | GitHub Pages, project site from the **public** repository (ADR 0002) | Public repository |
+| CI, deploys, keep-alive | GitHub Actions on standard runners | Free for public repositories |
+| Backend | Supabase **Free** plan, Sydney | Pauses after 7 days without activity, so the daily keep-alive (7.5) |
+
+Expected free-plan limits and capacity (third-party figures checked 18/11/2026; **confirm on supabase.com/pricing**, Q-34):
+
+| Limit | Figure | What uses it | Expected first limit? |
+|---|---|---|---|
+| File storage | 1 GB | Photos: per photo about 600 KB `full` (the encoder steps quality down to `LIMITS.fullTargetBytes`) plus about 200 KB `wall` (target `LIMITS.wallTargetBytes`; 20 wall renditions measured at about 3.5 MB, section 12). About 16 MB a full museum, so about 60 full museums live at once with the 7-day life | **Yes** |
+| Database | 500 MB | Text rows, LQIPs (at most 4 KB a photo), rate-limit windows (pruned hourly), cron history | No |
+| Egress | About 5 GB a month | Signed photo downloads (about 16 MB a full visit) and function responses. About 300 full visits a month | Possibly, in a busy month |
+
+These confirm A-35 against the code (`LIMITS`) and the section 12 measurement; no live storage has been measured (Partly verified). A wall rendition is not stepped down to a size target, so an unusual photo can store more than 200 KB (the bucket cap is 2 MiB an object).
+
+**When a limit is reached** the app has no special handling (NFR-32 (f), FR-104 deferred). It shows its existing error messages: an upload or publish that the platform refuses shows the builder's upload or publish failure, and a Visitor whose photos cannot download sees the photo retry control. The deployment guide says what happens on each limit and what to do (devops-engineer; the platform's exact behaviour at each limit is not verified).
+
+**Usage check**: dashboard only, never through a public endpoint (ADR 0022 section 3). The guide lists the dashboard pages and two read-only SQL-editor queries.
+
+**GitHub's 60-day rule**: scheduled workflows in a public repository are switched off after 60 days without repository activity. The guide gives a 50-day calendar check and the re-enable steps (ADR 0022 section 5).
+
+No new environment variable or secret: the keep-alive workflow reads the existing repository variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 
 ## 14. Ownership map
 
@@ -688,7 +792,13 @@ Deployment (devops-engineer): one workflow builds on push to `main` (`npm ci`, `
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Supabase free-plan projects pause after a period of inactivity, and have no backups | A gift link opened weeks later fails | Decide the plan before launch (open question). A scheduled keep-alive request is a weak workaround |
+| Supabase's idle-pause rule is not documented here, so the keep-alive call might not count as activity | The project pauses: the app goes offline and the purge stops, breaking NFR-16(e) | The call reaches the gateway, an Edge Function, PostgREST and Postgres (ADR 0022). Watch the first 7 or more days after launch. If Supabase warns of a pause while the keep-alive is green, use the PostgREST fallback in ADR 0022 (needs an ADR 0003 exception and the user's approval) |
+| GitHub switches off the scheduled keep-alive after 60 days without repository activity | No more keep-alive runs and no failure e-mail; the project pauses about 7 days later | 50-day calendar check and re-enable steps in the deployment guide (ADR 0022). Any push resets the 60 days |
+| Keep-alive failure e-mails go to whoever last changed the `cron` line, and only if their Actions notifications are on | A failing keep-alive goes unnoticed | The guide asks the user to check their GitHub notification setting once; the tech lead commits with the user's account |
+| A free limit is reached (most likely the 1 GB storage, at about 60 full museums or a deliberate fill) | Uploads, publishes or photo downloads fail with the generic messages | Documented, not handled in the app (user decision; FR-104 deferred). Usage checked in the dashboard (13.1) |
+| A storage delete keeps failing for more than 23 hours | Photos stay in live storage past NFR-16(e)'s 24 hours | Hourly retries; the guide shows how to read `storage_purge_queue`, the cron history and the function results. No automatic alert |
+| Signed URLs issued just before a museum's end stay valid for up to 1 hour | A Visitor who already had the museum open can load a photo for up to about an hour after the end (until the purge deletes the objects). Opening the link after the end shows nothing | Accepted for now; capping the URL lifetime at `expires_at` is an open question (architect's handoff) |
+| No backups on the Free plan | A mistaken delete, a bad migration or a platform fault loses museums for good | Accepted by the user with the free-tier decision (NFR-16(f)). Migrations are idempotent and roll forward only |
 | 24 and 48 MP iPhone photos exceed iOS canvas limits | Builder crashes on the most common phones | 4096 px intermediate cap; sequential processing; test on a real iPhone early |
 | `heic-to` is LGPL-3.0 | Licence obligation | Lazy separate chunk keeps it replaceable; legal review (NFR-14) |
 | Edge Function cold start on 4G | Welcome screen slower (NFR-2) | Preconnect to Supabase, `x-region` pin, LQIP in the first response, 3D chunks fetched in parallel |
@@ -724,7 +834,7 @@ Deployment (devops-engineer): one workflow builds on push to `main` (`npm ci`, `
 | [0010](decisions/0010-retention-with-pg-cron.md) | Retention with pg_cron and a purge function |
 | [0011](decisions/0011-dom-name-labels.md) | DOM name labels with line-of-sight hiding |
 | [0012](decisions/0012-thin-api-client.md) | Thin API client instead of supabase-js |
-| [0013](decisions/0013-public-npm-registry.md) | Public npm registry for this project |
+| [0013](decisions/0013-public-npm-registry.md) | Public npm registry for this project, including an `.npmrc` beside each Deno config (amended 18/11/2026) |
 | [0014](decisions/0014-camera-composition-and-fading-partitions.md) | Camera composition from screen-space targets, and partition walls that fade |
 | [0015](decisions/0015-api-mode-and-persistent-demo-mock.md) | API mode selection, a live-only production build, and a persistent demo mock |
 | [0016](decisions/0016-automatic-graphics-tier.md) | Automatic graphics tier, low on phones and weak GPUs |
@@ -733,8 +843,9 @@ Deployment (devops-engineer): one workflow builds on push to `main` (`npm ci`, `
 | [0019](decisions/0019-separate-e2e-typescript-project.md) | End-to-end tests are a separate TypeScript project, outside the production build |
 | [0020](decisions/0020-avatar-gender-field.md) | Avatar gender is an optional field with a read-time default, and facial hair is open to both characters |
 | [0021](decisions/0021-avatar-face-shape-and-outfit-fields.md) | Avatar face shape and outfit fields: optional `faceShape` and `outfitPattern`, six appended outfit styles, and how the kit fits them in budget |
+| [0022](decisions/0022-free-tier-hosting-and-keep-alive.md) | Free-tier hosting and a daily keep-alive: a read-only `keep-alive` Edge Function called by a scheduled workflow, usage checked in the dashboard (Proposed, pending the design approval) |
 
-ADRs 0008 and 0009 carry dated amendments (28/10/2026). ADR 0021 carries dated amendments (03/11/2026): builder keys and description words, and the lapse of the provisional 6,500 triangle ceiling.
+ADRs 0008 and 0009 carry dated amendments (28/10/2026). ADR 0021 carries dated amendments (03/11/2026): builder keys and description words, and the lapse of the provisional 6,500 triangle ceiling. ADR 0010 carries a dated amendment (18/11/2026): 7-day retention from first publish, purge within 24 hours, no backups, and the list of every place that changes. ADR 0003's status notes the fifth function from ADR 0022.
 
 ## 17. Change log
 
@@ -746,3 +857,4 @@ ADRs 0008 and 0009 carry dated amendments (28/10/2026). ADR 0021 carries dated a
 | 1.3 | 29/10/2026 | Change request CR-1 (requirements v0.3). Optional `gender` on `AvatarConfig` (`feminine`, `masculine`, `neutral`), `AVATAR_GENDERS`, `DEFAULT_AVATAR_GENDER`, `isAvatarGender` and `avatarGender` added to the contract; no `v`, contract or draft version bump; facial hair for both characters (1, 6.7, 7.1, 7.3, ADR 0020). Character triangle worst case re-measured at 5,878 (6.7, 12). Two new risks (15) |
 | 1.4 | 02/11/2026 | User feedback on CR-4 (requirements v0.5, FR-96 to FR-102, Q-30, Q-31). Optional `faceShape` and `outfitPattern` with accessors, `AVATAR_OPTIONAL_OPTIONS`, `AVATAR_OPTIONAL_DEFAULTS` and `withAvatarDefaults` in the contract; six outfit style ids appended; no `v`, contract or draft version bump. The validator, draft restore, response fill-in and `avatarsEqual` loop over the optional-key table (1, 6.7, 7.1, 7.3, ADR 0021). Per-style triangle counts and the 4,518 body ceiling, 6,500 accepted as a provisional ceiling, pending measurement and sign-off. Style ids from design spec v2.0 12.8.2 G (6.7, 12). Two new risks (15) |
 | 1.5 | 03/11/2026 | CR-4 performance sign-off (requirements v0.6.1, `docs/performance.md` part A, commit 1659eb8). The shared 3D chunk is now two named chunks, `three-*` (921.4 kB) and `scene-shared-*` (66.2 kB); NFR-27's "three.js chunk" is the two combined (987.6 of 1,000 kB, tech-lead decision); guards on `three-*` at 985 kB, the combined figure at 1,000 kB and a missing chunk (2, 12, 13). NFR-27 triangles signed off at 6,000, worst character 5,862; the provisional 6,500 lapsed (6.7, 12, ADR 0021 amendment). Two risks rewritten, one replaced (15). ADR 0021 amendments listed (16) |
+| 1.6 | 18/11/2026 | Iteration 4 (requirements and stories v0.7). Published museums last 7 days from first publish, drafts 7 days, re-publishing never extends, purge within 24 hours, no backups; no data migration (nothing deployed) (1, 5.2, 7.1, 7.4, ADR 0010 amendment). Free-tier hosting and the daily keep-alive: new read-only `keep-alive` Edge Function and `keep_alive()` SQL function, dashboard-only usage check, 60-day rule (1, 3, 7.3, 7.5, 13, 13.1, ADR 0022; ADR 0003 status note). Iteration 4 coverage table (7.6). Contract changes: no new store field or test-hook change; FR-105 reads `builderStore.publish.expiresAt` through a pure formatter; `retentionDays` 7; keep-alive types (8.1). Edit-page end date recommended (9). Threat model (10.2), testing (11) and risks (15) updated. Deno `.npmrc` files beside each `supabase/functions` config after the first CI run failed on mirror tarball URLs (13, ADR 0013 amendment) |

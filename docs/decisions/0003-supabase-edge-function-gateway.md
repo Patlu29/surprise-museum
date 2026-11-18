@@ -1,7 +1,7 @@
 # 0003: Supabase backend with Edge Functions as the only data gateway
 
 ## Status
-Accepted (27/10/2026)
+Accepted (27/10/2026). Amended by ADR 0022 (18/11/2026): a fifth, read-only function, `keep-alive`, runs one service-role query (`public.keep_alive()`, executable by `service_role` only) and is called by a scheduled GitHub Actions workflow. Every rule below still holds.
 
 ## Context
 The user chose Supabase (Sydney) with no custom server. The anon key is public in the static bundle. Requirements: the share token grants read-only access to one museum; the edit token grants update and delete; nobody can list museums or photos; tokens of at least 128 bits; rate-limited lookups; no accounts. Options:
