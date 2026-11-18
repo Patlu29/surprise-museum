@@ -3,7 +3,7 @@
 Application: Surprise Museum. A creator builds a small 3D museum of up to 20 photos with captions and a closing message, picks two stylised characters (the Visitor and the Guide), and shares an unlisted link. The recipient walks the Visitor through the museum while the Guide presents each photo. React Three Fiber on GitHub Pages, Supabase backend.
 Approval mode: Key gates
 Current iteration: 4 (Feature and hosting: free-tier hosting, 7-day retention)
-Current phase: 1 Plan
+Current phase: 2 Design
 Last updated: 18/11/2026
 
 ## Iterations
@@ -19,8 +19,8 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 ## Phase log (current iteration)
 | Phase | Status | Evidence | Date |
 |---|---|---|---|
-| 1 Plan | In progress | Product manager updating NFR-16, Q-5, FR-54 and adding the free-tier hosting requirement | 18/11/2026 |
-| 2 Design | Not started | Architect: ADR 0010 amendment, free-tier hosting and keep-alive ADR, contracts. Designer Skipped unless UI copy needs a spec change | |
+| 1 Plan | Done | Requirements v0.7 (d8be836): NFR-16 7 days, NFR-32 free-tier hosting (Must), FR-105 publish notice (Must), FR-104 space-full (Could); US-68 to US-71; backlog.md created (CR-5 to CR-11, BUG-15, N-11 to N-13, V-1 to V-5, LEG-1, DEBT-1, PERF-1). Must count 90 (hand-counted). No 90-day figure left except superseded notes. Publish screen shows no end date today (checked src/ui), so FR-105 is new work | 18/11/2026 |
+| 2 Design | In progress | Architect: ADR 0010 amendment, ADR 0022 free-tier and keep-alive, contracts. Designer next for FR-105 notice and not-found wording | 18/11/2026 |
 | 3 Build | Not started | Backend-developer: retention constant and docs/api.md; frontend-developer only if UI copy hard-codes 90 days | |
 | 4 Verify | Not started | Performance Skipped (no runtime change). QA full regression | |
 | 5 Review | Not started | | |
@@ -39,10 +39,12 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 - 18/11/2026 (tech lead): this is a Feature iteration, because a Must requirement and user-facing wording change, combined with hosting work. Route: 1, 2 (architect only), 3, 4, 5, 6, 7.
 
 ## Open questions (owner)
-- None yet.
+- Q-33 (user, at A2): expired links keep the uniform not-found response with wording covering "deleted or its 7 days ended" (recommended, provisionally accepted) or a distinct expired screen.
+- Q-34 (user, before launch): confirm the 1 GB storage, 500 MB database and about 5 GB egress figures on supabase.com/pricing.
+- Q-35 (user, at A2): FR-105 publish-screen notice stays Must (recommended, provisionally accepted), Should, or dropped.
 
 ## Open requests (owner)
-- None yet.
+- CI first real run 44297927703 (18/11/2026): Deno job failed at `deno check`; other jobs pending. Route to backend-developer once logs are available.
 
 ## Environment notes
 - Node v26.7.0, npm 11.19.0, public npm registry reachable (18/11/2026).
@@ -53,7 +55,7 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 - Free-tier facts used (third-party sources, checked 18/11/2026; confirm on supabase.com/pricing): Supabase Free has 500 MB database, 1 GB file storage, about 5 GB egress a month, 2 active projects, and pauses after 7 days idle. GitHub Actions is free for public repos on standard runners. Scheduled workflows in public repos are switched off after 60 days with no repo activity.
 
 ## Not verified
-- CI on GitHub has never run (billing lock until at least 11/11/2026).
+- CI on GitHub: first real run started 18/11/2026 (billing lock cleared); results pending.
 - Real devices, Safari and Firefox frame rate, screen readers, Linux visual baselines (carried from iteration 3).
 
 ---
