@@ -1,7 +1,67 @@
-# Project status — Surprise Museum
+# Project status
 
-**Current phase:** CR-4 (improved UI, polish) QA round 6 done (Go with conditions, 0 failing tests, BUG-13 to BUG-18 open), fix rounds 1 and 2 done (spec v2.0.3, requirements v0.6.2), QA round 7 done (Go, 979 passed / 0 failed / 74 skipped); BUG-18 linen residuals accepted by the user as final FR-89 class X-1 to X-5 (requirements v0.6.3); CR-4 complete; Release with CR-1 to CR-3: CR-1 to CR-3 built (gender, presentation camera, photo notice, readable caption card); QA complete (round 5: Go, 691 passed / 0 failed / 41 skipped); Phase 7 pipeline written (CI on push/PR; Pages, Supabase and Linux-baseline workflows manual only); nothing deployed
-**Last updated:** 11/11/2026
+Application: Surprise Museum. A creator builds a small 3D museum of up to 20 photos with captions and a closing message, picks two stylised characters (the Visitor and the Guide), and shares an unlisted link. The recipient walks the Visitor through the museum while the Guide presents each photo. React Three Fiber on GitHub Pages, Supabase backend.
+Approval mode: Key gates
+Current iteration: 4 (Feature and hosting: free-tier hosting, 7-day retention)
+Current phase: 1 Plan
+Last updated: 18/11/2026
+
+## Iterations
+| # | Type | Scope | Started | Closed | Outcome |
+|---|---|---|---|---|---|
+| 1 | New application | MVP (requirements v0.2) | 27/10/2026 | 29/10/2026 | Built and QA'd; not deployed |
+| 2 | Feature | CR-1 to CR-3 (gender, presentation camera, photo notice, caption card) | 29/10/2026 | 02/11/2026 | QA round 5 Go; pipeline written; not deployed |
+| 3 | Feature | CR-4 Improved UI | 02/11/2026 | 11/11/2026 | QA round 7 Go; FR-89 linen exceptions X-1 to X-5 accepted by the user; not deployed |
+| 4 | Feature and hosting | Free-tier hosting on GitHub Pages and Supabase Free with keep-alive; retention 90 to 7 days | 18/11/2026 | | |
+
+Iterations 1 to 3 ran under the earlier builder process; their record is under "History before ADLC" below. No retrospective was written for them.
+
+## Phase log (current iteration)
+| Phase | Status | Evidence | Date |
+|---|---|---|---|
+| 1 Plan | In progress | Product manager updating NFR-16, Q-5, FR-54 and adding the free-tier hosting requirement | 18/11/2026 |
+| 2 Design | Not started | Architect: ADR 0010 amendment, free-tier hosting and keep-alive ADR, contracts. Designer Skipped unless UI copy needs a spec change | |
+| 3 Build | Not started | Backend-developer: retention constant and docs/api.md; frontend-developer only if UI copy hard-codes 90 days | |
+| 4 Verify | Not started | Performance Skipped (no runtime change). QA full regression | |
+| 5 Review | Not started | | |
+| 6 Release | Not started | Devops: keep-alive workflow, free-tier section in docs/deployment.md, CHANGELOG.md | |
+| 7 Operate and learn | Not started | | |
+
+## Approvals
+| Gate | Iteration | Decision | Given by | Date | Covers |
+|---|---|---|---|---|---|
+| A1 scope | 4 | Approved (the user's own answers set the scope) | User | 18/11/2026 | Supabase Free plus a scheduled keep-alive; GitHub Pages with the existing Actions pipeline; museums promised for 7 days, then the whole museum and photos are deleted; free-limit guardrail is docs plus a usage check, no new in-app handling |
+
+## Decisions and answers
+- 18/11/2026 (user): host on free tiers only. Backend: Supabase Free with a keep-alive workflow so the project never reaches the 7-day idle pause.
+- 18/11/2026 (user): GitHub billing lock is fixed. Not yet confirmed by a CI run (last refused run 11/11/2026).
+- 18/11/2026 (user): first asked to auto-clear photos every 2 days; on being told this breaks the 90-day promise (NFR-16, Must), chose "change that as one week promise". The tech lead reads this as: the whole museum and its photos are deleted 7 days after first publish, and the link shows the existing expired message. Drafts already expire 7 days after creation.
+- 18/11/2026 (tech lead): this is a Feature iteration, because a Must requirement and user-facing wording change, combined with hosting work. Route: 1, 2 (architect only), 3, 4, 5, 6, 7.
+
+## Open questions (owner)
+- None yet.
+
+## Open requests (owner)
+- None yet.
+
+## Environment notes
+- Node v26.7.0, npm 11.19.0, public npm registry reachable (18/11/2026).
+- Vite preview on port 4173 serves dist/ for Playwright; never kill it. Use 2 workers on desktop-chromium.
+- Firefox cannot launch in this sandbox.
+- Isolated verification: the tech lead's verify.sh runs tsc, eslint, vitest, build and the bundle check in a clean worktree.
+- Agents do not commit. The tech lead commits and pushes to main. No deploy, no Pages enablement, no secrets and no cloud resources without the user's explicit approval for that action.
+- Free-tier facts used (third-party sources, checked 18/11/2026; confirm on supabase.com/pricing): Supabase Free has 500 MB database, 1 GB file storage, about 5 GB egress a month, 2 active projects, and pauses after 7 days idle. GitHub Actions is free for public repos on standard runners. Scheduled workflows in public repos are switched off after 60 days with no repo activity.
+
+## Not verified
+- CI on GitHub has never run (billing lock until at least 11/11/2026).
+- Real devices, Safari and Firefox frame rate, screen readers, Linux visual baselines (carried from iteration 3).
+
+---
+
+# History before ADLC
+
+**Status before ADLC (to 11/11/2026):** CR-4 (improved UI, polish) QA round 6 done (Go with conditions, 0 failing tests, BUG-13 to BUG-18 open), fix rounds 1 and 2 done (spec v2.0.3, requirements v0.6.2), QA round 7 done (Go, 979 passed / 0 failed / 74 skipped); BUG-18 linen residuals accepted by the user as final FR-89 class X-1 to X-5 (requirements v0.6.3); CR-4 complete; Release with CR-1 to CR-3: CR-1 to CR-3 built (gender, presentation camera, photo notice, readable caption card); QA complete (round 5: Go, 691 passed / 0 failed / 41 skipped); Phase 7 pipeline written (CI on push/PR; Pages, Supabase and Linux-baseline workflows manual only); nothing deployed
+
 
 ## Phases
 
