@@ -1,6 +1,8 @@
 # User stories: Virtual 3D Photo Museum
 
-Version 0.6.3 | 11/11/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.6.3)
+Version 0.7 | 18/11/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.7)
+
+Change in v0.7 (iteration 4, user decisions of 18/11/2026: museums last 7 days; free tiers only): US-24 AC-3 changed (purge within 24 hours, was 7 days). US-27 rewritten (a Creator-set expiry can only shorten the 7 days; 5 numbered criteria; stays Should). New Must stories: US-68 (7-day life and purge, NFR-16, which had no story before), US-69 (free tiers and keep-alive, NFR-32 (a) and (b)), US-70 (deployment guide free-tier section, NFR-32 (c) to (f)) and US-71 (publish screen states the 7 days, FR-105). FR-104 (Could, in-app space full) has no story and is deferred (backlog CR-9). No story or criterion mentioned 90 days. US-22 is unchanged.
 
 Change in v0.6.3 (user decision, 11/11/2026): US-57's accepted class is now final: X-1 to X-5, all against the linen wall, accepted by the user to keep the dim art direction. Test method stated: screen scale 3, canvas pinned at 1.5, first case discarded.
 
@@ -299,7 +301,7 @@ As a Creator, I want to delete the museum, so that my photos are removed when I 
 **Acceptance criteria**
 - Given I open my edit link, when I choose Delete, then I must confirm in a second step that the deletion is permanent
 - Given I confirm, when deletion completes, then the share link immediately shows the "museum not found" screen
-- Given I delete the museum, when the operation finishes, then the photos and text are removed from live storage within 7 days
+- Given I delete the museum, when 24 hours have passed since I confirmed, then 0 photos, 0 text rows and 0 storage objects for it remain in live storage (NFR-16(e); changed in v0.7, was 7 days)
 
 ### US-25: Edit after publishing (FR-51, Should)
 As a Creator, I want to fix a typo or swap a photo after sending the link, so that I don't need to resend it.
@@ -318,11 +320,14 @@ As a Creator, I want to add a passcode, so that the link alone is not enough.
 - Given the correct passcode, when entered, then the welcome screen appears
 
 ### US-27: Expiry (FR-54, Should)
-As a Creator, I want to set when the link stops working, so that the museum does not stay online forever.
+As a Creator, I want to set an earlier time when the link stops working, so that the museum does not stay online for the full 7 days if I do not want it to.
 
-**Acceptance criteria**
-- Given I set an expiry date, when the date passes, then the share link shows an "expired" message
-- Given the expiry has passed, when the retention window ends, then the content is removed from storage
+**Acceptance criteria** (changed in v0.7: an expiry can only shorten the 7 days of NFR-16)
+- Given I set an expiry that is after now plus 1 hour and before the first publish plus 7 days, when that time passes, then within 1 minute the share link shows the "expired" screen (Q-33)
+- Given I try to choose an expiry later than the first publish plus 7 days, when I confirm, then it is refused with a message that gives the latest allowed date and time
+- Given I try to choose an expiry less than 1 hour from now, when I confirm, then it is refused with a message that gives the earliest allowed time
+- Given the expiry has passed, when 24 hours have passed since it, then 0 photos, 0 text rows and 0 storage objects for the museum remain in live storage
+- Given I have set an expiry, when I re-publish or edit the museum, then the expiry time is unchanged
 
 ### US-28: Send via my phone's share options (FR-48, Should)
 As a Creator on a phone, I want to share the link in my messaging app directly, so that I don't have to copy and paste.
@@ -337,6 +342,48 @@ As a Creator, I want my work kept if I get interrupted, so that I don't start ag
 **Acceptance criteria**
 - Given I have unpublished work, when I refresh the page, then my photos, captions, names and character choices are restored
 - Given I choose Start again, when I confirm, then the saved draft is cleared
+
+### US-68: A museum lasts 7 days, then it is gone (NFR-16, Must)
+As a Creator, I want to know exactly how long the museum lasts, so that I can time the gift, and as the owner of the service I want old photos removed, so that private photos are not kept and the free storage does not fill.
+
+**Acceptance criteria** (T is the moment of the museum's first publish)
+- Given the museum was first published at T, when I open the share link at any time before T plus 168 hours, then the museum loads with all its photos and captions
+- Given T plus 168 hours has passed, when I open the share link within 60 seconds of that time or later, then no photo, caption or name is shown and the screen says the museum is no longer available because it has expired or been deleted (Q-33)
+- Given the museum was first published at T, when I re-publish or edit it on day 3, then it still ends at T plus 168 hours, within 1 minute
+- Given a draft was created at time D, when D plus 168 hours has passed without a publish, then the draft can no longer be opened and its photos are purged
+- Given the museum's 168 hours have ended at time E, when E plus 24 hours has passed, then 0 database rows and 0 storage objects for the museum remain (checked by a row count and a storage listing)
+- Given the hourly purge job, when I read its run record for any 24-hour window after launch, then it shows at least 23 completed runs
+
+### US-69: The app runs on free tiers and stays awake (NFR-32 (a), (b), Must)
+As the owner of the service, I want the app to cost nothing to host and never be paused for inactivity, so that the link a Creator sends keeps working.
+
+**Acceptance criteria**
+- Given the repository settings and the Supabase dashboard, when I check them (manual check by the tech lead or the user), then the repository is public, the Supabase plan is Free and no paid add-on is enabled
+- Given the keep-alive workflow, when I read its schedule, then it runs at least once every 72 hours
+- Given the workflow's run history in GitHub Actions, when I check any 72-hour window in the last 7 days after the first run, then it shows at least 1 successful run in that window
+- Given the keep-alive runs, when it finishes, then it has created 0 museum rows and 0 storage objects, has not called the purge function and has written no secret value to its log
+- Given a keep-alive run fails, when I open the run in GitHub Actions, then it is marked as failed (not green), so that the failure is visible without extra tooling
+
+### US-70: The deployment guide states the free limits (NFR-32 (c) to (f), Must)
+As the owner of the service, I want the free limits and the steps to check them written down, so that I find out before a limit is reached and know what to do.
+
+**Acceptance criteria**
+- Given `docs/deployment.md`, when I read its free-tier section, then it lists file storage 1 GB, database 500 MB and egress about 5 GB a month, each marked "confirm on supabase.com/pricing"
+- Given the section, when I read the capacity arithmetic, then it shows 20 photos x (about 600 KB + about 200 KB) = about 16 MB per full museum and about 60 full museums live at once in 1 GB
+- Given the section, when I follow its usage-check steps, then I can read current storage, database and egress use in the Supabase dashboard, and I can confirm the date and result of the last keep-alive run
+- Given the section, when I read it, then it states that GitHub switches off scheduled workflows in a public repository after 60 days with no repository activity, and how to switch them back on
+- Given the section, when I read it, then it states what happens when each of the three free limits is reached and what to do, and that the app has no in-app handling for it (FR-104 is deferred)
+- Given the section, when I read it, then it states that the Free plan has no backups, and contains no price (for any paid plan it says to contact Supabase sales)
+
+### US-71: The publish screen states the 7 days (FR-105, Must)
+As a Creator, I want to see when the museum will stop working, so that I can send the link in time and am not surprised.
+
+**Acceptance criteria**
+- Given publishing has completed, when the publish screen appears, then it says the museum is available for 7 days
+- Given publishing has completed, when the publish screen appears, then it shows the end date and time as DD/MM/YYYY and a 24-hour time in my local time zone, equal to the first publish plus 168 hours within 1 minute
+- Given I re-publish or edit the museum, when I open the publish screen again, then the end date and time shown are unchanged
+- Given the screen is at 360 px wide with the browser text size at 200%, when I read the 7-day notice, then it is fully visible with no horizontal scrolling
+- Given the notice, when I read it, then it says that deleting through the edit link ends the museum sooner
 
 ---
 
@@ -677,6 +724,7 @@ As a Creator, I want the extra options out of the way until I want them, so that
 | Release | Stories |
 |---|---|
 | MVP (all Must) | US-1, US-2, US-3, US-4, US-5, US-6, US-7, US-8, US-9, US-10, US-11, US-12, US-13, US-14, US-15, US-16, US-17, US-22, US-23, US-24, US-30, US-31 (message only), US-32, US-33, US-42, US-45 (NFR-25 part), US-46, US-47, US-48 (added in v0.3) |
+| Iteration 4 (7-day retention and free-tier hosting), Must (v0.7) | US-68, US-69, US-70, US-71 (US-24 criterion 3 changed) |
 | CR-4 Improved UI, Must (build now, v0.4; US-53 removed in v0.5) | US-49, US-52, US-54, US-55, US-57, US-59, US-61 |
 | CR-4 user feedback, Must (build now, v0.5) | US-62 (ceiling bug, first), US-63, US-64, US-65, US-66, US-67 |
 | CR-4 Improved UI, Should and Could (build now if time allows, in this order: US-50, US-51, US-56, US-58, US-60, then US-53) | US-50, US-51, US-56 (FR-88 deferred in v0.6), US-58, US-60, US-53 (FR-84 Should, FR-82 Could) |
@@ -725,4 +773,6 @@ As a Creator, I want the extra options out of the way until I want them, so that
 | FR-96 | US-63 (also US-65, US-66, US-67) | FR-97, FR-98 | US-64 (also US-65, US-66, US-67) |
 | FR-99 | US-65 | FR-100, FR-101 | US-66 |
 | FR-102 | US-67 | NFR-27, NFR-29 (changed in v0.5) | US-61, US-66 |
-| FR-103 (Should, v0.6) | US-63, US-64 | | |
+| FR-103 (Should, v0.6) | US-63, US-64 | NFR-16 (changed v0.7) | US-68 (also US-24, US-27) |
+| NFR-32 (new v0.7) | US-69, US-70 | FR-105 (new v0.7) | US-71 |
+| FR-104 (Could, v0.7) | None (deferred, backlog CR-9) | FR-54 (changed v0.7) | US-27 |
