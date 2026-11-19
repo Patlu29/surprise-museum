@@ -20,7 +20,7 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 | Phase | Status | Evidence | Date |
 |---|---|---|---|
 | 1 Plan | Done | Requirements v0.7 (d8be836): NFR-16 7 days, NFR-32 free-tier hosting (Must), FR-105 publish notice (Must), FR-104 space-full (Could); US-68 to US-71; backlog.md created (CR-5 to CR-11, BUG-15, N-11 to N-13, V-1 to V-5, LEG-1, DEBT-1, PERF-1). Must count 90 (hand-counted). No 90-day figure left except superseded notes. Publish screen shows no end date today (checked src/ui), so FR-105 is new work | 18/11/2026 |
-| 2 Design | In progress | Architect: ADR 0010 amendment, ADR 0022 free-tier and keep-alive, contracts. Designer next for FR-105 notice and not-found wording | 18/11/2026 |
+| 2 Design | Awaiting A2 | Architect (4918550): ADR 0010 amended (7 days, purge within 24 h, no backups), ADR 0022 Proposed (read-only keep-alive Edge Function, daily workflow, usage in dashboard), architecture v1.6, contracts unchanged (expiresAt already in store; CONTRACT_VERSION 1), project and Deno .npmrc files. Designer: design spec v2.1 (5.18 availability notice on published screen and edit page, not-found body, privacy sentence). Build passes | 19/11/2026 |
 | 3 Build | Not started | Backend-developer: retention constant and docs/api.md; frontend-developer only if UI copy hard-codes 90 days | |
 | 4 Verify | Not started | Performance Skipped (no runtime change). QA full regression | |
 | 5 Review | Not started | | |

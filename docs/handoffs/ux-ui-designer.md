@@ -1,5 +1,51 @@
 # Handoff: ux-ui-designer
 
+## Update v2.1: 7-day notice, edit-page end date, not-found body, privacy sentence (19/11/2026)
+
+Iteration 4, phase 2 Design. Spec is v2.1. No token added or changed; `tokens.css` untouched. Nothing committed. Visual judgements are **Not verified** (no render).
+
+### Files changed
+- `docs/design-spec.md`: header and change note; new 5.18; 2.1, 2.3, 7.5, 8.3, 10 (copy deck), 11, 12.5.5, 12.10.
+- `docs/handoffs/ux-ui-designer.md`: this section.
+
+### Exact copy
+- Published notice: "Available for 7 days, until 25/11/2026 14:30." / "Deleting it with your edit link ends it sooner."
+- Edit page notice: "Available for 7 days, until 25/11/2026 14:30." / "You can end it sooner by deleting it below."
+- Fallback with no valid date: "Available for 7 days." plus line 2.
+- Not-found heading unchanged "We can't find that museum". Body: "The link might have a typo, or the museum may have been deleted. Museums are only kept for 7 days, so it may have ended. Check the link, or ask the person who sent it for a new link."
+- Privacy, new paragraph under "How long we keep it": "Our free plan keeps no backups, and deleted or expired content is removed within 24 hours."
+- The time zone is not named (local time; `dateTime` holds the instant).
+
+### Frontend-developer change list
+1. New `src/ui/components/AvailabilityNotice.tsx` (two uses): props `expiresAt: string | null | undefined`, `context: 'published' | 'edit'`. Markup per 5.18: info `Icon` (`aria-hidden`, `--icon-sm`, `--color-text-muted`) plus a text column; line 1 `--text-md` weight 500 `--color-text` with `<time dateTime={expiresAt}>{formatEndDateTime(expiresAt)}</time>`; line 2 `--text-sm` `--color-text-muted`. Not an `Alert`, no role, no live region. If `formatEndDateTime` returns null: "Available for {LIMITS.retentionDays} days." with no `<time>`. Days from `LIMITS.retentionDays`. CSS: flex, gap `--space-2`, `min-width: 0`, `overflow-wrap: anywhere`; add to `src/ui/styles` (frontend's CSS), tokens only.
+2. `src/ui/builder/PublishedScreen.tsx`: render it in the Share link card directly after `LinkField` and before the "Open my museum" button, with `useBuilderStore((s) => s.publish.expiresAt)`, context `published`.
+3. `src/ui/screens/EditScreen.tsx`: in the Share link section after `LinkField`, `data.expiresAt`, context `edit`. Only inside the existing `link && document` block; nothing for an unpublished draft.
+4. `src/lib/format.ts`: `formatEndDateTime(iso)` as in architecture 8.1 (already requested by the architect).
+5. `src/ui/screens/NotFoundScreen.tsx`: replace the body paragraph with the v2.1 text, number from `LIMITS.retentionDays` (import from `@contract`). Heading, title and action unchanged. Update any test or e2e that asserts the old body text (the heading assertions are unaffected).
+6. `src/ui/screens/LegalScreen.tsx` (PrivacyScreen): add the sentence as its own `<p>` after the "How long we keep it" paragraph.
+7. Unit tests: notice renders date, fallback, edit variant; not-found body; privacy sentence.
+
+### QA checks
+- Phone 360 px and 320 px at 200% text: notice fully visible, no horizontal scroll, nothing clipped (5.18). Contrast over paper only (14.7 and 6.0, calculated).
+- `<time datetime>` equals the store's `publish.expiresAt`; text equals `DD/MM/YYYY HH:mm` in a fixed time zone.
+- Notice sits under the Copy row on both screens and Copy remains the first control after the field.
+- Not-found screen shows the same body for unknown, deleted and expired links.
+
+### Found by search
+- No "90 days" or long-lived wording in the spec. One conflict fixed: 7.5 said R2 would add an "expired" variant; removed (uniform screen stays, Q-33 (a)). `src/ui` also has no hard-coded 90 (architect verified; I did not re-search `src/` beyond the four screens read).
+
+### Open questions
+- Drafts on the edit page: `expiresAt` may also exist for an unpublished draft (7 days from creation). I show no notice for drafts (FR-105 is about a published museum). Recommend leaving it, and backlog "draft end date" if wanted (product-manager).
+- Edit-page wording differs from the published screen ("by deleting it below") because the delete section is on the same page. Recommend keeping both (tech lead).
+- Q-33 (a) and Q-35 (a) remain provisional until the user decides at design approval. If Q-33 (b) is chosen, 7.5 needs a distinct expired screen and an API change.
+- Requirements FR-105 says the time is shown "in the Creator's local time zone"; I read that as local time without a zone name. Product-manager to confirm.
+
+### Requests for other agents
+- [open] frontend-developer: the list above.
+- [open] qa-engineer: the checks above.
+
+---
+
 ## Update v2.0.3: BUG-18 edge tokens, acceptance method, outline review (11/11/2026)
 
 ### Summary

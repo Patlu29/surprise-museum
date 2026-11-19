@@ -1,6 +1,8 @@
 # Design spec: Surprise Museum
 
-Version 2.0.3 | 11/11/2026 | Owner: ux-ui-designer | Based on requirements v0.4 (CR-4, Epic E10), user stories v0.4 and architecture v1.0
+Version 2.1 | 19/11/2026 | Owner: ux-ui-designer | Based on requirements v0.7 (iteration 4), user stories v0.7 and architecture v1.6
+
+**Change note, v2.1 (iteration 4: 7-day retention, 19/11/2026).** Copy and one small component; no token added or changed. (1) New **5.18** "Availability notice": one block stating "Available for 7 days, until DD/MM/YYYY HH:mm" plus how to end it sooner, used on the published screen (12.5.5) and on the edit page (FR-105, US-71). (2) The edit page shows the same end date (US-71 AC-3), in its Share link section. (3) 7.5 Not found: heading unchanged, body now also covers an ended 7 days; the uniform not-found response stays (Q-33 (a), provisional); the old "R2 adds expired variants" line is removed. (4) Privacy page gains one sentence on no backups and removal within 24 hours (10). (5) Copy deck, 2.1, 2.3, 8.3, coverage table updated. (6) Search for "90", "days", "retention" and long-lived wording found no 90-day text in the spec; the only conflicting statement was the R2 "expired" variant in 7.5.
 
 **Change note, v2.0.3 (BUG-18 fix round 1, 11/11/2026).** (1) Tokens: `--look-rim-max` 0.6 to 0.85 and `--look-contour-max` 0.95 to 1 to match the shader; comment records the 0.7 rim and 0.25 contour colour scaling. (2) 12.8.6: edge contrast is accepted at pixel ratio 1.5 (phone Low tier), not supersampled; 1.0 is a stretch case; the DPR governor floor is unchanged (tech-lead, 11/11/2026). (3) 12.8.2: as-built edge note. (4) 12.8.2 review of the darker, wider outline against "ink-aubergine", and the lit-linen option, recorded in the handoff for the user's decision; no wall change made.
 
@@ -198,8 +200,8 @@ The builder is one route (`#/create`) with four steps held in component state an
 | 2 Words | Visitor name (required), Guide name (required), museum title (optional), closing message (optional) | 1 to 24 characters for names, 60 for title, 1,000 for the message. A live sample shows the welcome title and both name labels as typed |
 | 3 Characters | Styles the Visitor and the Guide with a live 3D preview | Every option is a labelled control. Preview updates within 1 s. Works without WebGL (options still usable) |
 | 4 Review and publish | Checks the summary, ticks the consent, optionally previews, publishes | Consent is required (FR-56). Publish shows progress, cannot run twice, and failure keeps all work |
-| Published | Copies or shares the **share link**, copies and saves the **edit link** | Edit link has a prominent "save this" warning and must be acknowledged before "Finish" (FR-50) |
-| Edit link | Opens `#/edit/<token>`: sees a summary, copies the share link, deletes | Delete needs a confirmation dialog whose default focus is Cancel (US-24). MVP offers view, copy and delete only |
+| Published | Copies or shares the **share link**, reads the end date (5.18), copies and saves the **edit link** | Edit link has a prominent "save this" warning and must be acknowledged before "Finish" (FR-50). The museum lasts 7 days from first publish (FR-105) |
+| Edit link | Opens `#/edit/<token>`: sees a summary, copies the share link, reads the same end date (5.18), deletes | Delete needs a confirmation dialog whose default focus is Cancel (US-24). MVP offers view, copy and delete only |
 
 Preview is available from every step once there is at least 1 photo and both names. If not, the Preview button opens a dialog listing what is missing, with a link to each fix (US-8).
 
@@ -238,7 +240,7 @@ flowchart LR
 
 | Situation | Screen | Recovery |
 |---|---|---|
-| Unknown, deleted, expired or mistyped link; any unknown route | **Not found** (7.5): reveals nothing about content, no list of museums | "Go to the home page" |
+| Unknown, deleted, expired (7 days ended) or mistyped link; any unknown route | **Not found** (7.5): one uniform screen that reveals nothing about content or whether a museum ever existed, no list of museums | "Go to the home page" |
 | Museum data cannot be fetched (offline, server error) | **Couldn't open it** (7.6) with the museum unchanged | "Try again" without a page reload (US-30) |
 | WebGL unavailable | **Can't show 3D** (7.7): explanation, supported browsers, how to enable hardware acceleration | R2: "See the photos as a slideshow" |
 | Graphics context lost mid-visit | Modal "The 3D view stopped" (7.8) | "Reload" |
@@ -760,6 +762,26 @@ It does not come back if the Creator later removes every photo. It does appear a
 
 **Interaction with other builder rules.** The "Add at least one photo" messages on steps 3 and 4 and the Preview dialog's missing list are unchanged. The leaving-protection prompt (2.1) is unchanged. In Release 2, when photos are restored from IndexedDB (US-29 AC-1), the notice is never shown for a draft that has photos, so no change to the notice is needed.
 
+### 5.18 Availability notice (published screen and edit page, FR-105, US-71, v2.1)
+
+A short static block that tells the Creator how long the museum lasts and when it ends. One component, two uses.
+
+| Part | Spec |
+|---|---|
+| Where (published screen) | Inside the Share link card (12.5.5), directly under the link field and its Copy and Share row, above "Open my museum". Copy stays the first control after the field; the notice never sits between the field and Copy |
+| Where (edit page) | Inside the Share link section, directly under the link field and its Copy and Share row. Shown only when the museum is published (`data.shareToken` and `data.document` present). Not shown for an unpublished draft (nothing to promise yet) |
+| Layout | Row: info icon (`--icon-sm`, 20 px, `aria-hidden`, `--color-text-muted`, top-aligned with the first line) then a text column, gap `--space-2`. No fill, border or shadow, so it is quieter than the warning alert in the edit-link card and is not mistaken for an error. It is a child of the card's stack, so the gap above it is `--space-4` |
+| Line 1 | `--text-md` (16 px), weight 500, `--color-text`: "Available for {retentionDays} days, until {end}." `{end}` is `<time dateTime={expiresAt}>DD/MM/YYYY HH:mm</time>`, the one formatter's output in the viewer's local time, 24-hour, zero-padded (architecture 8.1). `{retentionDays}` is `LIMITS.retentionDays` (7) |
+| Line 2 | `--text-sm` (14 px), weight 400, `--color-text-muted`, as its own paragraph (margin 0, `--space-1` above). Published screen: "Deleting it with your edit link ends it sooner." Edit page: "You can end it sooner by deleting it below." |
+| Time zone | Not named. The time is the Creator's local time, which is what FR-105 asks for; "AEDT" or "GMT+11" adds characters and no information for the person who just published. The `dateTime` attribute carries the exact instant |
+| Fallback | If `expiresAt` is missing or does not parse (formatter returns `null`), line 1 reads "Available for 7 days." with no `<time>`; line 2 stays. The notice never shows "Invalid Date" or a blank |
+| Phone (360 px) | Card content is 360 - 2 x 16 (`--page-gutter`) - 2 x 16 (card padding) = 296 px; the text column is 296 - 20 (icon) - 8 (gap) = 268 px. At 100% text line 1 (about 46 characters at 16 px) is two lines; line 2 is one or two |
+| 200% text at 360 px | Sizes are rem, so they double: line 1 at 32 px, line 2 at 28 px, text column still 268 px. Line 1 wraps to about four lines, line 2 to about three. The block grows in height; nothing is clipped, truncated or scrolled. The block has `overflow-wrap: anywhere` and `min-width: 0`, so there is no horizontal scroll at 360 px or at 320 px (column 228 px). `<time>` may break at the space between date and time |
+| Contrast | `--color-text` on `--color-surface` 14.7; `--color-text-muted` on `--color-surface` 6.0. Icon (graphic, 3:1 needed) 6.0. It sits on paper cards only, never over the scene |
+| Screen reader | Plain text in reading order, not a live region (the screen's heading takes focus on arrival and a live region that exists at load is not announced reliably). Reads: "Available for 7 days, until 25/11/2026 14:30. Deleting it with your edit link ends it sooner." The icon is hidden. No `aria-label` override on the `<time>`, so the spoken text equals the visible text |
+| Interaction | None. No focusable element, so no tab stop and no focus state |
+| Stability | The date is the server `expiresAt` from the first publish (re-publishing or editing does not change it). It never counts down and never re-renders on a timer |
+
 ---
 
 ## 6. 3D interactions
@@ -1060,9 +1082,9 @@ Paper screen, centred, no navigation to other museums.
 
 - Illustration: an empty walnut frame hanging slightly crooked under a brass picture light (static SVG, 20 kB or less, `aria-hidden`).
 - Heading (h1): "We can't find that museum".
-- Body: "The link might have a typo, or the museum may have been taken down. Check the link, or ask the person who sent it to send it again."
+- Body (v2.1): "The link might have a typo, or the museum may have been deleted. Museums are only kept for 7 days, so it may have ended. Check the link, or ask the person who sent it for a new link." The number is `LIMITS.retentionDays`. Every sentence is conditional ("might", "may") and is shown identically for every failing link, so it cannot tell a viewer whether a museum ever existed there. Only the body changed; the heading and the action are as before.
 - Action: **Go to the home page** (secondary). No other content, no hints about what existed.
-- Used for unknown, deleted and expired links and unknown routes (FR-55). R2 adds "expired" and "not yet" variants with the same layout.
+- Used for unknown, deleted and expired links and unknown routes (FR-55), and for an edit link that is unknown, deleted or past its end. There is no separate "expired" screen (Q-33 (a), provisional until the user decides at design approval).
 
 ### 7.6 Couldn't open it (MVP)
 
@@ -1151,6 +1173,7 @@ Focus is never moved automatically onto the caption card (the Visitor may be wal
 | Replay | "Back at the entrance. Viewed pictures have been cleared." |
 | Failed photo | "Photo 3 did not load. A Retry button is available." |
 | Builder, restored draft (v1.2) | Once, about 600 ms after the step announcement: "Photos aren't kept after a reload. Please add them again. Your names, words and characters are still here." Polite, never takes focus, removal and dismissal are silent (5.17) |
+| Published screen and edit page (v2.1, 5.18) | Static text in reading order, not announced on arrival: "Available for 7 days, until 25/11/2026 14:30. Deleting it with your edit link ends it sooner." (edit page: "...You can end it sooner by deleting it below.") |
 | Builder | Upload progress per photo is `role="progressbar"` with text; reorder, remove and replace outcomes are announced politely; step changes are announced; copy success is announced |
 
 The picture's alternative text is its caption, or "Photo n of N" if there is none (FR-63). Name labels are `aria-hidden`; names are announced through the above regions.
@@ -1430,6 +1453,7 @@ The Visitor-facing experience never shows a gender label (A-20). Name labels, th
 | Publish | "Publish museum" / progress "Publishing your museum... 80%" |
 | Published heading | "Your museum is ready" |
 | Share link | "Share link" / "Send this to {name}. Opening it on a phone works best." / "Copy link" / "Share..." / "Copied" |
+| Availability notice (v2.1, 5.18) | Published screen: "Available for 7 days, until 25/11/2026 14:30." then "Deleting it with your edit link ends it sooner." Edit page: "Available for 7 days, until 25/11/2026 14:30." then "You can end it sooner by deleting it below." Fallback without a date: "Available for 7 days." |
 | Edit link | "Private edit link" |
 | Edit warning | "Save this link now. It is the only way to change or delete your museum, and we can't recover it if you lose it. Don't share it." |
 | Edit acknowledgement | "I've saved my edit link." / button "Finish" |
@@ -1444,7 +1468,8 @@ The Visitor-facing experience never shows a gender label (A-20). Name labels, th
 | Retry chip | "Photo 3 did not load." / "Retry" |
 | Restored draft notice (v1.2, 5.17) | Line 1 "Photos aren't kept after a reload. Please add them again." Line 2 "Your names, words and characters are still here." Action "Add photos" (steps 2 to 4). Dismiss button label "Dismiss notice". Announcement is the three sentences in one |
 | Camera setting (R2, v1.2, 6.12.9) | Switch "Move the camera to show each picture" / helper "When this is off, the view stays behind your character." |
-| Not found | As 7.5 |
+| Not found | As 7.5 (body changed in v2.1) |
+| Privacy, how long we keep it (v2.1) | Existing paragraph unchanged ("stays available for {retentionDays} days ... straight away"), then one new sentence as its own paragraph: "Our free plan keeps no backups, and deleted or expired content is removed within 24 hours." |
 | Context lost | As 7.8 |
 | Customiser, gender (v1.1) | Group label "Gender (optional)"; options "Woman", "Man", "Neutral"; helper "Changes the shape and face. Your other choices stay as they are." |
 | Customiser, body type (v1.1) | Group label "Body type"; options "Slim", "Regular", "Wider hips", "Wider shoulders" |
@@ -1501,6 +1526,7 @@ Remaining watch list for other owners (not in this document):
 | FR-33 to FR-36 (movement, viewer, list) | 5.8, 5.9, 5.12, 6.1 to 6.6 |
 | FR-39, FR-40 (layout, lighting) | 1.4 |
 | FR-47 to FR-52, FR-55, FR-56 | 2.1, 5.15, 7.5 |
+| FR-105, US-71 (7-day notice, end date, edit page), Q-33 (a) (not-found wording), NFR-16 (privacy sentence) | 5.18, 12.5.5, 7.5, 10 |
 | FR-57 to FR-60 (loading, failures, WebGL) | 7 |
 | FR-61 to FR-65 (accessibility, reduced motion) | 8 |
 | NFR-10 (devices, 44 px) | 3.1, 3.2 |
@@ -1832,7 +1858,7 @@ Why this split: today's controls, their order, their tiles and their accessible 
 
 #### 12.5.5 Published screen
 
-A brass seal icon (48 px) and the h1 "Your museum is ready". Share link card first, with **Copy link** as the one primary (hierarchy table). The edit link card beneath, using the warning alert (accent bar `--color-warning-border`), **Copy edit link** secondary, then the acknowledgement. **Finish** is secondary and unavailable until the box is ticked, and becomes the primary then. Cards use `--shadow-card`; all targets 44 px or more with 8 px gaps.
+A brass seal icon (48 px) and the h1 "Your museum is ready". Share link card first, with **Copy link** as the one primary (hierarchy table). Order inside the card: h2, "Send this to {name}..." line, link field with Copy and Share, the availability notice (5.18, v2.1), then "Open my museum". Height added on a phone: about 85 to 106 px at 100% text (two lines of 16 px at line height 1.5 = 48, one or two lines of 14 px = 21 to 42, plus the 16 px gap); the page already scrolls, so nothing else moves. The edit link card beneath, using the warning alert (accent bar `--color-warning-border`), **Copy edit link** secondary, then the acknowledgement. **Finish** is secondary and unavailable until the box is ticked, and becomes the primary then. Cards use `--shadow-card`; all targets 44 px or more with 8 px gaps.
 
 ### 12.6 The visit: HUD, welcome, cards, notices
 
@@ -2140,6 +2166,7 @@ Not text, so not rated: the divider rule inside a tray, the faint claret wash be
 | Placeholders | "A museum for {name}"; "For example: Thanks for coming. I hope it made you smile." |
 | Visit | "Done" (accessible name "Done with this photo"); "Carry on" (accessible name "Carry on exploring") |
 | Customiser description | Words "round face", "striped", "checked", "spotted" as in 9.4 |
+| Availability notice, not-found body, privacy sentence (v2.1) | As the copy deck in 10 and 5.18 |
 
 FR-76 scan: none of these contains she, her, he, him, his, girlfriend or boyfriend. "Their" and "your" are used as before. The face shape words are shape words; no option label names a gender.
 
