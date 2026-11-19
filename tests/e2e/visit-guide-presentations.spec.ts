@@ -226,6 +226,9 @@ test.describe('US-13 moving between pictures quickly', () => {
     expect((await snap(page)).intent).toBe(photoIntent(l, 0));
     await page.waitForTimeout(1500);
     expect((await snap(page)).intent).toBe(photoIntent(l, 0));
+    // The card opens when the Guide has arrived (as in AC-2); a slow software renderer takes longer than the
+    // default 10 s to walk her there, so wait for the arrival before counting panels.
+    await waitForSnap(page, (n) => n.guide.mode === 'present', 30_000, 'the Guide to arrive');
     await expect(page.locator('.caption-card')).toHaveCount(1);
   });
 

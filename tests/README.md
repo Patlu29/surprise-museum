@@ -69,6 +69,23 @@ so checks leave room for a slow frame. The hook does not expose the shown yaw, s
 from `yawOffsetDeg` and the move duration, not measured per frame. `fixRects` replaces the scene's published
 rectangles with fixed ones (spec 3.5 fixtures) by defining getters on `screenRects`.
 
+## Linux CI differences (first Linux run, 18/11/2026, run 44301433771)
+
+The suite ran only on macOS until then. Linux (ubuntu-24.04, 2 cores, SwiftShader, no GPU, no macOS fonts) differs in four ways that the specs now allow for. Changes verified on macOS only; Linux is Not verified until the next CI run.
+
+| Difference | Where it shows | What the spec does |
+|---|---|---|
+| Playwright WebKit on Linux logs the viewport key `interactive-widget` (deliberate, FR-84, `index.html`) as a console error | every WebKit test that calls `trackProblems` | `WEBKIT_ONLY_CONSOLE` in `support/app.ts`: one anchored regex, applied only when the browser is WebKit. Any other console error, or this one on Chromium or Firefox, still fails |
+| Body text is `system-ui`, so Linux wraps option chips and the Characters panel is taller (Body 556 against 532 at 360 wide, Hair 498 against 450 at 390 wide, identical in all three engines; those tabs have no CR-4 content) | `more-options.spec.ts` US-67 AC-1 | The pixel baselines are asserted on darwin only. On every platform the test hides the disclosure in the same page and requires the closed disclosure to add no panel or step height |
+| Software GL on 2 cores is slow: the FR-15 preview change took 1.1 to 2.7 s as measured by polling screenshots | `gender.spec.ts` US-46 AC-2, `more-options.spec.ts` US-67 AC-4 | `FR15_BUDGET_MS` in `support/app.ts`: 1000 ms when `CI` is unset, 4000 ms on CI. The 1 s figure is therefore checked locally only; on a real device it is Not verified |
+| Cold, slow first frames expose races | `cr4-visit` US-51 AC-4 (Tab pressed before the landing page rendered), `ceiling` FR-95 AC-2 (look easing still finishing), `visit-guide-presentations` US-13 AC-3 (card opens only after the Guide arrives), `gender` US-48 (a time-based coaching hint is in the page text) | Each now waits for the condition. The hint is left out of the equality check only; it is still scanned for pronouns |
+
+`builder.spec.ts` US-2 AC-5 (Add photos with Enter): the test counts clicks that reach the hidden file input, which must be exactly 1, and then waits up to 15 s for the `filechooser` event. A missing event is recorded as a `filechooser` annotation, not a failure. On Linux mobile-chromium the event did not arrive in a cold first test (it passed on retry); the cause is not proven.
+
+`gender.spec.ts` US-46 AC-2 "matches the rebuilt one" failed on Linux with the same ratio (0.00223, limit 0.0005) for two different actions, so the cause is not the action. Both tests now attach `preview-live.png` and `preview-rebuilt.png`. Not fixed; look at the attachments from the next CI run.
+
+When the preview on port 4173 is shared, check `dist/` before trusting a local run: `grep -l __APP_TEST__ dist/assets/*.js` must list a file. A plain `npm run build` (live mode) removes the test hook and the demo backend, and every scene test then times out.
+
 ## Visual baselines
 
 Stored in `tests/e2e/__screenshots__/<project>-<platform>/`. They were created on macOS with

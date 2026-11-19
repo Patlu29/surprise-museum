@@ -455,6 +455,8 @@ test.describe('US-51 and FR-80: the landing page', () => {
   test('US-51 AC-4: the first Tab stop is a useful control and Enter on Create a museum opens the builder', async ({ page, browserName }) => {
     test.skip(browserName === 'webkit', 'Safari does not Tab to links by default (Full Keyboard Access is off)');
     await page.goto('./');
+    // Tab before the landing page has rendered lands on the document, not on a link (seen on slow Linux CI).
+    await expect(page.getByRole('link', { name: 'Create a museum' })).toBeVisible();
     await page.keyboard.press('Tab');
     const first = await page.evaluate(() => (document.activeElement as HTMLElement | null)?.textContent?.trim() ?? '');
     expect(first).toBe('Create a museum');

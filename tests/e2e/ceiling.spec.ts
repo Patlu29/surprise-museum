@@ -268,6 +268,22 @@ test.describe('FR-95 as built: the 2 m height cap, every room type, smooth fade,
       y = (await cam(page)).c.y;
       if (y > CEILING - 0.35) break; // inside the band, partly faded
     }
+    // The look controls ease towards the dragged pitch. On a slow software renderer (CI) that easing is still
+    // finishing when the drag stops, which is a smooth move and not flicker. Hold until the camera has stopped
+    // moving (five samples within 2 mm), then measure whether the opacity stays steady.
+    await expect
+      .poll(
+        async () => {
+          const ys: number[] = [];
+          for (let i = 0; i < 5; i++) {
+            ys.push((await cam(page)).c.y);
+            await page.waitForTimeout(40);
+          }
+          return Math.max(...ys) - Math.min(...ys);
+        },
+        { message: 'the camera settles while the drag is held still', timeout: 15_000 },
+      )
+      .toBeLessThan(0.002);
     const held: number[] = [];
     const heights: number[] = [];
     for (let i = 0; i < 30; i++) {
