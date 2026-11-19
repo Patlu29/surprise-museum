@@ -3,7 +3,7 @@
 Application: Surprise Museum. A creator builds a small 3D museum of up to 20 photos with captions and a closing message, picks two stylised characters (the Visitor and the Guide), and shares an unlisted link. The recipient walks the Visitor through the museum while the Guide presents each photo. React Three Fiber on GitHub Pages, Supabase backend.
 Approval mode: Key gates
 Current iteration: 4 (Feature and hosting: free-tier hosting, 7-day retention)
-Current phase: 3 Build
+Current phase: 4 Verify
 Last updated: 18/11/2026
 
 ## Iterations
@@ -21,8 +21,8 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 |---|---|---|---|
 | 1 Plan | Done | Requirements v0.7 (d8be836): NFR-16 7 days, NFR-32 free-tier hosting (Must), FR-105 publish notice (Must), FR-104 space-full (Could); US-68 to US-71; backlog.md created (CR-5 to CR-11, BUG-15, N-11 to N-13, V-1 to V-5, LEG-1, DEBT-1, PERF-1). Must count 90 (hand-counted). No 90-day figure left except superseded notes. Publish screen shows no end date today (checked src/ui), so FR-105 is new work | 18/11/2026 |
 | 2 Design | Done | Architect (4918550): ADR 0010 amended (7 days, purge within 24 h, no backups), ADR 0022 Proposed (read-only keep-alive Edge Function, daily workflow, usage in dashboard), architecture v1.6, contracts unchanged (expiresAt already in store; CONTRACT_VERSION 1), project and Deno .npmrc files. Designer: design spec v2.1 (5.18 availability notice on published screen and edit page, not-found body, privacy sentence). Build passes | 19/11/2026 |
-| 3 Build | In progress | eb57dff: retention 7 days, keep-alive function and migration, api.md v1.2 (backend); AvailabilityNotice, formatEndDateTime, not-found and privacy copy (frontend). Tech lead isolated check: format, typecheck, lint, vitest 1084/1084, build, bundle 988.0/1000 kB all pass. Deno 35 tests pass (backend, Deno 2.9.6 via npx). Waiting on QA: Linux CI e2e fixes and the smoke test | 19/11/2026 |
-| 4 Verify | Not started | Performance Skipped (no runtime change). QA full regression | |
+| 3 Build | Done | eb57dff: retention 7 days, keep-alive function and migration, api.md v1.2 (backend); AvailabilityNotice, formatEndDateTime, not-found and privacy copy (frontend). Tech lead isolated check: format, typecheck, lint, vitest 1084/1084, build, bundle 988.0/1000 kB all pass. Deno 35 tests pass (backend, Deno 2.9.6 via npx). QA Linux CI test fixes fc8b034 (tech lead accepted the CI-only FR-15 allowance of 4000 ms and the soft filechooser event). Smoke: home-and-demo and journey specs 14/14 pass on desktop-chromium and mobile-webkit, fresh test-mode build, run by the tech lead. Format check: the changed test files were already unformatted at HEAD (pre-existing debt, 25+ files); routed to phase 6 as one formatting commit plus enabling format:check in CI | 19/11/2026 |
+| 4 Verify | In progress | Performance Skipped: no 3D, render-loop or asset change; bundle unchanged at 988.0 of 1000 kB. QA: new e2e for US-68 to US-71 plus full regression on macOS and the Linux CI run | 19/11/2026 |
 | 5 Review | Not started | | |
 | 6 Release | Not started | Devops: keep-alive workflow, free-tier section in docs/deployment.md, CHANGELOG.md | |
 | 7 Operate and learn | Not started | | |
@@ -48,7 +48,7 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 ## Open requests (owner)
 - CI first real runs (18/11/2026): typecheck, lint, unit tests, build and bundle check PASS on Linux. Deno job failed: lockfiles held private-mirror tarball URLs (fixed by backend-developer, lockfiles regenerated against the public registry; deno check, lint, test pass on Deno 2.9.6 locally). Linux e2e (run 44298737907, cancelled by the user after about 10 min): mobile-webkit fails on the console message `Viewport argument key "interactive-widget" not recognized and ignored.`; mobile-chromium US-2 AC-5 file chooser timeout. Routed to qa-engineer.
 - Project .npmrc: done (4918550).
-- devops-engineer (phase 6): keep-alive.yml per ADR 0022 section 5; add keep-alive to deploy-supabase if it lists functions; migration before function deploy; rename the stale "UNVERIFIED locally" Deno job label.
+- devops-engineer (phase 6): one `npm run format` commit and add format:check to ci.yml; keep-alive.yml per ADR 0022 section 5; add keep-alive to deploy-supabase if it lists functions; migration before function deploy; rename the stale "UNVERIFIED locally" Deno job label.
 - qa-engineer (phase 4): e2e for the notice on published and edit screens (with <time>), no notice on a draft, new not-found body, privacy sentence; visual baselines change for Published, Edit, Not found, Privacy.
 - architect (phase 5): set ADR 0022 status to Accepted (A2 approved 19/11/2026).
 
