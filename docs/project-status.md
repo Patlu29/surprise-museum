@@ -3,7 +3,7 @@
 Application: Surprise Museum. A creator builds a small 3D museum of up to 20 photos with captions and a closing message, picks two stylised characters (the Visitor and the Guide), and shares an unlisted link. The recipient walks the Visitor through the museum while the Guide presents each photo. React Three Fiber on GitHub Pages, Supabase backend.
 Approval mode: Key gates
 Current iteration: 4 (Feature and hosting: free-tier hosting, 7-day retention)
-Current phase: 2 Design
+Current phase: 3 Build
 Last updated: 18/11/2026
 
 ## Iterations
@@ -20,8 +20,8 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 | Phase | Status | Evidence | Date |
 |---|---|---|---|
 | 1 Plan | Done | Requirements v0.7 (d8be836): NFR-16 7 days, NFR-32 free-tier hosting (Must), FR-105 publish notice (Must), FR-104 space-full (Could); US-68 to US-71; backlog.md created (CR-5 to CR-11, BUG-15, N-11 to N-13, V-1 to V-5, LEG-1, DEBT-1, PERF-1). Must count 90 (hand-counted). No 90-day figure left except superseded notes. Publish screen shows no end date today (checked src/ui), so FR-105 is new work | 18/11/2026 |
-| 2 Design | Awaiting A2 | Architect (4918550): ADR 0010 amended (7 days, purge within 24 h, no backups), ADR 0022 Proposed (read-only keep-alive Edge Function, daily workflow, usage in dashboard), architecture v1.6, contracts unchanged (expiresAt already in store; CONTRACT_VERSION 1), project and Deno .npmrc files. Designer: design spec v2.1 (5.18 availability notice on published screen and edit page, not-found body, privacy sentence). Build passes | 19/11/2026 |
-| 3 Build | Not started | Backend-developer: retention constant and docs/api.md; frontend-developer only if UI copy hard-codes 90 days | |
+| 2 Design | Done | Architect (4918550): ADR 0010 amended (7 days, purge within 24 h, no backups), ADR 0022 Proposed (read-only keep-alive Edge Function, daily workflow, usage in dashboard), architecture v1.6, contracts unchanged (expiresAt already in store; CONTRACT_VERSION 1), project and Deno .npmrc files. Designer: design spec v2.1 (5.18 availability notice on published screen and edit page, not-found body, privacy sentence). Build passes | 19/11/2026 |
+| 3 Build | In progress | Backend-developer: retention 7 days, keep-alive function and migration, docs/api.md. Frontend-developer: availability notice, formatEndDateTime, not-found and privacy copy, mock tests. QA (in parallel): first Linux CI failures | 19/11/2026 |
 | 4 Verify | Not started | Performance Skipped (no runtime change). QA full regression | |
 | 5 Review | Not started | | |
 | 6 Release | Not started | Devops: keep-alive workflow, free-tier section in docs/deployment.md, CHANGELOG.md | |
@@ -30,6 +30,7 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 ## Approvals
 | Gate | Iteration | Decision | Given by | Date | Covers |
 |---|---|---|---|---|---|
+| A2 design | 4 | Approved | User | 19/11/2026 | ADR 0010 amendment, ADR 0022 (keep-alive), architecture v1.6, design spec v2.1; Q-33 (a) shared not-found screen; Q-35 (a) FR-105 stays Must |
 | A1 scope | 4 | Approved (the user's own answers set the scope) | User | 18/11/2026 | Supabase Free plus a scheduled keep-alive; GitHub Pages with the existing Actions pipeline; museums promised for 7 days, then the whole museum and photos are deleted; free-limit guardrail is docs plus a usage check, no new in-app handling |
 
 ## Decisions and answers
@@ -41,9 +42,8 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 - 18/11/2026 (tech lead): this is a Feature iteration, because a Must requirement and user-facing wording change, combined with hosting work. Route: 1, 2 (architect only), 3, 4, 5, 6, 7.
 
 ## Open questions (owner)
-- Q-33 (user, at A2): expired links keep the uniform not-found response with wording covering "deleted or its 7 days ended" (recommended, provisionally accepted) or a distinct expired screen.
 - Q-34 (user, before launch): confirm the 1 GB storage, 500 MB database and about 5 GB egress figures on supabase.com/pricing.
-- Q-35 (user, at A2): FR-105 publish-screen notice stays Must (recommended, provisionally accepted), Should, or dropped.
+- Backlog candidates from the architect (tech lead: backlog, not this iteration): cap signed photo URLs at expires_at; purgeHealthy flag in the keep-alive response; draft end date on the edit page.
 
 ## Open requests (owner)
 - CI first real runs (18/11/2026): typecheck, lint, unit tests, build and bundle check PASS on Linux. Deno job failed: lockfiles held private-mirror tarball URLs (fixed by backend-developer, lockfiles regenerated against the public registry; deno check, lint, test pass on Deno 2.9.6 locally). Linux e2e (run 44298737907, cancelled by the user after about 10 min): mobile-webkit fails on the console message `Viewport argument key "interactive-widget" not recognized and ignored.`; mobile-chromium US-2 AC-5 file chooser timeout. Routed to qa-engineer.
