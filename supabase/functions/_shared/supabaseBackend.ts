@@ -234,6 +234,15 @@ export function createSupabaseStore(client: SupabaseClient): MuseumStore {
       return data === true;
     },
 
+    async keepAlive() {
+      const { data, error } = await client.rpc('keep_alive');
+      check(error);
+      // A timestamp is the only acceptable answer: anything else means Postgres did not reply.
+      const parsed = typeof data === 'string' ? new Date(data) : null;
+      if (!parsed || Number.isNaN(parsed.getTime())) throw new BackendError('bad_rpc_result');
+      return parsed.toISOString();
+    },
+
     async expireMuseums(limit) {
       const { data, error } = await client.rpc('expire_museums', { p_limit: limit });
       check(error);

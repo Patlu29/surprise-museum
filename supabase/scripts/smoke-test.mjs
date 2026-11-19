@@ -115,6 +115,18 @@ const avatar = (gender = 'neutral', facialHair = 'none') => ({
   hat: 'none',
 });
 
+// keep-alive is read-only and needs only the anon key (ADR 0022), so it is checked first.
+const alive = await call('keep-alive', {});
+check(
+  'keep-alive returns ok and a fresh database time',
+  alive.status === 200 &&
+    alive.json?.ok === true &&
+    Number.isFinite(Date.parse(alive.json?.checkedAt ?? '')) &&
+    Math.abs(Date.now() - Date.parse(alive.json.checkedAt)) < 5 * 60 * 1000 &&
+    Object.keys(alive.json).length === 2,
+  `status ${alive.status} ${alive.text.slice(0, 120)}`,
+);
+
 let editToken = null;
 try {
   const created = await call('create-museum', {});

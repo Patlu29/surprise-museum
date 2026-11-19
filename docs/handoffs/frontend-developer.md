@@ -367,3 +367,35 @@ Scene calls `publishScreenRects({picture, visitor, guide})` about every 100 ms w
 No store fields were added or changed. No tokens were added.
 
 Designer to record: finale card may grow beyond the placement height (up to 90% of the screen, body scrolls) and anchors to the dock edge; footer stacks under 22 rem card width; builder preview un-sticks when over half the window; name label cap 36vw in the scene, full row width in the builder.
+
+## Update: iteration 4, 7-day retention notice (design spec v2.1, 19/11/2026)
+
+### Summary
+Built spec 5.18 (availability notice), the new not-found body, the privacy sentence and the placements. No store field, test hook entry or token changed. `LIMITS.retentionDays` is read from `@contract`, so no "7" is typed in UI code.
+
+### Files changed
+- `src/lib/format.ts`: `formatEndDateTime(iso)`, pure, Date getters only, "DD/MM/YYYY HH:mm" local time, null for missing or invalid. Tests in `src/lib/format.test.ts` (fixed TZ via `process.env.TZ`: Sydney and UTC, padding, midnight, year rollover, both DST edges, invalid input)
+- `src/ui/components/AvailabilityNotice.tsx` (+ `.test.tsx`): props `expiresAt`, `context`; CSS `.availability*` in `src/ui/styles/components.css`
+- `src/ui/builder/PublishedScreen.tsx`: after the share `LinkField`, before "Open my museum", `publish.expiresAt`
+- `src/ui/screens/EditScreen.tsx`: after the share `LinkField` in the `link && document` block, `data.expiresAt`
+- `src/ui/screens/NotFoundScreen.tsx`: v2.1 body, heading unchanged
+- `src/ui/screens/LegalScreen.tsx`: no-backups sentence as its own `<p>` after the retention paragraph
+- `src/ui/screens/retentionCopy.test.tsx`: not-found body and privacy sentence
+- `src/api/__tests__/mockClient.test.ts`: uses `LIMITS.retentionDays` and `LIMITS.draftRetentionDays`; publishes on day 3, re-publishes after 3 days
+
+### Verification
+| Check | Result | Label |
+|---|---|---|
+| lint, typecheck, build | pass | Verified |
+| `npm test` with `retentionDays: 7` (backend landed during the run) | 72 files, 1,084 tests pass | Verified |
+| `npm test` with `retentionDays: 90` (earlier run) | also passed (tests do not hard-code the number) | Verified |
+| Prettier on changed src files | clean | Verified |
+| Entry chunk has no three.js (`WebGLRenderer` count 0); `__APP_TEST__` absent from `dist` | yes | Verified |
+| Layout at 360 and 320 px, 100% and 200% text (built CSS, static markup in a Chromium page) | no horizontal scroll; text column 268 px at 360 and 228 px at 320, as spec; at 200% line 1 is 144 px (3 lines) at 360 and 192 px (4 lines) at 320 | Verified |
+| Notice inside the real Published and Edit screens in a running app | not run | Not verified |
+
+### Decisions
+- `mockClient.ts` needed no change: it already derives `expiresAt` from `LIMITS.retentionDays` at first publish, and does not extend it on re-publish.
+
+### Requests for other agents
+- [open] qa-engineer: grep of `tests/e2e` found no assertion of the old not-found body ("taken down") or 90 days. Please add: notice text and `<time>` on the published screen and edit page (published only, none for a draft), the fallback is unit-tested only; new not-found body; privacy sentence. Visual baselines for Published, Edit, Not found and Privacy will change.

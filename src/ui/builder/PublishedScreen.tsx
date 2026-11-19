@@ -5,6 +5,7 @@ import { useBuilderStore } from '@/state/builderStore';
 import { effectiveTitle } from '@/state/draft';
 import { discardDraft } from '@/state/uploadQueue';
 import { Alert } from '@/ui/components/Alert';
+import { AvailabilityNotice } from '@/ui/components/AvailabilityNotice';
 import { Button, ButtonLink } from '@/ui/components/Button';
 import { DemoNotice } from '@/ui/components/DemoNotice';
 import { Icon } from '@/ui/components/Icon';
@@ -75,6 +76,7 @@ export function PublishedScreen() {
             text: `${guideName.trim() || 'Someone'} made you a little museum.`,
           }}
         />
+        <AvailabilityNotice expiresAt={publish.expiresAt} context="published" />
         <div>
           <ButtonLink variant="secondary" icon="external" href={link} external>
             Open my museum<span className="visually-hidden"> (opens in a new tab)</span>

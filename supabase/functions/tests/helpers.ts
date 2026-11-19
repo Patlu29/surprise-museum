@@ -2,6 +2,7 @@ import { AVATAR_OPTIONS, type AvatarConfig, type MuseumDocument } from '@contrac
 import { createCreateMuseumHandler } from '../create-museum/handler.ts';
 import { createGetMuseumHandler } from '../get-museum/handler.ts';
 import { createManageMuseumHandler } from '../manage-museum/handler.ts';
+import { createKeepAliveHandler } from '../keep-alive/handler.ts';
 import { createPurgeExpiredHandler } from '../purge-expired/handler.ts';
 import { buildJpeg, lqipDataUrl } from '../_shared/testing/jpegFixtures.ts';
 import { MemoryBackend } from '../_shared/testing/memoryBackend.ts';
@@ -41,6 +42,7 @@ export function createApp() {
     get: createGetMuseumHandler({ ...base, storage: backend.storage }),
     manage: createManageMuseumHandler({ ...base, storage: backend.storage }),
     purge: createPurgeExpiredHandler({ ...base, storage: backend.storage }),
+    keepAlive: createKeepAliveHandler({ ...base }),
   };
   return {
     backend,

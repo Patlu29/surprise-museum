@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertNotEquals } from '@std/assert';
-import { EDIT_TOKEN_PATTERN, type MuseumDocument, SHARE_TOKEN_PATTERN } from '@contract';
+import { EDIT_TOKEN_PATTERN, LIMITS, type MuseumDocument, SHARE_TOKEN_PATTERN } from '@contract';
 import {
   buildJpeg,
   EXIF,
@@ -96,7 +96,10 @@ Deno.test('full lifecycle: upload, publish, visit by share token, edit, delete',
   });
   assertEquals(published.status, 200);
   assertEquals(published.json.shareToken, shareToken);
-  assertEquals(published.json.expiresAt, new Date(app.nowMs() + 90 * 86_400_000).toISOString());
+  assertEquals(
+    published.json.expiresAt,
+    new Date(app.nowMs() + LIMITS.retentionDays * 86_400_000).toISOString(),
+  );
 
   const visit = await call(app.handlers.get, { shareToken });
   assertEquals(visit.status, 200);
@@ -258,7 +261,7 @@ Deno.test('every bad link returns the identical 404 body', async () => {
     bodies.push(JSON.stringify(r.json));
   }
   // An expired museum behaves the same.
-  app.advance(91 * 86_400_000);
+  app.advance(8 * 86_400_000);
   const expired = await call(app.handlers.get, { shareToken: draftShare }, { ip: '192.0.2.99' });
   assertEquals(expired.status, 404);
   bodies.push(JSON.stringify(expired.json));

@@ -56,6 +56,9 @@ export function PrivacyScreen() {
           is removed after {LIMITS.draftRetentionDays} days. You can delete a museum at any time
           with its private edit link, and its link stops working straight away.
         </p>
+        <p>
+          Our free plan keeps no backups, and deleted or expired content is removed within 24 hours.
+        </p>
         <h2>Where it is kept</h2>
         <p>In Australia, where practicable.</p>
         <h2>Who can see it</h2>

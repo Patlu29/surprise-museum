@@ -1,8 +1,52 @@
 # Handoff: backend-developer
 
+## Iteration 4 Build (19/11/2026): 7-day retention and keep-alive
+
+Phase 3 Build. Nothing deployed, committed or linked to a Supabase project.
+
+### Summary
+`LIMITS.retentionDays` is 7. A fifth Edge Function, `keep-alive`, is added exactly as ADR 0022 section 4 describes: `POST /functions/v1/keep-alive`, body `{}`, 200 `{ ok: true, checkedAt }` with `checkedAt` from `public.keep_alive()` (Postgres `now()`). It has no rate limit, writes nothing, never calls purge and needs only the anon key. `docs/api.md` is v1.2.
+
+### Files changed
+- `supabase/functions/_shared/contract.ts`: `retentionDays: 7`; `FUNCTION_NAMES.keepAlive`, `KeepAliveRequest`, `KeepAliveResponse`. `CONTRACT_VERSION` stays 1.
+- `supabase/functions/_shared/ports.ts`, `supabaseBackend.ts` (`client.rpc('keep_alive')`, rejects a non-timestamp), `testing/memoryBackend.ts` (returns its clock; `failKeepAlive` flag): the `keepAlive()` store method.
+- `supabase/functions/keep-alive/` (`index.ts`, `handler.ts`, `deno.json`, `.npmrc` with the public registry, `deno.lock` with no `tarball` lines).
+- `supabase/migrations/20261118000100_keep_alive.sql`: `keep_alive()`, stable, `search_path=''`, executable by `service_role` only.
+- `supabase/config.toml`: `[functions.keep-alive] verify_jwt = false`.
+- Comments fixed: `20261027000100_initial_schema.sql`, `20261027000200_retention_schedule.sql`, `purge-expired/handler.ts`.
+- Tests: new `tests/keep_alive_test.ts` (8 tests); `purge_test.ts` publishes on day 3, expires on day 10; `flow_test.ts` uses `LIMITS.retentionDays` and 8 days; `helpers.ts` and `devServer.ts` wire the new handler.
+- `supabase/tests/database/lockdown.test.sql`: 4 keep_alive checks (anon, authenticated, service_role, stable); plan 21 to 25.
+- `supabase/scripts/smoke-test.mjs`: a keep-alive check first.
+- `supabase/README.md`: Free plan decided (step 1), five functions, smoke-test note, new step 10 (keep-alive, 50-day check, restore).
+- `docs/api.md` v1.2: sections 1, 5, 9, 10, 11, new 10a `keep-alive` (numbered 10a so no existing section reference shifts), change-log row. No 90-day text remains.
+
+### Verification
+| Check | Result | Label |
+|---|---|---|
+| `deno check` (CI command, Deno 2.9.6, fresh `DENO_DIR`, public registry) | 5 entry points checked, pass | Verified |
+| `deno lint` | 27 files, pass | Verified |
+| `deno test` | 35 passed, 0 failed (27 before plus 8 keep-alive) | Verified |
+| Keep-alive writes nothing | Test: 30 calls leave museums, photos, objects, queue and `rateHits` unchanged; expired museum not purged | Verified |
+| Error cases 400, 405, 413, 415, 500 | One test each (keep_alive_test.ts) | Verified |
+| `npm run typecheck`, `npm test` from root | pass; 72 files, 1084 tests | Verified |
+| Dev server (in-memory handlers over HTTP) and `smoke-test.mjs` | 16 PASS, exit 0; keep-alive 200 and 400 compared with api.md; server stopped, port 4173 untouched | Verified |
+| Search for the private mirror hostname (tracked and untracked files) | none | Verified |
+| `keep_alive()` SQL, grants, pgTAP file, `config.toml` entry, the real Supabase client call | No Docker or Supabase project here | Not verified |
+| Whether Supabase counts the call as activity | Needs 7 or more days on a real project (ADR 0022) | Not verified |
+
+### Decisions
+- Section number 10a for keep-alive in `docs/api.md`, to keep sections 11 to 13 stable for other documents.
+- `docs/api.md` states that a publish on an expired museum returns the uniform 404 (existing behaviour: lookups filter `expires_at`).
+- `deno fmt` is not the project formatter (Prettier is); it was run once by mistake, the unrelated reformatting was reverted, and the changed files pass `prettier --check`.
+
+### Requests for other agents
+- [open] devops-engineer: `.github/workflows/keep-alive.yml` per ADR 0022 section 5. Add `keep-alive` to the deploy-supabase workflow's function list if it names functions (deploy uses `--no-verify-jwt`; push the migration first). Check ci.yml still matches: its `deno check` glob already includes the new `index.ts`.
+- [open] architect: Deno does not use `keep-alive/deno.lock` in CI (CI passes the root `deno.json`), as for the other per-function locks.
+- [open] frontend-developer: none. The 7-day constant changed and the root `npm test` still passes with your current `mockClient.test.ts`.
+
 ## Iteration 4 CI fix (18/11/2026): Deno lockfiles
 
-The first real run of the `deno` CI job failed because the three committed lockfiles (`supabase/functions/deno.lock`, `create-museum/deno.lock`, `manage-museum/deno.lock`) held `"tarball"` URLs on a private corporate npm mirror (9 per file). Deno rejects them against the public registry, and the repo is public. I regenerated all three with Deno 2.9.6 (run through `npx`, with `NPM_CONFIG_REGISTRY=https://registry.npmjs.org` and a scratch `DENO_DIR`, per command only) in a scratch copy, then copied the lockfiles back. Only the `tarball` lines are gone; every `integrity` value is unchanged. `git grep -i "energyaustralia\|nexus"` now finds nothing. With the fresh lockfile, `deno check`, `deno lint` and `deno test` (the exact CI commands) passed: 4 entry points checked, 24 files linted, 27 tests passed. Deno 2.9.8 (the CI version) is not on npm (latest 2.9.6), so that exact version was not run. The Deno commands are now Verified on 2.9.6, which supersedes the "Deno not run" statements below. Reminder: regenerate lockfiles with the public registry only (ADR 0013). The per-function lockfiles are not used by the CI commands, which use the root `deno.json`.
+The first real run of the `deno` CI job failed because the three committed lockfiles (`supabase/functions/deno.lock`, `create-museum/deno.lock`, `manage-museum/deno.lock`) held `"tarball"` URLs on a private corporate npm mirror (9 per file). Deno rejects them against the public registry, and the repo is public. I regenerated all three with Deno 2.9.6 (run through `npx`, with `NPM_CONFIG_REGISTRY=https://registry.npmjs.org` and a scratch `DENO_DIR`, per command only) in a scratch copy, then copied the lockfiles back. Only the `tarball` lines are gone; every `integrity` value is unchanged. A search for the private mirror hostname now finds nothing. With the fresh lockfile, `deno check`, `deno lint` and `deno test` (the exact CI commands) passed: 4 entry points checked, 24 files linted, 27 tests passed. Deno 2.9.8 (the CI version) is not on npm (latest 2.9.6), so that exact version was not run. The Deno commands are now Verified on 2.9.6, which supersedes the "Deno not run" statements below. Reminder: regenerate lockfiles with the public registry only (ADR 0013). The per-function lockfiles are not used by the CI commands, which use the root `deno.json`.
 
 ## Summary
 **CR-1 update (30/10/2026):** the shared validator accepts and normalises the optional avatar `gender`, the Visitor facial hair rule is gone, the presenters and the mock always return `gender` (old rows read as `neutral`, nothing rewritten), tests are added or inverted, and the "not implemented yet" note is removed from `docs/api.md`. Deno is not installed on this machine, so `deno check`, `deno lint` and `deno test` were NOT run; the Deno test and smoke-test edits are unverified. The earlier summary follows.

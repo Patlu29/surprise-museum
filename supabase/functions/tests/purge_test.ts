@@ -33,11 +33,14 @@ Deno.test('purge-expired refuses to run when no secret is configured', async () 
 });
 
 Deno.test(
-  'purge-expired removes stale drafts after 7 days and published museums after 90',
+  'purge-expired removes stale drafts after 7 days and published museums 7 days after first publish',
   async () => {
     const app = createApp();
     const draft = await draftWithPhotos(app, 1, '192.0.2.1');
     const live = await draftWithPhotos(app, 1, '192.0.2.2');
+    const day = 86_400_000;
+
+    app.advance(3 * day); // day 3: publish inside the window, so it expires on day 10
     await call(
       app.handlers.manage,
       { action: 'publish', editToken: live.editToken, document: documentFor(live.photoIds) },
@@ -45,14 +48,14 @@ Deno.test(
     );
     const shareToken = await deriveShareToken(live.editToken);
 
-    app.advance(6 * 86_400_000);
+    app.advance(3 * day); // day 6: nothing has expired yet
     assertEquals((await call(app.handlers.purge, {}, cron(CRON_SECRET))).json, {
       purged: 0,
       retried: 0,
       failed: 0,
     });
 
-    app.advance(2 * 86_400_000); // day 8: the draft has expired
+    app.advance(2 * day); // day 8: the draft (created day 0) has expired; the museum has 2 days left
     const day8 = await call(app.handlers.purge, {}, cron(CRON_SECRET));
     assertEquals(day8.json, { purged: 1, retried: 0, failed: 0 });
     assertEquals(app.backend.museums.size, 1);
@@ -75,7 +78,7 @@ Deno.test(
     );
     assertEquals(app.backend.objects.size, 2, 'only the live museum keeps objects');
 
-    app.advance(83 * 86_400_000); // 91 days after publish
+    app.advance(2 * day + 1000); // day 10 plus 1 second: 7 days and 1 second after first publish
     assertEquals(
       (await call(app.handlers.get, { shareToken }, { ip: '192.0.2.5' })).status,
       404,

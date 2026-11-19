@@ -52,3 +52,7 @@ verify_jwt = false
 
 [functions.purge-expired]
 verify_jwt = false
+
+# Called by the scheduled keep-alive workflow with only the public anon key (ADR 0022).
+[functions.keep-alive]
+verify_jwt = false

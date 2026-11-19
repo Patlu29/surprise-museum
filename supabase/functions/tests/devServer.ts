@@ -9,6 +9,7 @@
 import { MemoryBackend } from '../_shared/testing/memoryBackend.ts';
 import { createCreateMuseumHandler } from '../create-museum/handler.ts';
 import { createGetMuseumHandler } from '../get-museum/handler.ts';
+import { createKeepAliveHandler } from '../keep-alive/handler.ts';
 import { createManageMuseumHandler } from '../manage-museum/handler.ts';
 
 const PORT = 8787;
@@ -29,6 +30,7 @@ const routes: Record<string, (request: Request) => Promise<Response>> = {
   'create-museum': createCreateMuseumHandler(deps),
   'get-museum': createGetMuseumHandler(deps),
   'manage-museum': createManageMuseumHandler(deps),
+  'keep-alive': createKeepAliveHandler(deps),
 };
 
 Deno.serve({ port: PORT }, async (request) => {

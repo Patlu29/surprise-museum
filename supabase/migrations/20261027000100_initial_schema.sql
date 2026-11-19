@@ -56,7 +56,8 @@ create table if not exists public.museums (
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now(),
   published_at       timestamptz,
-  -- Drafts: created_at + 7 days. Published: first publish + 90 days (NFR-16).
+  -- Drafts: created_at + 7 days. Published: first publish + LIMITS.retentionDays (7 days, NFR-16 v0.7),
+  -- passed to publish_museum.
   -- The purge job deletes every museum whose expires_at has passed.
   expires_at         timestamptz not null default (now() + interval '7 days'),
 

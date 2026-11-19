@@ -57,7 +57,8 @@ revoke all on function public.invoke_purge_expired() from public, anon, authenti
 -- cron.schedule with a job name replaces any existing job of that name, so this can be re-run.
 
 -- Hourly at minute 17: purge expired museums and retry queued storage deletions. Hourly (not
--- daily) so a failed storage delete is retried well inside the 7-day window.
+-- daily) so a failed storage delete is retried well inside the 24-hour window (NFR-16 v0.7:
+-- 23 retries after the first attempt).
 select cron.schedule(
   'surprise-museum-purge',
   '17 * * * *',

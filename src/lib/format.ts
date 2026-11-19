@@ -15,3 +15,20 @@ export function formatBytes(bytes: number): string {
   });
   return `${text} ${units[unit]}`;
 }
+
+const pad2 = (value: number): string => String(value).padStart(2, '0');
+
+/**
+ * An ISO instant as "DD/MM/YYYY HH:mm" in the viewer's local time, 24-hour and zero-padded
+ * (architecture 8.1). Built from the Date getters, not `toLocaleString`, so the output does not
+ * depend on the browser's locale. Returns null for a missing or unparseable value.
+ */
+export function formatEndDateTime(iso: string | null | undefined): string | null {
+  if (typeof iso !== 'string' || iso === '') return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const day = pad2(date.getDate());
+  const month = pad2(date.getMonth() + 1);
+  const time = `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+  return `${day}/${month}/${date.getFullYear()} ${time}`;
+}

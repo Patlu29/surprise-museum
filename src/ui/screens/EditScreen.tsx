@@ -6,6 +6,7 @@ import { describeApiError, getApi, isApiError } from '@/lib/apiPort';
 import { isEditToken, shareUrl } from '@/lib/links';
 import { effectiveTitle } from '@/state/draft';
 import { Alert } from '@/ui/components/Alert';
+import { AvailabilityNotice } from '@/ui/components/AvailabilityNotice';
 import { Button, ButtonLink } from '@/ui/components/Button';
 import { Dialog } from '@/ui/components/Dialog';
 import { LinkField } from '@/ui/components/LinkField';
@@ -172,6 +173,7 @@ export default function EditScreen() {
                 text: `${document.guideName} made you a little museum.`,
               }}
             />
+            <AvailabilityNotice expiresAt={data.expiresAt} context="edit" />
           </section>
         ) : null}
 

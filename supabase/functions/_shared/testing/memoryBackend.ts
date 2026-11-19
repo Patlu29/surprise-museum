@@ -29,6 +29,8 @@ export class MemoryBackend {
   readonly objects = new Map<string, Uint8Array>();
   /** Set to make storage removal fail, to test the retry queue. */
   failStorageRemoval = false;
+  /** Set to make the keep-alive query fail, to test the 500 path. */
+  failKeepAlive = false;
   now: () => Date = () => new Date();
   private counter = 0;
 
@@ -196,6 +198,11 @@ export class MemoryBackend {
 
     rateLimitBlocked: (bucket, limit, windowSeconds) =>
       Promise.resolve((this.rateHits.get(this.windowKey(bucket, windowSeconds)) ?? 0) >= limit),
+
+    keepAlive: () => {
+      if (this.failKeepAlive) return Promise.reject(new Error('database down'));
+      return Promise.resolve(this.now().toISOString());
+    },
 
     expireMuseums: (limit) => {
       const now = this.now();

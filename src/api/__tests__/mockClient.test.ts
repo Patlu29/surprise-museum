@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AvatarConfig, MuseumDocument } from '@contract';
+import { LIMITS, type AvatarConfig, type MuseumDocument } from '@contract';
 import { ApiRequestError } from '@/lib/apiPort';
 import { createMemoryStorage } from '../demoStorage';
 import { createMockApi, type MockMuseumApi } from '../mockClient';
@@ -248,7 +248,7 @@ describe('mock API: the whole creator and visitor journey', () => {
     expect(published.shareToken).toBe(shareToken);
     expect(
       new Date(published.expiresAt).getTime() - new Date(published.publishedAt).getTime(),
-    ).toBe(90 * 86_400_000);
+    ).toBe(LIMITS.retentionDays * 86_400_000);
 
     const { museum, urlsExpireAt } = await api.getMuseum(shareToken);
     expect(museum.visitorName).toBe('Sam');
@@ -295,18 +295,23 @@ describe('mock API follows the server rules', () => {
     expect(messages.size).toBe(1);
   });
 
-  it('expires drafts after 7 days and published museums after 90', async () => {
-    let now = Date.parse('2026-10-28T00:00:00Z');
+  it('expires drafts and published museums on their own schedules', async () => {
+    const day = 86_400_000;
+    const start = Date.parse('2026-10-28T00:00:00Z');
+    let now = start;
     const api = createMockApi({ now: () => now });
     const draft = await api.createMuseum();
     const live = await api.createMuseum();
     const photo = await addPhoto(api, live.editToken);
+    // Publish inside the draft window; the clock for the published museum starts here.
+    const publishDay = 3;
+    now = start + publishDay * day;
     const { shareToken } = await api.publish(live.editToken, documentFor([photo.photoId]));
 
-    now += 8 * 86_400_000;
+    now = start + (LIMITS.draftRetentionDays + 1) * day;
     await expect(code(api.manageGet(draft.editToken))).resolves.toBe('not_found');
     await expect(api.getMuseum(shareToken)).resolves.toBeTruthy();
-    now += 83 * 86_400_000;
+    now = start + (publishDay + LIMITS.retentionDays) * day + 1;
     await expect(code(api.getMuseum(shareToken))).resolves.toBe('not_found');
     await expect(code(api.manageGet(live.editToken))).resolves.toBe('not_found');
   });
@@ -317,7 +322,7 @@ describe('mock API follows the server rules', () => {
     const { editToken } = await api.createMuseum();
     const photo = await addPhoto(api, editToken);
     const first = await api.publish(editToken, documentFor([photo.photoId]));
-    now += 10 * 86_400_000;
+    now += 3 * 86_400_000;
     const second = await api.publish(editToken, documentFor([photo.photoId]));
     expect(second.expiresAt).toBe(first.expiresAt);
     expect(second.publishedAt).toBe(first.publishedAt);

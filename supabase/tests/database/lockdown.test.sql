@@ -1,7 +1,7 @@
 -- pgTAP: the public keys can reach nothing. Run with `npx supabase test db` (needs Docker).
 -- Mirrors docs/architecture.md section 7.2 and supabase/README.md "Security checks to keep green".
 begin;
-select plan(21);
+select plan(25);
 
 -- Row-level security is on for every table, and there are no policies at all.
 select ok((select relrowsecurity from pg_class where oid = 'public.museums'::regclass), 'museums has RLS');
@@ -26,6 +26,12 @@ select ok(not has_function_privilege('anon', 'public.reserve_photo(uuid)', 'exec
 select ok(not has_function_privilege('anon', 'public.delete_museum_rows(uuid)', 'execute'), 'anon cannot delete museums');
 select ok(not has_function_privilege('authenticated', 'public.expire_museums(integer)', 'execute'), 'authenticated cannot expire museums');
 select ok(has_function_privilege('service_role', 'public.reserve_photo(uuid)', 'execute'), 'service_role can reserve photos');
+
+-- keep_alive() (ADR 0022) is for the service role only, and is a read-only (stable) function.
+select ok(not has_function_privilege('anon', 'public.keep_alive()', 'execute'), 'anon cannot run keep_alive');
+select ok(not has_function_privilege('authenticated', 'public.keep_alive()', 'execute'), 'authenticated cannot run keep_alive');
+select ok(has_function_privilege('service_role', 'public.keep_alive()', 'execute'), 'service_role can run keep_alive');
+select is((select provolatile::text from pg_proc where oid = 'public.keep_alive()'::regprocedure), 's', 'keep_alive is stable, so it cannot write');
 
 -- Behaviour, not just catalog entries: a real query as anon is refused.
 set local role anon;

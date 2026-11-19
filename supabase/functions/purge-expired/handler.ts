@@ -1,6 +1,6 @@
 /**
  * purge-expired: called hourly by pg_cron through pg_net (ADR 0010), never by a browser.
- *   1. Deletes museums whose expires_at has passed (drafts after 7 days, published after 90).
+ *   1. Deletes museums whose expires_at has passed (drafts 7 days after creation, published museums 7 days after first publish).
  *   2. Removes the storage objects of every museum in the purge queue, and dequeues on success.
  * Authorised by the x-cron-secret header, compared in constant time. docs/api.md, "purge-expired".
  */

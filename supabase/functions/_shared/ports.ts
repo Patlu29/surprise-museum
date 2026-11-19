@@ -83,6 +83,9 @@ export interface MuseumStore {
   rateLimitHit(bucket: string, limit: number, windowSeconds: number): Promise<boolean>;
   rateLimitBlocked(bucket: string, limit: number, windowSeconds: number): Promise<boolean>;
 
+  /** Postgres's own now() as ISO 8601 UTC, through one read-only call. Writes nothing. */
+  keepAlive(): Promise<string>;
+
   /** Deletes expired museums (queueing their storage) and returns their ids. */
   expireMuseums(limit: number): Promise<string[]>;
   listPurgeQueue(limit: number): Promise<string[]>;

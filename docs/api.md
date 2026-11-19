@@ -1,12 +1,12 @@
 # API contract: Surprise Museum
 
-Version 1.1 (contract version 1) | 29/10/2026 | Owner: backend-developer
+Version 1.2 (contract version 1) | 19/11/2026 | Owner: backend-developer
 
-Types: `supabase/functions/_shared/contract.ts` (imported in the browser as `@contract`). Design: `docs/architecture.md` sections 7 and 10, ADRs 0003, 0004, 0010 and 0012.
+Types: `supabase/functions/_shared/contract.ts` (imported in the browser as `@contract`). Design: `docs/architecture.md` sections 7 and 10, ADRs 0003, 0004, 0010, 0012 and 0022.
 
 ## 1. Overview
 
-There is no REST resource tree. The browser calls four Supabase Edge Functions, all with `POST` and a JSON body, and uploads photos straight to Storage through signed URLs.
+There is no REST resource tree. The browser calls three Supabase Edge Functions, all with `POST` and a JSON body, and uploads photos straight to Storage through signed URLs. Two more functions are never called by the app: `purge-expired` (pg_cron) and `keep-alive` (a scheduled workflow). That makes five in all. A museum lasts 7 days from its first publish, then the whole museum and its photos are deleted (NFR-16).
 
 | Function | Caller | Purpose |
 |---|---|---|
@@ -14,6 +14,7 @@ There is no REST resource tree. The browser calls four Supabase Edge Functions, 
 | `get-museum` | Visitor's browser | Read a published museum by share token |
 | `manage-museum` | Creator's browser | Everything the edit token allows (7 actions) |
 | `purge-expired` | pg_cron only | Delete expired museums and their files |
+| `keep-alive` | Scheduled GitHub Actions workflow only | Read-only check that stops the free project pausing (NFR-32) |
 
 Base URL: `{VITE_SUPABASE_URL}/functions/v1/<function-name>`.
 
@@ -114,7 +115,7 @@ The uniform not-found body (`get-museum` and `manage-museum`; also `purge-expire
 | `wall` rendition | JPEG, at most 1024 px long edge, at most 2 MiB | ADR 0005 |
 | `lqip` | JPEG data URL, at most 4,096 characters, at most 32 px long edge | ADR 0005 |
 | Draft lifetime | 7 days from creation | NFR-16 |
-| Published lifetime | 90 days from the first publish (re-publishing does not extend it) | NFR-16 |
+| Published lifetime | 7 days from the first publish (re-publishing does not extend it) | NFR-16 |
 | Photo download URLs | Valid 1 hour | ADR 0003 |
 | Photo upload URLs | Valid 2 hours | ADR 0003 |
 
@@ -125,6 +126,7 @@ Rate limits (fixed windows, keyed by a salted hash of the client address; IPv6 a
 | `create-museum` | 10 drafts per hour per client |
 | `get-museum` | 60 lookups per minute per client, and 20 misses per 10 minutes per client. After 20 misses every lookup from that client returns 429 until the window ends, which slows link guessing |
 | `manage-museum` | 120 requests per minute per client, 600 per hour per museum, and the same 20-misses-per-10-minutes limit as `get-museum` |
+| `keep-alive` | None, on purpose: a rate limit needs a database write, and this function must write nothing (section 10a) |
 
 ## 6. Tokens
 
@@ -243,7 +245,7 @@ Common errors for every action: 400 `bad_request` (invalid body; unknown `action
   "document": { "title": "", "visitorName": "Sam", "guideName": "Alex", "openingGreeting": "", "closingMessage": "Happy birthday!", "theme": "default", "visitorAvatar": { "v": 1 }, "guideAvatar": { "v": 1 }, "photos": [{ "photoId": "0b1a3c5e-7d9f-4a21-8c3b-5e7f9a1b3d5c", "caption": "Our first trip" }] },
   "photos": [{ "id": "0b1a3c5e-7d9f-4a21-8c3b-5e7f9a1b3d5c", "position": 0, "caption": "Our first trip", "width": 2048, "height": 1536, "lqip": "data:image/jpeg;base64,...", "wallUrl": "https://...", "fullUrl": "https://..." }],
   "publishedAt": "2026-10-28T01:00:00.000Z",
-  "expiresAt": "2027-01-26T01:00:00.000Z"
+  "expiresAt": "2026-11-04T01:00:00.000Z"
 }
 ```
 
@@ -376,7 +378,7 @@ Sent whole. All text, avatars and the photo order are stored in one database tra
 
 **200** (`PublishResponse`)
 ```json
-{ "shareToken": "Qm4yT9xWc1LrB7eKs2VhZ0fA", "publishedAt": "2026-10-28T01:00:00.000Z", "expiresAt": "2027-01-26T01:00:00.000Z" }
+{ "shareToken": "Qm4yT9xWc1LrB7eKs2VhZ0fA", "publishedAt": "2026-10-28T01:00:00.000Z", "expiresAt": "2026-11-04T01:00:00.000Z" }
 ```
 
 Rules:
@@ -386,7 +388,7 @@ Rules:
 - `visitorName` and `guideName` are required (1 to 24). `title`, `openingGreeting`, `closingMessage` and captions may be empty.
 - `theme` must be `"default"`.
 - Each avatar follows "Avatar settings" below.
-- `publishedAt` and `expiresAt` are set by the first publish. Publishing again updates the content but never extends `expiresAt` (90 days from the first publish).
+- `publishedAt` and `expiresAt` are set by the first publish. Publishing again updates the content but never extends `expiresAt` (7 days from the first publish). Publishing a museum that has already expired returns the uniform 404.
 
 #### Avatar settings (`AvatarConfig`, v1.1)
 
@@ -434,20 +436,54 @@ Content-Type: application/json
 
 | Field | Meaning |
 |---|---|
-| `purged` | Museums whose retention ended in this run (drafts after 7 days, published after 90). Their rows are gone |
+| `purged` | Museums whose retention ended in this run (drafts 7 days after creation, published museums 7 days after their first publish). Their rows are gone; their photos are removed in the same run, or retried hourly if storage fails |
 | `retried` | Storage clean-ups from earlier runs, or from a delete whose file removal failed, that succeeded now |
 | `failed` | Storage clean-ups that failed in this run and stay queued for the next hour |
 
 Up to 100 museums are expired and 100 queue entries drained per run; a bigger backlog clears over successive hours.
+
+## 10a. `keep-alive`
+
+Called once a day by a scheduled GitHub Actions workflow, never by the app or a browser. It runs one read-only query so the Supabase Free project is never idle for 7 days (ADR 0022, NFR-32, US-69). It creates nothing, never calls `purge-expired`, writes no `rate_limits` row, counts no miss, and reveals nothing but the database clock.
+
+**Auth:** the public anon (or publishable) key in the `apikey` header, like every other function. No other secret. `verify_jwt` is off. **Rate limit:** none. **CORS:** none (a browser can send it but cannot read the answer).
+**Body:** `{}` (an empty body is also accepted)
+
+```http
+POST /functions/v1/keep-alive
+Content-Type: application/json
+apikey: <public anon or publishable key>
+
+{}
+```
+
+**200** (`KeepAliveResponse`)
+```json
+{ "ok": true, "checkedAt": "2026-11-20T09:37:02.114Z" }
+```
+
+`checkedAt` is Postgres's own `now()` from `public.keep_alive()`, as ISO 8601 UTC, so a fresh value proves the database answered.
+
+| Status | `error` | When |
+|---|---|---|
+| 400 | `bad_request` | The body is not valid JSON, or is not an empty object ("The request body must be an empty object.") |
+| 405 | `bad_request` | Not `POST` |
+| 413 | `bad_request` | Body over 64 KiB |
+| 415 | `bad_request` | Not `application/json` |
+| 500 | `server_error` | The database call failed or did not return a timestamp. The workflow treats this as a failed keep-alive |
+
+A paused or unreachable project answers from the Supabase platform before this function runs, with a non-200 status. The workflow treats any non-200 as a failure.
 
 ## 11. Retention timeline
 
 | Event | Effect |
 |---|---|
 | `create-museum` | `expiresAt` = now + 7 days |
-| First `publish` | `expiresAt` = now + 90 days |
-| `expiresAt` passes | All links return 404 at once. The hourly job (minute 17) deletes the rows and files within the hour |
+| First `publish` | `expiresAt` = now + 7 days (168 hours). Publishing again never changes it |
+| `expiresAt` passes | All links return 404 at once, the same uniform not-found as any bad link (no separate "expired" response). The hourly job (minute 17) deletes the rows and files, normally within the hour and always within 24 hours (a failed file delete is retried every hour) |
 | `delete` | Rows gone at once; files removed immediately, or within the hour if that failed |
+
+There are no backups (Supabase Free plan, NFR-16(f)), so nothing outlives the purge. A photo URL signed just before `expiresAt` can still load for up to 1 hour after it.
 
 ## 12. Mock mode and production builds
 
@@ -527,3 +563,4 @@ It follows every rule in this document: the same validators, the same JPEG check
 | 28/10/2026 | First full contract. Differences from `docs/architecture.md` section 7.3: `create-museum` and `reserve-photo` return 201; `field` may also appear on `conflict` and `invalid_image`; 403, 405, 413 and 415 are sent with the `bad_request` code; `purge-expired` returns `{ purged, retried, failed }` (`failed` is new, type `PurgeExpiredResponse` added to `contract.ts`); `remove-photo` of a published photo returns `conflict`; `lqip` bytes are checked at `confirm-photo`; `visitorAvatar.facialHair` must be `none` |
 | 28/10/2026 | Integration round 1. `confirm-photo` accepts every segment the browser keeps (JFIF up to 14 bytes, ICC with any body, Adobe up to 12 bytes) and still rejects APP1 and APP13; Safari regression fixtures added. The mock persists in IndexedDB (else `localStorage`) with a size cap, `clearDemoData()` and `getDemoDataInfo()`. Production builds are always live unless `VITE_API_MODE=mock`; `supabase/scripts/check-live-config.mjs` fails a deploy build with missing or unsafe configuration |
 | 29/10/2026 | v1.1, CR-1 (ADR 0020, written by the architect). Optional `gender` on both avatars (`feminine`, `masculine`, `neutral`; absent means and is stored as `neutral`; unknown values rejected); responses always include `gender`. Facial hair allowed for the Visitor. New contract exports `AVATAR_GENDERS`, `AvatarGender`, `DEFAULT_AVATAR_GENDER`, `isAvatarGender`, `avatarGender`. No contract or avatar version bump, no database migration. Deploy the functions before the frontend (ADR 0020, section 6). Implemented in the Edge Functions and the mock (backend-developer, 30/10/2026): `validateAvatar` no longer takes a role; `present.ts` and the mock fill `neutral` for old rows without rewriting them |
+| 19/11/2026 | v1.2, iteration 4 (ADR 0010 amendment, ADR 0022). `LIMITS.retentionDays` is 7 (was 90): a published museum lasts 7 days from its first publish, purge completes within 24 hours, there are no backups, and an expired link keeps the uniform `not_found` (Q-33 a). New function `keep-alive` (`POST /functions/v1/keep-alive`, body `{}`, 200 `{ ok: true, checkedAt }`) with `FUNCTION_NAMES.keepAlive`, `KeepAliveRequest`, `KeepAliveResponse` and `keepAlive()` on the store port; migration `20261118000100_keep_alive.sql` adds `public.keep_alive()` (service role only). `CONTRACT_VERSION` stays 1: only a value and an addition changed, and no field changed shape. Example `expiresAt` values now show 7 days. Deploy the migration before the function |

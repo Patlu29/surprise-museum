@@ -5,7 +5,9 @@
  */
 :root {
   --ui-bar-height: var(--progress-bar-height); /* design spec 12.4: the stepper and progress bars */
-  --ui-swatch-cell: var(--tile-height); /* design spec 12.7: swatch cells are 48 px with an 8 px gap */
+  --ui-swatch-cell: var(
+    --tile-height
+  ); /* design spec 12.7: swatch cells are 48 px with an 8 px gap */
   --ui-swatch-size: calc(var(--tile-height) - var(--space-2)); /* the 40 px visible swatch */
 }
 
@@ -833,7 +835,8 @@ textarea.field__control--grow {
 }
 /* The Required names card: a 4 px claret bar and a faint wash. */
 .step-card--emphasis {
-  background: linear-gradient(var(--color-accent-wash), var(--color-accent-wash)), var(--color-surface);
+  background:
+    linear-gradient(var(--color-accent-wash), var(--color-accent-wash)), var(--color-surface);
   border-left: var(--accent-bar-width) solid var(--color-accent);
 }
 /* The optional card is plainer: no shadow, a hairline instead. */
@@ -845,4 +848,35 @@ textarea.field__control--grow {
   .step-card {
     padding: var(--space-5);
   }
+}
+
+/* Availability notice (design spec 5.18): quiet static text, no fill, border or shadow. */
+.availability {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.availability__icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  /* Centres the 20 px icon on the first 16 px line. */
+  margin-top: calc((var(--text-md) * var(--leading-normal) - var(--icon-sm)) / 2);
+}
+.availability__text {
+  min-width: 0;
+}
+.availability__line {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+  line-height: var(--leading-normal);
+  color: var(--color-text);
+}
+.availability__more {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+  color: var(--color-text-muted);
 }

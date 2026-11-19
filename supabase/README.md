@@ -2,7 +2,7 @@
 
 Owner: backend-developer. Design: `docs/architecture.md` (sections 7 and 10) and ADRs 0003, 0004, 0005 and 0010. API reference: `docs/api.md`.
 
-The backend is a Supabase project in Sydney (ap-southeast-2): Postgres, one private Storage bucket, four Edge Functions and an hourly pg_cron job. The browser never talks to the database. It calls the Edge Functions, and it reads and writes photos only through short-lived signed URLs that the functions issue.
+The backend is a Supabase project in Sydney (ap-southeast-2): Postgres, one private Storage bucket, five Edge Functions (one of them the daily keep-alive) and an hourly pg_cron job. The browser never talks to the database. It calls the Edge Functions, and it reads and writes photos only through short-lived signed URLs that the functions issue.
 
 | Path | Contents |
 |---|---|
@@ -42,7 +42,7 @@ Placeholders: `<ref>` is your project reference (the part of `https://<ref>.supa
 1. In the Supabase dashboard choose **New project**.
 2. Name it `surprise-museum`. For **Region** choose **Oceania (Sydney)**, which is `ap-southeast-2`. This keeps Creator content in Australia (NFR-17).
 3. Set a strong database password and save it in your password manager. You need it in step 4 and for the CI secret `SUPABASE_DB_PASSWORD`.
-4. Choose the plan. Free-plan projects pause after a period of inactivity and have no backups, so a gift link opened weeks later could fail, and the hourly purge job would also stop. For plan, pricing or contract questions, please contact the Sales team.
+4. Choose the **Free** plan. This is decided (NFR-32): the app runs on free tiers only. A Free project pauses after about 7 days without activity, which would take the app offline and stop the hourly purge, so the scheduled keep-alive (step 10, ADR 0022) is required. The Free plan has no backups, which is what NFR-16 expects: nothing of a museum survives outside the live database and bucket. Museums last 7 days from first publish, so a gift link opened later shows the not-found screen.
 5. When the project is ready, note the project URL and `<ref>` (Project Settings, General).
 
 ### 2. Turn off sign-ups
@@ -126,7 +126,7 @@ Do not add `SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY`. Supabase injects both 
 npx supabase functions deploy --no-verify-jwt
 ```
 
-`--no-verify-jwt` matches `config.toml`: the functions check the share token, edit token or cron secret themselves, and the newer publishable keys are not JWTs. Confirm all four appear as active in the dashboard under Edge Functions: `create-museum`, `get-museum`, `manage-museum`, `purge-expired`.
+`--no-verify-jwt` matches `config.toml`: the functions check the share token, edit token or cron secret themselves, and the newer publishable keys are not JWTs. Confirm all five appear as active in the dashboard under Edge Functions: `create-museum`, `get-museum`, `manage-museum`, `purge-expired`, `keep-alive`. `keep-alive` needs no secret: only the public anon key.
 
 ### 8. Check it works
 
@@ -136,7 +136,7 @@ Find the public key in Project Settings, API Keys (the anon key, or the publisha
 node supabase/scripts/smoke-test.mjs https://<ref>.supabase.co <anon-or-publishable-key>
 ```
 
-Every line should say `PASS`. The script creates a throw-away museum, uploads two tiny test images through signed URLs, publishes, reads it back, checks that a photo with EXIF is refused and that bad links return identical 404s, then deletes everything.
+Every line should say `PASS`. The first line checks `keep-alive`, which writes nothing. The script then creates a throw-away museum, uploads two tiny test images through signed URLs, publishes, reads it back, checks that a photo with EXIF is refused and that bad links return identical 404s, then deletes everything.
 
 Check the hourly job (SQL editor):
 
@@ -195,6 +195,22 @@ It exits 1, with a plain-language list of what to fix, when:
 
 You can run the same check on your own machine before pushing: `VITE_API_MODE=live VITE_SUPABASE_URL=https://<ref>.supabase.co VITE_SUPABASE_ANON_KEY=<key> node supabase/scripts/check-live-config.mjs`, or `node supabase/scripts/check-live-config.mjs --file .env.production`. It never prints a key. As a second line of defence the same file exports a Vite plugin, `requireLiveBackend()`, that fails `vite build` when `VITE_API_MODE=live` and the variables are wrong (see `docs/api.md` section 12).
 
+### 10. Keep the Free project awake (keep-alive)
+
+A Free project pauses after about 7 days without activity (confirm on supabase.com/pricing). The `keep-alive` function runs one read-only query, so a scheduled call counts as activity on every layer it can reach. It writes nothing, never calls purge and needs only the public anon key.
+
+1. Check it by hand (use the same public key as step 8). Expect HTTP 200 and `{"ok":true,"checkedAt":"<now, UTC>"}`:
+
+   ```bash
+   curl -sS -X POST "https://<ref>.supabase.co/functions/v1/keep-alive" \
+     -H "Content-Type: application/json" -H "apikey: <anon-or-publishable-key>" -d '{}'
+   ```
+
+2. The scheduled workflow (`.github/workflows/keep-alive.yml`, owned by the devops-engineer) calls it daily with the two repository variables from step 9. A red run in GitHub Actions means the keep-alive failed.
+3. GitHub switches off scheduled workflows in a public repository after 60 days with no repository activity. Every 50 days, open Actions and check that the latest keep-alive run is green and recent. If it was disabled, choose **Enable workflow**, then **Run workflow** once.
+4. If Supabase pauses the project anyway, restore it in the dashboard first, then re-run the workflow. Expired museums are purged within a few hours of the restore.
+5. Usage (database, storage, egress) is checked in the dashboard only (Usage page). The keep-alive reports none of it. Read-only SQL for the SQL editor is in ADR 0022, section 3.
+
 ## Local development
 
 Without Docker, use the mock (`npm run dev`) and the in-memory dev server below. With Docker you can run the real stack.
@@ -227,7 +243,7 @@ node supabase/scripts/smoke-test.mjs http://127.0.0.1:54321 <local anon key from
 |---|---|
 | `npm test` | Vitest: token derivation and hashing, the JPEG metadata checker (including Safari-shaped fixtures checked against the browser's stripper), validation, the live client, the mock API and its IndexedDB and `localStorage` persistence, the production guard (`src/api/__tests__`) |
 | `node supabase/scripts/check-live-config.mjs` | The production-build guard (also covered by Vitest `liveConfigGuard.test.ts`) |
-| `deno test --config supabase/functions/deno.json supabase/functions` | The four handlers end to end against an in-memory store: lifecycle, uniform 404, CORS, rate limits, `confirm-photo` checks, retention and purge |
+| `deno test --config supabase/functions/deno.json supabase/functions` | The five handlers end to end against an in-memory store: lifecycle, uniform 404, CORS, rate limits, `confirm-photo` checks, retention (7 days), purge and keep-alive (writes nothing) |
 | `deno lint --config supabase/functions/deno.json supabase/functions` | Lint for the function code (the root ESLint config skips this folder) |
 | `deno check --config supabase/functions/deno.json supabase/functions/*/index.ts` | Type-checks the entry points against the real `supabase-js` types |
 | `npx supabase test db` | pgTAP: `tests/database/lockdown.test.sql` (needs Docker) |
@@ -258,7 +274,7 @@ node supabase/scripts/smoke-test.mjs http://127.0.0.1:54321 <local anon key from
 | A QA or preview build shows `unconfigured` errors | Production builds no longer fall back to the mock. Build with `VITE_API_MODE=mock` |
 | Demo mode says the demo storage is full | The mock caps photo storage (3 MiB in `localStorage`, 200 MiB in IndexedDB). Call `clearDemoData()` or clear the site's data in the browser |
 | `confirm-photo` returns 422 for an iPhone photo | Safari writes APP1 and APP13 segments; the browser must strip them before upload (`src/media/jpeg.ts`). A raw Safari file is refused by design |
-| Purge job does nothing | Vault secrets missing (step 5), `CRON_SECRET` differs from the Vault value, or the project is paused |
+| Purge job does nothing | Vault secrets missing (step 5), `CRON_SECRET` differs from the Vault value, or the project is paused (see step 10) |
 | `db push` fails on `cron` or `net` | Enable **pg_cron** and **pg_net** in Database, Extensions, then push again |
 
 ## Security checks to keep green

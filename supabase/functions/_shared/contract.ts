@@ -48,8 +48,8 @@ export const LIMITS = {
   titleMaxChars: 60,
   greetingMaxChars: 500,
   closingMessageMaxChars: 1000,
-  /** Days a published museum stays available (NFR-16). */
-  retentionDays: 90,
+  /** Days a published museum stays available from its first publish (NFR-16 v0.7). */
+  retentionDays: 7,
   /** Days an unpublished draft is kept before purge. */
   draftRetentionDays: 7,
   /** Lifetime of signed photo download URLs returned by get-museum. */
@@ -382,6 +382,7 @@ export const FUNCTION_NAMES = {
   getMuseum: 'get-museum',
   manageMuseum: 'manage-museum',
   purgeExpired: 'purge-expired',
+  keepAlive: 'keep-alive',
 } as const;
 
 /** create-museum: starts an unpublished draft. Called when the Creator adds the first photo. */
@@ -462,6 +463,14 @@ export interface PublishResponse {
 }
 export interface DeleteResponse {
   deleted: true;
+}
+
+/** keep-alive (called by a scheduled GitHub Actions workflow, never by the app). Body: `{}`. */
+export type KeepAliveRequest = Record<string, never>;
+export interface KeepAliveResponse {
+  ok: true;
+  /** ISO 8601 UTC. Postgres's own now(), so a fresh value proves the database answered. */
+  checkedAt: string;
 }
 
 /** purge-expired (called by pg_cron, never by the browser). */

@@ -1,3 +1,4 @@
+import { LIMITS } from '@contract';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { ButtonLink } from '@/ui/components/Button';
 import { Illustration } from '@/ui/components/Illustration';
@@ -20,8 +21,9 @@ export function NotFoundScreen() {
       }
     >
       <p>
-        The link might have a typo, or the museum may have been taken down. Check the link, or ask
-        the person who sent it to send it again.
+        The link might have a typo, or the museum may have been deleted. Museums are only kept for{' '}
+        {LIMITS.retentionDays} days, so it may have ended. Check the link, or ask the person who
+        sent it for a new link.
       </p>
     </MessageScreen>
   );
