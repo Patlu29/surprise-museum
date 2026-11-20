@@ -1,5 +1,12 @@
 # Handoff: qa-engineer
 
+## Linux CI follow-up, run 44676952911 (20/11/2026)
+
+- Failure: mobile-webkit `gender.spec.ts` US-47 AC-1 (failed 3 tries) and `more-options.spec.ts` FR-100 / US-66 AC-3 and AC-6 (flaky). Message: WebKit "was preloaded using link preload but not used within a few seconds" for `three-<hash>.js`.
+- Cause: a test-classifier false positive. The notice is not a WebGL warning; the file name matched `/webgl|three|shader|glsl/i`. The preload is Vite's modulepreload for the lazy 3D chunk.
+- Fix: `WEBKIT_ONLY_WARNINGS` in `tests/e2e/support/app.ts`, one anchored regex on the message shape, WebKit only. The WebGL/three/shader/GLSL rule is unchanged. Listed in `tests/README.md`. Linux Not verified until the next CI run.
+
+
 ## Iteration 4, Verify, QA round 8 (19/11/2026)
 
 ### Summary

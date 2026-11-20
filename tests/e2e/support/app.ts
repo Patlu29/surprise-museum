@@ -111,6 +111,18 @@ const WEBKIT_ONLY_CONSOLE = [
 ];
 
 /**
+ * Warnings that only WebKit reports. Linux CI run 44676952911 (commit b947f7c) failed mobile-webkit with WebKit's
+ * resource-hint notice for `assets/three-<hash>.js`: Vite's dynamic-import helper adds a modulepreload when the
+ * lazy 3D route loads, and tests that open a museum and navigate away quickly never execute the chunk within
+ * WebKit's "few seconds" window on a slow runner. It reached the warnings bucket only because the asset file name
+ * contains "three". The match is anchored to this message shape and applies on WebKit only; a real three.js or
+ * WebGL warning, or this notice on another engine, still fails.
+ */
+const WEBKIT_ONLY_WARNINGS = [
+  /^The resource \S+ was preloaded using link preload but not used within a few seconds from the window's load event\. Please make sure it wasn't preloaded for nothing\.$/,
+];
+
+/**
  * Warnings that are known and not the app's fault. They are listed in docs/qa-report.md (BUG-5, accepted as
  * an upstream warning in docs/decisions/0018-accept-three-clock-deprecation-warning.md, and note N-1); anything else that mentions WebGL, three, shaders or GLSL fails.
  */
@@ -146,7 +158,8 @@ export function trackProblems(page: Page): Problems & { expectClean: () => void 
     if (
       msg.type() === 'warning' &&
       /webgl|three|shader|glsl/i.test(text) &&
-      !KNOWN_WARNINGS.some((re) => re.test(text))
+      !KNOWN_WARNINGS.some((re) => re.test(text)) &&
+      !(isWebKit && WEBKIT_ONLY_WARNINGS.some((re) => re.test(text)))
     ) {
       problems.warnings.push(text);
     }

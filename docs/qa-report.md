@@ -11,6 +11,8 @@ Build tested: `VITE_API_MODE=mock npm run build -- --mode test` (hook `__APP_TES
 
 Follow-up 20/11/2026: `caption-card` U1 (1280x720) measured 1104.9 ms in Linux run 44457523893 (mobile-chromium) against 500 to 1,100 ms. With the tech lead's approval the upper bound is `CARD_UPGRADE_MAX_MS` in `support/app.ts`: 1,100 ms locally, 1,500 ms when `CI` is set. The lower bound is 500 ms everywhere. Linux is Not verified until the next CI run.
 
+Linux CI run 44676952911 (commit b947f7c): mobile-webkit failed `gender.spec.ts` US-47 AC-1 and flaked `more-options.spec.ts` FR-100 / US-66 AC-3 and AC-6. Cause: a test fault, not an app defect. WebKit's resource-hint notice for the lazy `assets/three-<hash>.js` preload matched the `three` word in the warnings rule. `WEBKIT_ONLY_WARNINGS` in `support/app.ts` now excludes exactly that message, on WebKit only; real three.js and WebGL warnings still fail. Linux is Not verified until the next CI run.
+
 ### Iteration 4 criteria
 
 | Story | Criterion | Result | How and limits |
