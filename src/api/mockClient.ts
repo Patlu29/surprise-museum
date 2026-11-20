@@ -7,8 +7,8 @@
  *   - request bodies pass the same validators as manage-museum (limits, avatar options, text);
  *   - confirmPhoto runs the same JPEG metadata checker on the uploaded bytes, so a photo that the
  *     real backend would refuse (EXIF, wrong size) is refused here too;
- *   - bad links are one indistinguishable `not_found`; drafts expire after 7 days and published
- *     museums after 90; 20 photos and 100 reservations per museum;
+ *   - bad links are one indistinguishable `not_found`; drafts expire 7 days after creation and published
+ *     museums 7 days after first publish (`LIMITS.retentionDays`); 20 photos and 100 reservations per museum;
  *   - "signed" photo URLs are object URLs of the uploaded blobs.
  *
  * Persistence: all state lives in a `DemoStorage` (IndexedDB, else localStorage, else memory; see

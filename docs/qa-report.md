@@ -43,6 +43,10 @@ Linux CI run 44676952911 (commit b947f7c): mobile-webkit failed `gender.spec.ts`
 | US-24 AC-3, US-27 | Changed wording only | US-27 **Not tested**: Creator-set expiry is not built (Should) | |
 | No console errors | Every new e2e test uses `trackProblems` where it loads the app | **Verified** | Allow-list unchanged |
 
+### Review fixes (REV-8a, REV-9), 20/11/2026
+
+REV-9: `WEBKIT_ONLY_WARNINGS` is now anchored to `assets/(three|scene-shared)-<hash>.js` as well as the full message (names confirmed in `dist/assets`), WebKit only. REV-8a: the NFR-16 check also flags a bare `90` on a line with retention, expire or publish (the api.md changelog row "(was 90)" is excluded); it flags the old `mockClient.ts` text "published museums after 90" and passes on the current working tree. REV-8b is deferred to after phase 6. Checked: the new pattern matches the `three-WTrAt_Va.js` and `scene-shared` notices and not `index-abc.js` or "THREE.WebGLRenderer: Context Lost."; `keep-alive-static` on desktop-chromium 6 passed, 2 skipped (workflow not yet written); `gender` on mobile-webkit 25 passed.
+
 ### Visual baselines (darwin, desktop-chromium)
 
 Four new baselines in `visual.spec.ts` (none existed for these screens, so these are first recordings, not re-records, and nothing old changed): `published-share-card.png` (link field masked, it holds a random token), `edit-page.png` (link masked), `not-found.png`, `privacy.png`. Each was viewed: the notice reads "Available for 7 days, until 26/11/2026 12:30." with its second line; the not-found card shows the new body; the privacy page shows the retention paragraph then the no-backups sentence. Each is stable over two repeats. The not-found heading shows a focus ring because the screen focuses its heading on arrival (existing behaviour). The Linux set does not exist; CI leaves `visual.spec.ts` out until it does, so these four are macOS only.

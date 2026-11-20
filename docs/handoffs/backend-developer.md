@@ -156,3 +156,9 @@ I built the whole Supabase backend: idempotent migrations, four Edge Functions (
 - **Verification:** `npm run typecheck`, `lint`, `build` pass; `npm test` 44 files, 577 of 577 pass. Deno checks not run (not installed).
 - **Assumption:** the mock's stored demo state holds documents in `museum.document`; the legacy test strips `gender` there.
 - **Requests for other agents:** scene-developer may now add `gender: 'neutral'` to the default configs. devops-engineer: CI must run `deno check`, `deno lint`, `deno test`; deploy functions before the frontend.
+
+## Review fixes (20/11/2026): REV-1, REV-5, REV-7 (comments and docs only)
+
+- REV-1: `src/api/mockClient.ts` module comment now says drafts expire 7 days after creation and published museums 7 days after first publish (`LIMITS.retentionDays`). `grep -rnE "\b90\b" src/api supabase docs/api.md` found no other 90 except the api.md changelog row for v1.2 ("was 90"), which is correct history.
+- REV-5: `docs/api.md` section 11 now says the purge is "normally within the hour, and within 24 hours unless storage deletes keep failing for more than 23 hours" (matches the ADR 0010 amendment). Version line date bumped to 20/11/2026 (still v1.2, no contract change).
+- REV-7: `supabase/functions/_shared/boot.ts` comment says "shared by the Edge Functions".

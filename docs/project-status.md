@@ -54,7 +54,12 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 - qa-engineer (phase 4): round 8 done. Follow-up: apply the CI-only 1,500 ms U1 bound in `caption-card.spec.ts`; after phase 6, re-run `keep-alive-static.spec.ts` against `keep-alive.yml` and test US-70 (deployment guide free-tier section).
 - product-manager (phase 7): US-71 AC-3 and US-68 AC-3 say "edit", but the MVP only has re-publish (editing a published museum is Release 2). QA tested re-publish. Confirm or correct the wording.
 - devops-engineer (phase 6, from QA): fix stale line 98 in docs/deployment.md; record the Linux visual baselines (including the 4 new ones) with the existing manual workflow; attach the Firefox report.
-- architect (phase 5): set ADR 0022 status to Accepted (A2 approved 19/11/2026).
+- architect (phase 5): ADR 0022 set to Accepted; release review docs/review.md written 20/11/2026: 0 Critical, 0 Major, 5 Minor, 9 Note. Routing:
+  - In Review now: REV-1, REV-5, REV-7 (backend-developer: stale "90" comment in src/api/mockClient.ts, api.md "always within 24 hours", boot.ts "four functions"); REV-8 (a), REV-9 (qa-engineer: catch bare "90" in the static check; anchor the WebKit preload filter to the three and scene-shared chunks).
+  - Phase 6 (devops-engineer): REV-6 ("four" Edge Functions wording and stale Deno comment in ci.yml, deploy-supabase.yml, deployment.md; there are five); REV-11 (add Edge Function invocations to the usage check); the keep-alive workflow sends the `apikey` header (the review could not check whether the gateway needs it with verify_jwt off); first Supabase deploy must run with migrations on, or keep-alive returns 500.
+  - After phase 6 (qa-engineer): REV-8 (b), a missing keep-alive.yml fails instead of skipping.
+  - Phase 7 doc sync: REV-2 (product-manager: mark Q-33 and Q-35 answered; NFR-16 (d), FR-54, US-27 drop the non-existent "expired" screen); REV-3 (architect: architecture.md and ADR 0010 "Proposed/pending/provisional" wording); REV-4 (ux-ui-designer: drop "provisional" in spec 7.5 and the change note).
+  - No action: REV-10 (CI allowances judged sound), REV-12 (owner-path note, change was agreed), REV-14 (resolved in ADR 0022). Backlog: REV-13 (per-function deno.lock inconsistency).
 
 ## Environment notes
 - Node v26.7.0, npm 11.19.0, public npm registry reachable (18/11/2026).

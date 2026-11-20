@@ -1,7 +1,7 @@
 # 0022: Free-tier hosting and a daily keep-alive
 
 ## Status
-Proposed (18/11/2026, iteration 4 Design). Becomes Accepted when the user approves the design. Amends ADR 0003 (a fifth Edge Function) and builds on ADR 0002 (GitHub Pages) and ADR 0010 (retention).
+Accepted (19/11/2026, the user's A2 design approval for iteration 4). Proposed 18/11/2026. Amends ADR 0003 (a fifth Edge Function) and builds on ADR 0002 (GitHub Pages) and ADR 0010 (retention). Two clarifications from the release review (20/11/2026) are at the end; they change no decision. Built in eb57dff (function, migration, tests); the workflow in section 5 is phase 6 work (devops-engineer).
 
 ## Context
 The user decided on 18/11/2026 to host on free tiers only: GitHub Pages from the public repository, and the Supabase Free plan with a scheduled keep-alive (NFR-32, US-69, US-70). The free-limit guardrail is documentation plus a usage check, with no in-app "space full" handling (FR-104 is deferred).
@@ -156,3 +156,9 @@ If Supabase pauses the project while the keep-alive is green, change the workflo
 - The user has one recurring manual task (the 50-day check), and must keep Actions failure e-mails switched on.
 - Usage is checked by hand in the dashboard. A free limit can be reached between checks; the app then shows its existing upload or publish error messages, and the guide says what to do (FR-104 deferred).
 - Daily runs use about 30 short jobs a month on free public-repository minutes.
+
+## Clarifications from the release review (20/11/2026)
+Checked against the built code (eb57dff). Neither changes the decision, the contract or the tests.
+
+1. **"No secret" means the caller needs none.** The function itself starts through the shared `lazyHandler` and `loadConfig` (`supabase/functions/_shared/boot.ts`, `config.ts`), like the other four. So it needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (injected by Supabase) and the project's existing function secrets `RATE_LIMIT_SALT` and `ALLOWED_ORIGINS` (`supabase/README.md` step 6), even though it uses neither of the last two. If any is missing, it answers 500 "The service is not configured." and the scheduled run turns red. That is the wanted outcome, because the same gap would break the app. No new secret is added anywhere, and the workflow still sends only the public anon key.
+2. **What a browser can do.** `cors: false` means no CORS headers on any answer. `OPTIONS` gets 204 with no CORS headers (shared `createEndpoint`, as for `purge-expired`). So a cross-site JSON `POST` from a page fails its preflight and is never sent. A "simple" cross-site `POST` (for example `text/plain`) gets 415 before any database call. Either way, one function invocation is the most a third-party page can cost, which is the same as for every other function (section 2, "Abuse").

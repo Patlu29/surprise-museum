@@ -1,5 +1,5 @@
 /**
- * Process start-up shared by the four functions: read the environment once, build the real
+ * Process start-up shared by the Edge Functions: read the environment once, build the real
  * backend, and answer 500 (without detail) if configuration is missing, so a misconfigured
  * deploy fails loudly in the logs but leaks nothing to callers.
  */

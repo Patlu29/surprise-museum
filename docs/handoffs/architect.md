@@ -1,11 +1,61 @@
 # Handoff: architect
 
-Iteration: 4 (Feature and hosting: free-tier hosting, 7-day retention). Phase: 2 Design (architecture step), plus the tech lead's `.npmrc` task (user request 18/11/2026).
+Iteration: 4 (Feature and hosting: free-tier hosting, 7-day retention). Phase: 5 Review (20/11/2026). The phase 2 Design note follows below.
 
 ## Summary
-ADR 0010 is amended for NFR-16 v0.7. Published museums last 7 days from first publish, purge completes within 24 hours, and there are no backups. The mechanism is unchanged, and the amendment lists every file to change. ADR 0022 (Proposed) decides free-tier hosting and a daily keep-alive: a new read-only `keep-alive` Edge Function, called by a scheduled workflow with the public anon key, with usage checked in the dashboard only. `docs/architecture.md` is v1.6, with no 90-day figure left except as the old value in change notes. Separately, the first CI failure was traced to Deno reading `~/.npmrc` (a corporate mirror) instead of the root `.npmrc`. I added an `.npmrc` beside each Deno config and amended ADR 0013. Nothing is committed.
+I reviewed iteration 4 for release by reading the code from `2260e88~3` to HEAD 5b307f5. The review is `docs/review.md`: **no critical or major finding open**, 5 Minor, 9 Note. Retention is correct end to end. The keep-alive writes nothing, is granted to `service_role` only, and leaks nothing. No secret, credential or mirror hostname is in the current files. The test hook is absent from a production build. The four QA commits loosen no limit that hides a defect. ADR 0022 is now Accepted (user A2, 19/11/2026), with two clarifications that change no decision. Nothing is committed.
 
 ## Files changed
+- `docs/review.md`: new; header and the iteration 4 section (REV-1 to REV-14, checks, consistency, test adequacy, not checked, verdict).
+- `docs/decisions/0022-free-tier-hosting-and-keep-alive.md`: status Accepted (19/11/2026, A2); new "Clarifications from the release review". (1) "No secret" is the caller's view: the function boots through the shared `loadConfig`, so it needs `RATE_LIMIT_SALT` and `ALLOWED_ORIGINS` and answers 500 without them. (2) What a cross-site browser can and cannot send.
+- `docs/handoffs/architect.md`: this section; earlier requests marked.
+
+## Verification
+| Check | Result | Label |
+|---|---|---|
+| `npx tsc -b --noEmit`, `npx tsc -p tsconfig.e2e.json --noEmit`, `npx eslint .` | exit 0 each | Verified |
+| `npx vitest run` | 72 files, 1,084 passed | Verified |
+| Deno 2.9.6 via `npx` (scratch `DENO_DIR`, public registry set per command): check, lint, `test --frozen` | pass; 35 tests; no lockfile change | Verified (macOS) |
+| Production build into the scratchpad (`vite build`, not `npm run build`), search for `__APP_TEST__` | 0 files; `dist/` untouched | Verified |
+| `npm audit --omit=dev` | 0 vulnerabilities; no dependency change this iteration | Verified |
+| Mirror hostname and credential patterns in the current tree; `.npmrc` contents; `tarball` in `deno.lock` | none; registry lines only; 0 | Verified |
+| pgTAP, real Postgres, real `supabase-js` rpc shape, Supabase activity rule, e2e suites, CI logs, baseline PNGs | not run or opened (see review "Not checked") | Not verified |
+
+## Decisions
+- **ADR 0022 needed clarification, not correction.** The design matches the code. The ADR now says what the function needs to start and what a browser can do.
+- **Stale status text in `architecture.md` (REV-3) is left for a later sync.** The task allowed edits to `architecture.md` only for a wrong contract. No contract is wrong: store, test hook, assets and API all match the code.
+- **CI-only timing allowances are sound** (REV-10). Shared runners are not timing evidence, and the local strict windows are unchanged. The gap is that no automated gate holds the strict windows now.
+
+## Assumptions
+- QA round 8 counts and the tech lead's record of CI run 44686612364 are accurate. I did not open the run.
+
+## Not done
+- REV-3 (my own `architecture.md` and ADR 0010 status text): out of this task's edit scope; do it in the phase 6 or 7 sync.
+
+## Open questions
+- None for the user. Q-34 (confirm free-plan figures) still stands. REV-11 adds Edge Function invocations to the figures the user should confirm.
+
+## Requests for other agents
+- [open] backend-developer: REV-1 (`src/api/mockClient.ts:10-11` comment), REV-5 (`docs/api.md:483` "always"), REV-7 (`boot.ts:2`), REV-13 (one rule for per-function `deno.lock`, backlog).
+- [open] product-manager: REV-2 (Q-33 and Q-35 answered; "expired screen" wording in NFR-16 (d), FR-54 and US-27), with the routed US-68 and US-71 AC-3 wording.
+- [open] devops-engineer (phase 6): REV-6 ("four" wording and the stale Deno comment; first deploy with `migrations: true`), REV-11 (invocations in the usage check).
+- [open] qa-engineer: REV-8 (regex gap; fail on a missing `keep-alive.yml` after phase 6), REV-9 (anchor the WebKit preload filter), REV-10 (state in release readiness where the strict timing windows were last met).
+- [open] ux-ui-designer: REV-4 (drop "provisional" in spec 7.5 and the change note).
+- [open] frontend-developer: REV-12 (record the `src/api/` test edit as an ownership exception).
+- [open] architect (me, next sync): REV-3.
+
+## Requests received
+- [done] from tech lead (phase 5): release review in `docs/review.md`; ADR 0022 set to Accepted.
+- [done] from backend-developer: "Deno does not use `keep-alive/deno.lock` in CI". Correct: CI passes the root `deno.json`. Whether the Supabase CLI uses a per-function lock when it deploys was not checked. Make the lockfile rule consistent (REV-13, backlog). Keep the per-function `.npmrc` files either way (ADR 0013).
+
+---
+
+## Phase 2 Design (18/11/2026)
+
+### Summary
+ADR 0010 is amended for NFR-16 v0.7. Published museums last 7 days from first publish, purge completes within 24 hours, and there are no backups. The mechanism is unchanged, and the amendment lists every file to change. ADR 0022 (Proposed) decides free-tier hosting and a daily keep-alive: a new read-only `keep-alive` Edge Function, called by a scheduled workflow with the public anon key, with usage checked in the dashboard only. `docs/architecture.md` is v1.6, with no 90-day figure left except as the old value in change notes. Separately, the first CI failure was traced to Deno reading `~/.npmrc` (a corporate mirror) instead of the root `.npmrc`. I added an `.npmrc` beside each Deno config and amended ADR 0013. Nothing is committed.
+
+### Files changed
 - `docs/decisions/0010-retention-with-pg-cron.md`: status note; amendment covering the requirement change, how the design meets each rule (with evidence), the 12-row change list, FR-54 rule and consequences.
 - `docs/decisions/0022-free-tier-hosting-and-keep-alive.md`: new ADR (Proposed).
 - `docs/decisions/0003-supabase-edge-function-gateway.md`: status line notes the fifth function (ADR 0022).
@@ -15,7 +65,7 @@ ADR 0010 is amended for NFR-16 v0.7. Published museums last 7 days from first pu
 - New `.npmrc` (one comment line plus `registry=https://registry.npmjs.org/`) in `supabase/functions/`, `create-museum/`, `get-museum/`, `manage-museum/`, `purge-expired/`. **Ownership exception:** `supabase/**` is the backend-developer's; added at the tech lead's direction for this task.
 - `docs/handoffs/architect.md`: this note.
 
-## Verification
+### Verification
 | Check | Result | Label |
 |---|---|---|
 | `npm run build` (after all edits, including `.npmrc`) | exit 0; only warning is npm's "Unknown user config always-auth" from the user's own `~/.npmrc` (left alone) | Verified |
@@ -36,7 +86,7 @@ ADR 0010 is amended for NFR-16 v0.7. Published museums last 7 days from first pu
 | Deno with `.npmrc` beside `deno.json` | all downloads from `registry.npmjs.org`, 0 `tarball` lines; generated `create-museum/deno.lock` matches the backend-developer's regenerated one | Verified (same method) |
 | CI Deno steps on a copy of the real `supabase/functions` | `check --frozen` (root, create-museum, manage-museum) exit 0; `lint` exit 0 (24 files); `test --frozen` 27 passed, 0 failed; lockfiles unchanged | Verified locally with 2.9.6; CI uses `v2.x` on Linux, Not verified there |
 
-## Decisions
+### Decisions
 - **Retention: change the value, not the mechanism** (ADR 0010 amendment). One constant (`LIMITS.retentionDays`), migration comments edited in place, no new retention migration, no data migration (nothing deployed).
 - **Keep-alive calls a new read-only `keep-alive` Edge Function** that runs `select public.keep_alive()` (`now()`) through the service role. It reaches the gateway, a function, PostgREST and Postgres, writes nothing, needs only the public anon key, and has no rate limit, because a rate limit needs a write. Rejected: `get-museum` with a dummy token (writes rows and adds misses), `purge-expired` (forbidden, needs a secret), direct PostgREST (breaks ADR 0003; kept as fallback).
 - **Usage check: dashboard only.** Egress is not readable from SQL; sizes on a public endpoint help someone fill the storage.
@@ -45,16 +95,16 @@ ADR 0010 is amended for NFR-16 v0.7. Published museums last 7 days from first pu
 - **No store or test-hook change for FR-105**: `builderStore.publish.expiresAt` already holds the server value. The end date is always the server's, formatted by one pure function without `toLocaleString`.
 - **`.npmrc` beside every Deno config**, not a Deno workspace restructure: it is the smallest fix and was proven by test. CI-only env vars would not protect local regeneration.
 
-## Assumptions
+### Assumptions
 - Supabase counts a request through the API gateway with the project key that reaches Postgres as activity (not documented; ADR 0022 risk and fallback).
 - GitHub e-mails scheduled-run failures to the user who last changed the `cron` line, when Actions notifications are on.
 - `net._http_response` keeps rows about 6 hours (pg_net default), for the purge health check.
 
-## Not done
+### Not done
 - `docs/api.md`, `supabase/**` code, `src/`, `tests/`, `.github/`, `docs/deployment.md`: owned by others; listed below.
 - Requirement-coverage table for the whole app: the architecture has never had one. 7.6 covers the iteration 4 Musts only.
 
-## Open questions
+### Open questions
 1. **Copy changes need the designer**, who is not scheduled: the FR-105 notice (publish screen, and the edit page if Q2 is accepted) and the not-found body for Q-33 (a) (design spec 7.5, which has the exact current text). Options: (a) a short design-spec patch before the build; (b) the frontend uses the requirements wording and the designer records it as built. **Recommend (a)**, and keep the heading "We can't find that museum" so the 6 e2e assertions on it hold. Owner: tech lead.
 2. **US-71 AC-3 ("open the publish screen again")**: the builder's publish screen cannot be reopened (the edit token is memory-only; editing is Release 2). Options: (a) show the same end date on the edit page from `ManageGetResponse.expiresAt`; (b) treat AC-3 as API-level only. **Recommend (a)**: small, and it is the only place the Creator can see the date again. Owner: tech lead, product-manager.
 3. **Cap signed-URL lifetime at `expires_at`** (`get-museum`: TTL = min(3600 s, time left), `urlsExpireAt` likewise), so an open session cannot load photos after the end. **Recommend yes if the backend has room this iteration, otherwise backlog**; NFR-16 is met without it. Owner: tech lead.
@@ -63,33 +113,33 @@ ADR 0010 is amended for NFR-16 v0.7. Published museums last 7 days from first pu
 6. Q-33 (b), if the user chooses it at approval, needs a distinct `expired` API response: a contract change, an ADR 0003 and ADR 0010 amendment, and new tests. The design assumes (a). Q-35 (c) would drop FR-105 and the formatter work. Owner: user.
 7. Confirm Supabase's idle-pause rule and the free figures (extends Q-34), and watch the first 7 or more days after launch. Owner: user.
 
-## Requests for other agents
-- [open] **backend-developer**:
+### Requests for other agents
+- [done] **backend-developer** (eb57dff, checked in the phase 5 review; item 5 went to the backlog):
   1. Retention, items 1 to 12 of the ADR 0010 amendment table: `contract.ts` `retentionDays: 7` and comment; migration comments in `20261027000100_initial_schema.sql:59` and `20261027000200_retention_schedule.sql` (the "7-day window" comment); `purge-expired/handler.ts:3` comment; tests `purge_test.ts:36-90` (restructure: publish on day 3), `flow_test.ts:99` (use `LIMITS.retentionDays`), `flow_test.ts:261` (8 days), `src/api/__tests__/mockClient.test.ts:251` (use `LIMITS.retentionDays`), `:298-311` (restructure), `:314-323` (re-publish on day 3); `supabase/README.md:45`.
   2. Keep-alive per ADR 0022 section 4: migration `20261118000100_keep_alive.sql`; `supabase/functions/keep-alive/` (`index.ts`, `handler.ts`, `deno.json`, **and an `.npmrc` like the other function folders**); `FUNCTION_NAMES.keepAlive`, `KeepAliveRequest`, `KeepAliveResponse`; `keepAlive()` on the store port, the Supabase backend and the memory backend; `[functions.keep-alive] verify_jwt = false` in `config.toml`; Deno tests (200 shape, nothing created, no rate-limit row, 400, 405, 415, 500); pgTAP (`anon` and `authenticated` cannot execute `keep_alive()`); a smoke-test line; README function list ("four" to five).
   3. `docs/api.md`: version and change-log row; section 1 table and "four" to five functions; section 5 published lifetime "7 days from the first publish" and a `keep-alive` row with no rate limit; section 9 publish example `expiresAt` to `2026-11-04T01:00:00.000Z` and the rule text "(7 days from the first publish)", plus a note that the browser shows `expiresAt` as the end date (FR-105); section 10 `purged` meaning; a new `keep-alive` section (ADR 0022 section 4); section 11 first publish + 7 days, out of live storage within 24 hours, no backups.
   4. Never let a `deno.lock` contain `"tarball"`. Regenerate it if it does (ADR 0013 amendment).
   5. Optional, by the tech lead's call: open question 3 (URL TTL cap).
-- [open] **frontend-developer**:
+- [done] **frontend-developer** (eb57dff, checked in the phase 5 review; the edit-page notice was built after A2):
   1. FR-105 notice on `PublishedScreen` from `useBuilderStore((s) => s.publish.expiresAt)`; days from `LIMITS.retentionDays`; date in `<time dateTime={expiresAt}>`; must say deleting with the edit link ends it sooner; fits 360 px at 200% text; copy from the designer (open question 1).
   2. `formatEndDateTime(iso: string): string | null` in `src/lib/format.ts` (architecture 8.1): `Date.parse`, `null` if not finite, `DD/MM/YYYY HH:mm` from local getters, zero-padded, 24-hour. Unit tests in `src/lib/format.test.ts` built from local-time `Date`s (zone-independent): padding, midnight `00:00`, invalid input.
   3. If open question 2 is accepted: the same notice on `EditScreen` for a published museum, from `data.expiresAt`.
   4. `NotFoundScreen` body for Q-33 (a), wording from the designer, heading unchanged if the designer agrees.
   5. Check only: `LegalScreen` shows "7 days" once the backend changes the constant (no edit). No hard-coded 90 in `src/ui` (verified by search).
-- [open] **devops-engineer**:
+- [open] **devops-engineer** (phase 6, still open; see also REV-6 and REV-11):
   1. `.github/workflows/keep-alive.yml` per ADR 0022 section 5: daily `37 20 * * *` plus `workflow_dispatch`; job `if: vars.VITE_SUPABASE_URL != ''`; `permissions: {}`; `ubuntu-24.04`; `timeout-minutes: 5`; `concurrency: keep-alive`; `curl --fail-with-body --retry 3 --retry-delay 20 --retry-all-errors --max-time 30` with the URL and key through `env:` (no `${{ }}` inside `run:`); `jq -e '.ok == true and (.checkedAt | type == "string")'`; `checkedAt` to the job summary; no checkout and no secrets.
   2. `docs/deployment.md` free-tier section (NFR-32 (c) to (f), US-70): the three limits marked "confirm on supabase.com/pricing"; the capacity arithmetic; dashboard usage steps and the two SQL queries in ADR 0022 section 3; how to confirm the last keep-alive run; the 60-day rule with the 50-day reminder and re-enable steps; restoring a paused project; the GitHub notification setting; what happens at each limit and what to do, no in-app handling; no backups; no prices (contact Supabase sales). Purge health: `cron.job_run_details` for `surprise-museum-purge`, `net._http_response` status and `failed`, and `select count(*) from public.storage_purge_queue` (US-68 AC-5, AC-6). Update manual step 4 ("choosing a plan is yours" now conflicts with the user's Free-plan decision), the workflow table, and the "No scheduled checks" gap.
   3. Go-live order: migrations and functions (including `keep-alive`) before setting the repository variables, or the first keep-alive runs fail.
   4. `CHANGELOG.md` entry. The CI Deno failure is routed separately by the tech lead; locally the Deno steps now pass (see Verification).
-- [open] **qa-engineer**:
+- [done] **qa-engineer** (QA round 8; US-69 workflow checks and US-70 wait for phase 6):
   1. US-68: in the mock build with `page.clock`, publish at T; at T + 168 h − 1 min the share link loads; at T + 168 h + 1 s it shows the not-found screen with the new wording. Draft: D + 168 h makes the edit link not found. AC-3 (re-publish) has no UI until Release 2, so review the backend's Deno and mock tests instead. AC-5 and AC-6 are live-only: run them post-deploy with the guide's steps; Not verified until then.
   2. US-71: the notice says 7 days; the `<time>` `datetime` equals `window.__APP_TEST__.useBuilderStore.getState().publish.expiresAt`; the text equals its `DD/MM/YYYY HH:mm` under a fixed `timezoneId` (Australia/Sydney and one other zone); the date equals the publish moment + 168 h within 1 minute; 360 px at 200% text has no horizontal scroll; the deleting-sooner sentence is present; the edit page shows the same date if open question 2 is accepted.
   3. US-69: a static review of `keep-alive.yml` (daily, `permissions: {}`, no secrets, only the `keep-alive` URL), plus the backend's "nothing created" Deno test. Run history is post-deploy.
   4. US-70: manual review of `docs/deployment.md` against its acceptance criteria.
   5. Full regression. The not-found heading assertions change only if the designer changes the heading.
-- [open] **tech lead**: route open question 1 to the ux-ui-designer; decide open questions 2 to 5.
+- [done] **tech lead**: Q1 went to the designer (spec v2.1); Q2 accepted (edit-page notice built); Q3 and Q4 went to the backlog; Q5 done (privacy sentence); Q6 settled by the user at A2 (Q-33 (a), Q-35 (a)).
 
-## Requests received
+### Requests received
 - [done] from tech lead: amend ADR 0010, write ADR 0022, update `docs/architecture.md`, list changes per agent and open questions.
 - [done] from tech lead (user request 18/11/2026): add a project `.npmrc`, check Deno's pickup, verify npm, record it in ADR 0013 and the architecture.
 - [done] from product-manager: ADR 0010 amendment and keep-alive ADR naming the request; A-35 photo sizes checked against `LIMITS` and section 12 (Partly verified, architecture 13.1).

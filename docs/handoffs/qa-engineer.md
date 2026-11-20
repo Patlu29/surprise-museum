@@ -7,6 +7,13 @@
 - Fix: `WEBKIT_ONLY_WARNINGS` in `tests/e2e/support/app.ts`, one anchored regex on the message shape, WebKit only. The WebGL/three/shader/GLSL rule is unchanged. Listed in `tests/README.md`. Linux Not verified until the next CI run.
 
 
+## Review fixes REV-8a and REV-9 (20/11/2026)
+
+- `tests/e2e/support/app.ts`: `WEBKIT_ONLY_WARNINGS` anchored to `assets/(three|scene-shared)-[\w-]+\.js` plus the full message. **Verified** by a one-off regex check (matches both chunks; not `index-abc.js`, not a real three.js warning); `gender` on mobile-webkit 25 passed.
+- `tests/e2e/keep-alive-static.spec.ts`: NFR-16 also flags a bare `90` beside retention, expire or publish, excluding the "(was 90)" changelog row in api.md. **Verified**: flags the old mockClient wording, 6 passed and 2 skipped on desktop-chromium, no hits in the current tree.
+- `tests/README.md` and `docs/qa-report.md` updated.
+- Not done: REV-8b (fail instead of skip when `keep-alive.yml` is missing) waits until after phase 6.
+
 ## Iteration 4, Verify, QA round 8 (19/11/2026)
 
 ### Summary

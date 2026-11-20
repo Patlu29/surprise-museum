@@ -1,6 +1,6 @@
 # API contract: Surprise Museum
 
-Version 1.2 (contract version 1) | 19/11/2026 | Owner: backend-developer
+Version 1.2 (contract version 1) | 20/11/2026 | Owner: backend-developer
 
 Types: `supabase/functions/_shared/contract.ts` (imported in the browser as `@contract`). Design: `docs/architecture.md` sections 7 and 10, ADRs 0003, 0004, 0010, 0012 and 0022.
 
@@ -480,7 +480,7 @@ A paused or unreachable project answers from the Supabase platform before this f
 |---|---|
 | `create-museum` | `expiresAt` = now + 7 days |
 | First `publish` | `expiresAt` = now + 7 days (168 hours). Publishing again never changes it |
-| `expiresAt` passes | All links return 404 at once, the same uniform not-found as any bad link (no separate "expired" response). The hourly job (minute 17) deletes the rows and files, normally within the hour and always within 24 hours (a failed file delete is retried every hour) |
+| `expiresAt` passes | All links return 404 at once, the same uniform not-found as any bad link (no separate "expired" response). The hourly job (minute 17) deletes the rows and files, normally within the hour, and within 24 hours unless storage deletes keep failing for more than 23 hours (a failed file delete is retried every hour) |
 | `delete` | Rows gone at once; files removed immediately, or within the hour if that failed |
 
 There are no backups (Supabase Free plan, NFR-16(f)), so nothing outlives the purge. A photo URL signed just before `expiresAt` can still load for up to 1 hour after it.

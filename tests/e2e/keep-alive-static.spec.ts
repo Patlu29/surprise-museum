@@ -113,7 +113,15 @@ test.describe('US-69 keep-alive matches ADR 0022', () => {
       read(file)
         .split('\n')
         .map((line, index) => ({ file, line: index + 1, text: line }))
-        .filter(({ text }) => /\b90[- ]?days?\b|retentionDays:\s*90|interval '90/i.test(text)),
+        .filter(
+          ({ text }) =>
+            /\b90[- ]?days?\b|retentionDays:\s*90|interval '90/i.test(text) ||
+            // A bare 90 beside a retention word, such as "published museums after 90" (REV-8a). The
+            // api.md changelog row that says the value "was 90" records the change and is not a leftover.
+            (/\b90\b/.test(text) &&
+              /retention|expire|publish/i.test(text) &&
+              !/\(was 90\)/.test(text)),
+        ),
     );
     expect(hits).toEqual([]);
   });
