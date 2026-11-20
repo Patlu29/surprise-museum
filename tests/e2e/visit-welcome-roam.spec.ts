@@ -18,7 +18,10 @@ import { expect, test } from './support/fixtures';
  */
 
 test.describe('US-11 open the link and start', () => {
-  test('US-11 AC-1: welcome screen shows the title, For <name> and Start', async ({ page, museum }) => {
+  test('US-11 AC-1: welcome screen shows the title, For <name> and Start', async ({
+    page,
+    museum,
+  }) => {
     await openVisit(page, museum.shareToken);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('A museum for Alex');
     await expect(page.getByText('For Alex', { exact: true })).toBeVisible();
@@ -47,11 +50,23 @@ test.describe('US-11 open the link and start', () => {
     expect(dist(s.visitor, l.spawn)).toBeLessThan(0.3);
     expect(dist(s.visitor, s.guide)).toBeLessThan(2);
     expect(s.guide.mode).toBe('follow');
-    expect(s.labels.visitor || s.labels.guide).toBe(true);
+    // The name labels are projected from the first rendered frames; a slow software renderer (Linux WebKit on CI) shows them a moment after Start.
+    const labelled = await waitForSnap(
+      page,
+      (n) => n.labels.visitor || n.labels.guide,
+      20_000,
+      'a name label',
+    );
+    expect(labelled.labels.visitor || labelled.labels.guide).toBe(true);
     expect(l.rooms[0]?.kind).toBe('entrance');
     // She can move at once.
     await page.keyboard.down('w');
-    await waitForSnap(page, (n) => n.visitor.z < s.visitor.z - 0.4, 10_000, 'the Visitor to walk forward');
+    await waitForSnap(
+      page,
+      (n) => n.visitor.z < s.visitor.z - 0.4,
+      10_000,
+      'the Visitor to walk forward',
+    );
     await page.keyboard.up('w');
   });
 
@@ -62,8 +77,15 @@ test.describe('US-11 open the link and start', () => {
     // Picture 3 (the far one) can be approached first: the Guide presents it, not photo 1.
     const l = await layout(page);
     const third = l.slots[2]!;
-    await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtPhoto(2));
-    const s = await waitForSnap(page, (n) => n.intent === `photo:${third.photoId}`, 15_000, 'photo 3 to be presented first');
+    await page.evaluate(() =>
+      (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtPhoto(2),
+    );
+    const s = await waitForSnap(
+      page,
+      (n) => n.intent === `photo:${third.photoId}`,
+      15_000,
+      'photo 3 to be presented first',
+    );
     expect(s.intent).toBe(`photo:${third.photoId}`);
     await expect(page.locator('.caption-card')).toContainText('Caption three.');
   });
@@ -126,7 +148,12 @@ test.describe('US-15 move around the museum', () => {
       await teleport(page, 0, -3.8);
       const before = await snap(page);
       await page.keyboard.down(key);
-      await waitForSnap(page, (n) => (n.visitor[axis] - before.visitor[axis]) * sign > 0.4, 12_000, `${key} to move`);
+      await waitForSnap(
+        page,
+        (n) => (n.visitor[axis] - before.visitor[axis]) * sign > 0.4,
+        12_000,
+        `${key} to move`,
+      );
       await page.keyboard.up(key);
     });
   }
@@ -143,7 +170,9 @@ test.describe('US-15 move around the museum', () => {
     expect(s.visitor.speed).toBeLessThan(0.3);
   });
 
-  test('US-15 AC-3: she walks through the doorway but not through the wall beside it', async ({ page }) => {
+  test('US-15 AC-3: she walks through the doorway but not through the wall beside it', async ({
+    page,
+  }) => {
     await teleport(page, 0, -5.5);
     await page.keyboard.down('w');
     await waitForSnap(page, (n) => n.visitor.z < -8.5, 20_000, 'to pass the doorway');
@@ -173,18 +202,27 @@ test.describe('US-15 move around the museum', () => {
     page,
   }) => {
     const l = await layout(page);
-    await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale());
+    await page.evaluate(() =>
+      (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale(),
+    );
     const finaleRoom = l.rooms[l.rooms.length - 1]!;
     await page.keyboard.down('w');
     // Walk on until she is stopped (the podium stands in front of the end wall, so she halts about 3.8 m short of it), then keep pushing: she must stay inside.
-    await waitForSnap(page, (n) => n.visitor.z < finaleRoom.minZ + 4.5, 40_000, 'to be stopped by the podium or the end wall');
+    await waitForSnap(
+      page,
+      (n) => n.visitor.z < finaleRoom.minZ + 4.5,
+      40_000,
+      'to be stopped by the podium or the end wall',
+    );
     await page.waitForTimeout(1500);
     await page.keyboard.up('w');
     const s = await snap(page);
     expect(s.visitor.z).toBeGreaterThan(finaleRoom.minZ);
   });
 
-  test('US-15 AC-5: dragging with the mouse rotates the camera, Reset view restores it', async ({ page }) => {
+  test('US-15 AC-5: dragging with the mouse rotates the camera, Reset view restores it', async ({
+    page,
+  }) => {
     const before = await snap(page);
     const box = (await page.locator('.scene-root').boundingBox())!;
     const cx = box.x + box.width / 2;
@@ -193,7 +231,12 @@ test.describe('US-15 move around the museum', () => {
     await page.mouse.down();
     await page.mouse.move(cx + 220, cy, { steps: 12 });
     await page.mouse.up();
-    const after = await waitForSnap(page, (n) => Math.abs(n.camera.yaw - before.camera.yaw) > 0.2, 8_000, 'camera yaw to change');
+    const after = await waitForSnap(
+      page,
+      (n) => Math.abs(n.camera.yaw - before.camera.yaw) > 0.2,
+      8_000,
+      'camera yaw to change',
+    );
     // The Visitor did not walk: dragging only turns the camera.
     expect(dist(after.visitor, before.visitor)).toBeLessThan(0.2);
     expect(after.camera.offDefault).toBe(true);
@@ -207,19 +250,31 @@ test.describe('US-15 move around the museum', () => {
     // workers) 700 ms can be only a few frames. Focus is put on the scene first so the key goes to it.
     await page.locator('.scene-root').focus();
     await page.keyboard.down('e');
-    const after = await waitForSnap(page, (n) => Math.abs(n.camera.yaw - before.camera.yaw) > 0.1, 10_000, 'the view to turn with E');
+    const after = await waitForSnap(
+      page,
+      (n) => Math.abs(n.camera.yaw - before.camera.yaw) > 0.1,
+      10_000,
+      'the view to turn with E',
+    );
     await page.keyboard.up('e');
     expect(Math.abs(after.camera.yaw - before.camera.yaw)).toBeGreaterThan(0.1);
   });
 
   test('US-10 AC-1: both characters carry a name label while on screen', async ({ page }) => {
-    const s = await waitForSnap(page, (n) => n.labels.visitor && n.labels.guide, 10_000, 'both labels visible');
+    const s = await waitForSnap(
+      page,
+      (n) => n.labels.visitor && n.labels.guide,
+      10_000,
+      'both labels visible',
+    );
     expect(s.labels).toEqual({ visitor: true, guide: true });
     await expect(page.locator('.scene-root').getByText('Alex', { exact: true })).toBeVisible();
     await expect(page.locator('.scene-root').getByText('Sam', { exact: true })).toBeVisible();
   });
 
-  test('US-10 AC-5: walking plays the walk animation, standing still plays idle', async ({ page }) => {
+  test('US-10 AC-5: walking plays the walk animation, standing still plays idle', async ({
+    page,
+  }) => {
     await page.keyboard.down('w');
     await waitForSnap(page, (n) => n.visitor.locomotion === 'walk', 10_000, 'walk animation');
     await page.keyboard.up('w');
@@ -245,6 +300,11 @@ test('US-17 AC-1: the generated museum has an entrance, a gallery and a finale, 
   // Left and right walls alternate.
   expect(l.slots.map((s) => s.wall)).toEqual(['left', 'right', 'left', 'right']);
   // Every picture has loaded or has a placeholder status (never missing).
-  const s = await waitForSnap(page, (n) => Object.values(n.photoStatus).every((v) => v === 'loaded'), 20_000, 'photos to load');
+  const s = await waitForSnap(
+    page,
+    (n) => Object.values(n.photoStatus).every((v) => v === 'loaded'),
+    20_000,
+    'photos to load',
+  );
   expect(Object.keys(s.photoStatus)).toHaveLength(4);
 });

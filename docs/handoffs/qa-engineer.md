@@ -1,5 +1,35 @@
 # Handoff: qa-engineer
 
+## Iteration 4, Verify, QA round 8 (19/11/2026)
+
+### Summary
+Wrote the iteration 4 e2e specs, recorded four darwin baselines (each viewed), ran the full suite on desktop-chromium, mobile-chromium and mobile-webkit, diagnosed the Linux CI run 44457523893 and fixed four test defects. No app bug. Details, per-criterion table, counts and the recommendation (Go, with conditions) are in `docs/qa-report.md` round 8.
+
+### Files changed
+- `tests/e2e/retention.spec.ts` (new, 24 tests), `tests/e2e/keep-alive-static.spec.ts` (new, 8 tests, 2 skipped until the workflow exists)
+- `tests/e2e/visual.spec.ts`: 4 tests; baselines `published-share-card.png`, `edit-page.png`, `not-found.png`, `privacy.png` under `__screenshots__/desktop-chromium-darwin/visual.spec.ts/`
+- `tests/e2e/support/images.ts` (`pixelDiffRatioInset`), `gender.spec.ts` (inset for the two live-versus-rebuilt tests), `more-options.spec.ts` (720-combination wait), `visit-welcome-roam.spec.ts` (label wait), `visit-guide-presentations.spec.ts` (Guide arrival at B)
+- `tests/README.md`, `docs/qa-report.md`, this note
+
+### Verification
+| Check | Result | Label |
+|---|---|---|
+| macOS full suite | desktop 375 pass, 2 load flakes; mobile-chromium 343 pass, 4 load flakes; mobile-webkit 337 pass, 0 failed; every failure passed on re-run alone | Verified |
+| Edited specs re-run on 3 projects | desktop 104 pass; mobile-chromium 103 pass; webkit 100 pass, 1 load flake that passed twice alone | Verified |
+| `tsc -p tsconfig.e2e.json --noEmit`, eslint on tests/e2e | clean | Verified |
+| Linux fixes | not re-run on Linux; the gender fix was checked on the downloaded CI images (ratio reproduced, inset gives 0) | Partly verified |
+| Purge, 24 h removal, keep-alive schedule and effect, US-70 | no deployment and no workflow file | Not verified |
+
+### Decisions
+- Baselines went into `visual.spec.ts` (not a new file) so the CI exclusion for Linux applies.
+- Did not widen the caption-card U1 window (1,100 ms); it needs the tech lead.
+
+### Requests for other agents
+- [open] tech lead: CI-only window for `caption-card.spec.ts` U1, yes or no.
+- [open] devops-engineer: `keep-alive.yml`, `docs/deployment.md` line 98, Linux baselines (including the four new), Firefox report.
+- [open] product-manager: US-71 AC-3 and US-68 AC-3 say "edit"; the MVP only has re-publish.
+- [open] Coordinator: commit the specs, baselines, `tests/README.md`, `docs/qa-report.md` and this note (I did not commit). I did not touch the preview on 4173.
+
 ## Iteration 4, Build: Linux CI integration (19/11/2026)
 
 ### Summary

@@ -1,5 +1,103 @@
 # QA report: Surprise Museum
 
+## Round 8 (iteration 4: 7-day retention, availability notice, free-tier hosting), HEAD 33c2af8 plus uncommitted test changes, 19/11/2026
+
+Build tested: `VITE_API_MODE=mock npm run build -- --mode test` (hook `__APP_TEST__` confirmed in `dist/assets/index-*.js` before every run), served by the preview on port 4173 (left running), `PW_REUSE_SERVER=1`. Engines: Chromium (desktop and Pixel 7 emulation) and WebKit (iPhone 13 emulation) from the installed Playwright. Firefox cannot launch here and was not run. Real phones, VoiceOver and TalkBack were not covered.
+
+### Recommendation: **Go** for the iteration 4 application work, with conditions for release
+
+- No application bug was found in iteration 4. Every criterion that can be checked before deploy passed (table below).
+- Conditions, none of them a code defect: (1) US-69 AC-2, AC-3, AC-5 and US-70 stay open until the devops-engineer writes `keep-alive.yml` and the deployment guide in phase 6; (2) the purge, the 24-hour removal and the keep-alive's effect on the Supabase pause need the deployed project (Not verified); (3) the Linux CI run that contains this round's new specs and baselines has not happened yet.
+
+### Iteration 4 criteria
+
+| Story | Criterion | Result | How and limits |
+|---|---|---|---|
+| US-71 AC-1 | Publish screen says 7 days | **Verified** (3 projects on macOS: see counts) | `retention.spec.ts`: "Available for 7 days, until 26/11/2026 12:30." in the Share link card, between the link field and "Open my museum" |
+| US-71 AC-2 | End date DD/MM/YYYY HH:mm local, equals first publish + 168 h | **Verified** | `Date` pinned with `page.clock.setFixedTime`, zone Sydney; `expiresAt` equals the pin + 168 h exactly. `<time dateTime>` equals the store's `publish.expiresAt`. Also New York (local date differs from UTC), UTC (zero padding) and Auckland (00:05 not 12:05, year rollover). The date is the server value, not computed by the browser |
+| US-71 AC-3 | Re-publish or edit leaves the date unchanged | **Partly verified** | The MVP has no re-publish screen. The test resets the store's publish phase to `idle`, which brings back the Review step, and clicks Publish museum (the real `publishDraft`, same edit token) with the clock three days later: same `expiresAt`, same notice. The edit page shows the same instant. Editing a published museum is Release 2 and has no UI; `mockClient.test.ts` covers day-3 edits at unit level |
+| US-71 AC-4 | 360 px, text 200%, no horizontal scroll | **Verified** at 320 and 360 px, published screen and edit page, emulated by `html { font-size: 200% }` (rem layout) | Checks scrollWidth, the notice's right edge, every child's right edge, text not clipped, line 1 wraps. Mutation: forcing `nowrap` made it fail (scroll width 675 at 320). A real browser text-size setting was not used |
+| US-71 AC-5 | Says deleting through the edit link ends it sooner | **Verified** | Line 2: published "Deleting it with your edit link ends it sooner."; edit page "You can end it sooner by deleting it below." |
+| FR-105 / spec 5.18 | Edit page shows the notice only when published; fallback | **Verified** | None on an unpublished draft's edit page. Fallback "Available for 7 days." with no `<time>` and no "Invalid Date" for an unparseable, empty and null `expiresAt` (reached by setting the store field on the published screen; the edit page cannot receive a bad value from the mock). Plain text: no role, live region, control or `aria-label` inside the notice. Screen-reader output itself not checked |
+| US-68 AC-1 | Share link works before T + 168 h | **Verified** | Opens at T + 1 day and at T + 168 h - 1 s (pinned clock, mock backend) |
+| US-68 AC-2 | Not-found screen after T + 168 h | **Verified** (mock backend) | At T + 168 h + 1 s the share link and the edit link show "We can't find that museum"; no name, caption, photo, canvas or Start button. The 60-second bound is the live system's; the mock expires exactly |
+| US-68 AC-3 | Re-publish on day 3 still ends at T + 168 h | **Partly verified** | As US-71 AC-3: `expiresAt` identical after a day-3 re-publish and when read back by the edit page |
+| US-68 AC-4 | Draft ends 7 days after creation | **Verified** (mock) for the end time and opening; **Not verified** for the purge of its photos | Stored `expiresAt` = creation + 7 days exactly; a second upload on day 3 does not move it; the edit link opens at +168 h - 1 s and shows not-found at +1 s. A draft published on day 6 gets 7 days from that publish (architecture 7.4) |
+| US-68 AC-5 | 0 rows and 0 objects 24 h after the end | **Not verified** | Needs the deployed project, the purge job and a row count and storage listing. The Deno `purge_test.ts` (backend handoff) covers the logic |
+| US-68 AC-6 | At least 23 hourly runs in any 24 h | **Not verified** | Needs the live `pg_cron` run record after launch |
+| NFR-16 (a) to (d) | 7-day life, no extension, drafts, nothing after the end | **Verified** against the mock | As above |
+| NFR-16 (e), (f) | Out of live storage in 24 h; no backups | **Not verified** | Deployment and the Supabase dashboard (Q-34). The privacy page states it (below) |
+| US-24 AC-3 | 0 rows 24 h after delete | **Not verified** | Same reason. Deleting makes the share and edit links show not-found at once: existing test (US-24 AC-2) passes |
+| Q-33 (a) | Heading unchanged, body exactly as spec 7.5, identical for wrong token and expired museum | **Verified** | Exact body "The link might have a typo, ... ask the person who sent it for a new link."; a one-character wrong token and an expired museum give the same `#root` HTML, body text and document title; no "90" or "taken down" |
+| NFR-16 privacy wording | Retention paragraph says 7 days; new sentence after it | **Verified** | Exact paragraph, then a separate `<p>` "Our free plan keeps no backups, and deleted or expired content is removed within 24 hours." directly after it under "How long we keep it". Home, builder, privacy and not-found show no "90" |
+| US-69 AC-1 | Repo public, Supabase Free, no paid add-on | **Not verified** | Manual dashboard check by the tech lead or user |
+| US-69 AC-2, AC-3 | Schedule at least every 72 h; at least one run in any 72 h | **Not verified** | `.github/workflows/keep-alive.yml` does not exist (devops-engineer, phase 6). `keep-alive-static.spec.ts` has the checks ready (daily cron, `workflow_dispatch`) and skips with that reason until the file exists |
+| US-69 AC-4 | Creates 0 rows and 0 objects, no purge call, no secret in the log | **Partly verified** | Static (`keep-alive-static.spec.ts`, 6 pass): contract types, `verify_jwt = false`, `keep_alive()` is a stable `select now()` with `search_path = ''` and execute for `service_role` only, no write statements, the handler imports nothing from purge or rate limiting, makes no HTTP call and calls only `store.keepAlive()`, `docs/api.md` 10a matches ADR 0022. The run-time proof is the backend's Deno test (35 pass, not re-run by me). The workflow's log and secret handling cannot be checked until the file exists |
+| US-69 AC-5 | A failed run shows red | **Not verified** | Needs the workflow |
+| NFR-32 / keep-alive | Supabase counts the call as activity | **Not verified** | Needs 7 or more days on a real project (ADR 0022) |
+| US-70 | Deployment guide free-tier section | **Not tested yet** | Phase 6. `docs/deployment.md` line 98 still has the old plan wording (devops-engineer) |
+| US-24 AC-3, US-27 | Changed wording only | US-27 **Not tested**: Creator-set expiry is not built (Should) | |
+| No console errors | Every new e2e test uses `trackProblems` where it loads the app | **Verified** | Allow-list unchanged |
+
+### Visual baselines (darwin, desktop-chromium)
+
+Four new baselines in `visual.spec.ts` (none existed for these screens, so these are first recordings, not re-records, and nothing old changed): `published-share-card.png` (link field masked, it holds a random token), `edit-page.png` (link masked), `not-found.png`, `privacy.png`. Each was viewed: the notice reads "Available for 7 days, until 26/11/2026 12:30." with its second line; the not-found card shows the new body; the privacy page shows the retention paragraph then the no-backups sentence. Each is stable over two repeats. The not-found heading shows a focus ring because the screen focuses its heading on arrival (existing behaviour). The Linux set does not exist; CI leaves `visual.spec.ts` out until it does, so these four are macOS only.
+
+### Counts on macOS (full suite, before and after this round's test fixes)
+
+| Project | Passed | Failed | Skipped | Notes |
+|---|---|---|---|---|
+| desktop-chromium (2 workers) | 375 | 2 | 10 | Total 387. Both failures passed on re-run: `builder.spec.ts:483` US-8 (load flake, passed twice alone) and `visual.spec.ts` "the finale card" (observation N-11: dock left instead of right on all 4 tries; passed alone on the next run, failed in a combined run; not touched by iteration 4, which changed nothing in the scene or the finale) |
+| mobile-chromium (3 workers) | 343 | 4 | 40 | Total 387. `label-strip.spec.ts:103`, `:122`, `:160` and `presentation-camera.spec.ts:274` timed out under host load (load average 10 to 13 from other work); the files `label-strip:103` and all of `presentation-camera.spec.ts` then passed in a single-worker re-run (16 of 16); a later combined re-run showed 5 more load failures in those two files and the single-worker re-run again passed 16 of 16 |
+| mobile-webkit (3 workers) | 337 | 0 | 50 | Total 387 |
+| After the test fixes below, `gender`, `more-options`, `visit-welcome-roam`, `visit-guide-presentations` | desktop 104 passed; mobile-chromium 103 passed, 1 skipped; mobile-webkit 100 passed, 1 failed, 3 skipped | | | The webkit failure (`gender.spec.ts:478`, all nine gender pairs publish) passed twice alone (34 s each); load flake |
+
+New specs per project: `retention.spec.ts` 24 tests (all three macOS projects ran them in the full runs: they passed), `keep-alive-static.spec.ts` 8 (6 pass and 2 skipped on desktop-chromium; skipped by design on the mobile projects). Total no-skip pass state: every failure above passed when re-run alone; none is an app defect. Mutation checks: a wrong expected date and a forced `nowrap` each made the matching test fail. The static spec was not mutation-tested against the repository files (it reads files I do not own).
+
+### Linux CI run 44457523893 (commit fc8b034, before this round's specs)
+
+| Job | Passed | Failed | Flaky | Skipped | Result |
+|---|---|---|---|---|---|
+| Deno, typecheck/lint/unit/build/bundle | pass | | | | pass |
+| mobile-chromium | 321 | 0 | 2 | 4 | pass |
+| desktop-chromium | 317 | 2 | | 8 | `gender.spec.ts:178` and `:199` (live against rebuilt preview) |
+| mobile-webkit | 311 | 2 | | 14 | `more-options.spec.ts:811` (720-combination description) and `visit-welcome-roam.spec.ts:39` |
+| desktop-firefox | | | | | cancelled after 1 h (non-blocking); not verified |
+
+My Linux fixes from the previous round held: the WebKit `interactive-widget` message, the font-dependent heights, the FR-15 CI allowance, the file chooser and "Done announces nothing that Close does not" no longer failed.
+
+Diagnosis and fixes (test defects, all four; no app bug):
+
+| Test | Cause (evidence) | Fix | Label |
+|---|---|---|---|
+| gender live against rebuilt (both) | Downloaded `preview-live.png` and `preview-rebuilt.png` from the run: 408 x 449 px, the only differing pixels are the 408 pixels of the last row (y 448); the characters are identical. The rebuilt image shows a crimson sliver of the next element in that row (the element is clipped to a fractional box and the reload adds a banner above). Recomputing on the downloaded images reproduces the CI ratio 0.0022271714922048997 exactly | `pixelDiffRatioInset` ignores a 2 px border; the limit is unchanged. On the same images the inset ratio is 0; another pair that does differ gives 0.034, so a real difference still fails | Verified on the CI images; not re-run on Linux |
+| more-options 720 combinations (webkit) | Timed out at 300 s inside one `page.evaluate` that waited two animation frames per step (1,440 frames). Not proven that frames are throttled on Linux WebKit, but the wait is not needed | Wait one macrotask per step; the description checks still catch a stale text | Passes on macOS (3 projects); Linux Not verified |
+| visit-welcome-roam US-11 AC-3 (webkit) | `labels.visitor \|\| labels.guide` false right after the scene became ready; labels appear a few frames later on a slow renderer. The log shows "Expected: true, Received: false", not a timeout | Wait up to 20 s for a label, then assert it | Passes on macOS (3 projects); Linux Not verified |
+| visit-guide-presentations US-13 AC-2 (mobile-chromium, flaky) | Same cause as the earlier AC-3 fix: the card for picture B opens when the Guide arrives; the 10 s default was too short on CI | Wait up to 30 s for the Guide to be presenting at B before counting cards | Passes on macOS (3 projects) |
+| caption-card U1 at 1280x720 (mobile-chromium, flaky) | Upgrade measured 1104.9 ms against the 500 to 1,100 ms window; wall-clock timing on a slow renderer, 5 ms over; passed on retry | **Not changed**: widening the limit needs the tech lead (as for FR-15). Request below | Not fixed |
+
+### Bugs
+
+None new. BUG-15 (1 px residual) and observations N-11 (finale dock flips; it failed the finale visual test on 4 of 4 tries in one full run), N-12 and N-13 are unchanged and unrelated to iteration 4.
+
+### Not verified
+
+- The hourly purge, removal within 24 hours, the 23-runs check (US-68 AC-5, AC-6; US-24 AC-3; US-27 AC-4): need a deployed project.
+- The scheduled keep-alive, its failure signal, and whether Supabase counts it as activity (US-69 AC-2, AC-3, AC-5): the workflow file does not exist; real behaviour needs 7 or more days live.
+- US-69 AC-1 and the plan, add-on and backups settings: manual dashboard check.
+- US-70: not tested yet.
+- Real browser text size (200% is emulated), screen readers, Firefox, real devices, Safari on a Mac.
+- The four new visual baselines and the two new specs on Linux; the CI-only retry of the six fixes above.
+
+### Open specification points
+- US-71 AC-3 and US-68 AC-3 mention editing, which does not exist in the MVP (US-25 edit is Release 2). Tested as re-publish only (product-manager to confirm the wording).
+
+### Requests
+- tech lead: decide whether `caption-card.spec.ts` U1 may use a wider CI-only window (for example 1,500 ms on `CI`), like FR-15; otherwise it stays an occasional retry.
+- devops-engineer (phase 6): write `keep-alive.yml` (the static spec will start checking it), fix the stale line 98 in `docs/deployment.md`, record the Linux baselines (now 22 files plus these 4), and attach the Firefox report.
+
+---
+
 ## Round 7 (re-test after fix rounds 1 and 2 for BUG-13 to BUG-18), HEAD 44a8a77, 11/11/2026
 
 ### What was re-tested

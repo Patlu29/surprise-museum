@@ -45,6 +45,8 @@ Projects: `desktop-chromium`, `desktop-firefox`, `mobile-webkit` (iPhone 13), `m
 | `cr4-visit.spec.ts` | CR-4 visit: Done and Carry on on a phone in portrait, the finale footer at 320 px and with large text, N-10 name labels inside the viewport and apart, the landing page (US-51, FR-80) |
 | `ceiling.spec.ts` | FR-95 (US-62): the ceiling never blocks a high camera, the 2 m height cap (about 5.25 m boom at 55 degrees), every room type, smooth fade, reduced-motion hysteresis, Preview |
 | `visual.spec.ts` | Stable screenshots (desktop Chromium only): the original six, gender previews and entrances, the brow close-up, and (round 6) the five face shapes, new styles with patterns, More options open and the ceiling cutaway |
+| `retention.spec.ts` | Iteration 4: US-71 (availability notice on the published screen and edit page, `<time>`, fallback, 320 and 360 px at 200% text), US-68 (7-day life, no extension, draft expiry, not-found after 7 days plus 1 s), Q-33 (a) not-found body, privacy sentence. `Date` is pinned with `page.clock.setFixedTime` and the zone with `timezoneId` |
+| `keep-alive-static.spec.ts` | US-69: static checks of the contract, SQL, `config.toml`, handler source and `docs/api.md` against ADR 0022; the workflow checks run when `.github/workflows/keep-alive.yml` exists. Runs once, on desktop-chromium |
 | `support/` | Image generator and PNG diff, builder and visit helpers, camera and card helpers (`presentation.ts`), fixtures |
 
 ## Conventions
@@ -68,6 +70,13 @@ Projects: `desktop-chromium`, `desktop-firefox`, `mobile-webkit` (iPhone 13), `m
 so checks leave room for a slow frame. The hook does not expose the shown yaw, so peak turning speed is derived
 from `yawOffsetDeg` and the move duration, not measured per frame. `fixRects` replaces the scene's published
 rectangles with fixed ones (spec 3.5 fixtures) by defining getters on `screenRects`.
+
+## Iteration 4 notes (round 8)
+
+- Pin time with `page.clock.setFixedTime(iso)` (timers keep running) before the first `goto`; the demo backend reads `Date.now()`, so first publish, the end date and the 7-day boundary are exact. Re-publish has no screen in the MVP: `retention.spec.ts` resets `publish` to `idle` in the store and uses the Review step's Publish button.
+- `visual.spec.ts` gained four baselines (published share card, edit page, not found, privacy). They are macOS only; the CI step leaves that file out of Linux runs.
+- `pixelDiffRatioInset` (in `support/images.ts`) ignores a border when comparing element screenshots of a live and a reloaded stage (the clip is fractional and the last row can pick up a neighbour).
+- Linux CI run 44457523893: the gender live-versus-rebuilt pair was a one-pixel last-row difference (fixed by the inset); the WebKit 720-combination test no longer waits on animation frames; two waits (name label, Guide arrival at B) were added. One timing window, `caption-card` U1 (500 to 1,100 ms), still flakes by a few ms on CI.
 
 ## Linux CI differences (first Linux run, 18/11/2026, run 44301433771)
 

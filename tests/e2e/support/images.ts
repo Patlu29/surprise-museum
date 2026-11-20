@@ -97,7 +97,10 @@ export function makePhotos(count: number): UploadFile[] {
 /** Insert an EXIF APP1 segment with a GPS block into a JPEG (for the metadata-stripping test). */
 export function withExifGps(jpeg: Buffer): Buffer {
   const marker = Buffer.from('Exif\0\0', 'binary');
-  const body = Buffer.concat([marker, Buffer.from('GPS-LATITUDE-37.8136-LONGITUDE-144.9631', 'ascii')]);
+  const body = Buffer.concat([
+    marker,
+    Buffer.from('GPS-LATITUDE-37.8136-LONGITUDE-144.9631', 'ascii'),
+  ]);
   const length = Buffer.alloc(2);
   length.writeUInt16BE(body.length + 2, 0);
   const app1 = Buffer.concat([Buffer.from([0xff, 0xe1]), length, body]);
@@ -121,7 +124,8 @@ export function decodePng(png: Buffer): { width: number; height: number; data: U
       height = body.readUInt32BE(4);
       const colour = body[9]!;
       channels = colour === 6 ? 4 : colour === 2 ? 3 : colour === 0 ? 1 : colour === 4 ? 2 : 0;
-      if (body[8] !== 8 || body[12] !== 0 || channels === 0) throw new Error('unsupported PNG layout');
+      if (body[8] !== 8 || body[12] !== 0 || channels === 0)
+        throw new Error('unsupported PNG layout');
     } else if (type === 'IDAT') idat.push(body);
     else if (type === 'IEND') break;
     offset += 12 + length;
@@ -155,7 +159,8 @@ export function decodePng(png: Buffer): { width: number; height: number; data: U
       out[i] = line[x * channels]!;
       out[i + 1] = channels >= 3 ? line[x * channels + 1]! : out[i]!;
       out[i + 2] = channels >= 3 ? line[x * channels + 2]! : out[i]!;
-      out[i + 3] = channels === 4 ? line[x * channels + 3]! : channels === 2 ? line[x * channels + 1]! : 255;
+      out[i + 3] =
+        channels === 4 ? line[x * channels + 3]! : channels === 2 ? line[x * channels + 1]! : 255;
     }
     prev = line;
   }
@@ -169,8 +174,40 @@ export function pixelDiffRatio(a: Buffer, b: Buffer, tolerance = 12): number {
   if (x.width !== y.width || x.height !== y.height) return 1;
   let different = 0;
   for (let i = 0; i < x.data.length; i += 4) {
-    const d = Math.max(Math.abs(x.data[i]! - y.data[i]!), Math.abs(x.data[i + 1]! - y.data[i + 1]!), Math.abs(x.data[i + 2]! - y.data[i + 2]!));
+    const d = Math.max(
+      Math.abs(x.data[i]! - y.data[i]!),
+      Math.abs(x.data[i + 1]! - y.data[i + 1]!),
+      Math.abs(x.data[i + 2]! - y.data[i + 2]!),
+    );
     if (d > tolerance) different++;
   }
   return different / (x.width * x.height);
+}
+
+/**
+ * Like `pixelDiffRatio`, but ignores a border of `inset` pixels on every side. An element screenshot is clipped to the
+ * element's fractional box, so after a reload (which adds a banner above the stage) its first or last row can include a
+ * sliver of the neighbouring element on one render and not on the other. The Linux CI run of 19/11/2026 showed exactly
+ * that: the only differing pixels were the 408 pixels of the last row (y 448), and the characters were identical.
+ * Everything inside the border is still compared at the same tolerance.
+ */
+export function pixelDiffRatioInset(a: Buffer, b: Buffer, inset: number, tolerance = 12): number {
+  const x = decodePng(a);
+  const y = decodePng(b);
+  if (x.width !== y.width || x.height !== y.height) return 1;
+  let different = 0;
+  let compared = 0;
+  for (let row = inset; row < x.height - inset; row++) {
+    for (let col = inset; col < x.width - inset; col++) {
+      const i = (row * x.width + col) * 4;
+      const d = Math.max(
+        Math.abs(x.data[i]! - y.data[i]!),
+        Math.abs(x.data[i + 1]! - y.data[i + 1]!),
+        Math.abs(x.data[i + 2]! - y.data[i + 2]!),
+      );
+      compared++;
+      if (d > tolerance) different++;
+    }
+  }
+  return different / compared;
 }

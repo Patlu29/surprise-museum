@@ -27,7 +27,10 @@ import { MUSEUM_CAPTIONS } from './support/fixtures';
 
 const test = base.extend({});
 test.use({ reducedMotion: 'reduce', viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
-test.skip(({ browserName, isMobile }) => browserName !== 'chromium' || isMobile, 'baselines are made on desktop Chromium');
+test.skip(
+  ({ browserName, isMobile }) => browserName !== 'chromium' || isMobile,
+  'baselines are made on desktop Chromium',
+);
 
 test('visual: home screen', async ({ page }) => {
   await page.goto('./');
@@ -41,13 +44,23 @@ test('visual: welcome screen', async ({ page, museum }) => {
   await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
   await page.evaluate('document.fonts.ready');
   await page.waitForTimeout(600);
-  await expect(page.locator('.welcome__card')).toHaveScreenshot('welcome-card.png', { maxDiffPixelRatio: 0.002 });
+  await expect(page.locator('.welcome__card')).toHaveScreenshot('welcome-card.png', {
+    maxDiffPixelRatio: 0.002,
+  });
 });
 
 test('visual: entrance at the start of the visit', async ({ page, museum }) => {
   await openVisit(page, museum.shareToken);
   await startVisit(page);
-  await waitForSnap(page, (n) => Object.values(n.photoStatus).every((v) => v === 'loaded') && n.labels.visitor && n.labels.guide, 30_000, 'photos and labels');
+  await waitForSnap(
+    page,
+    (n) =>
+      Object.values(n.photoStatus).every((v) => v === 'loaded') &&
+      n.labels.visitor &&
+      n.labels.guide,
+    30_000,
+    'photos and labels',
+  );
   await page.waitForTimeout(1200);
   await expect(page).toHaveScreenshot('entrance.png', { maxDiffPixelRatio: 0.02 });
 });
@@ -55,8 +68,15 @@ test('visual: entrance at the start of the visit', async ({ page, museum }) => {
 test('visual: the Guide presenting picture 1 with its caption', async ({ page, museum }) => {
   await openVisit(page, museum.shareToken);
   await startVisit(page);
-  await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtPhoto(0));
-  await waitForSnap(page, (n) => n.guide.mode === 'present' && n.guide.opacity >= 1, 40_000, 'the Guide to arrive');
+  await page.evaluate(() =>
+    (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtPhoto(0),
+  );
+  await waitForSnap(
+    page,
+    (n) => n.guide.mode === 'present' && n.guide.opacity >= 1,
+    40_000,
+    'the Guide to arrive',
+  );
   await expect(page.locator('.caption-card')).toBeVisible();
   await page.waitForTimeout(1500);
   await expect(page).toHaveScreenshot('presenting-photo-1.png', { maxDiffPixelRatio: 0.02 });
@@ -72,36 +92,58 @@ test('visual: the finale card', async ({ page, museum }) => {
   for (let attempt = 0; attempt < 4; attempt++) {
     await openVisit(page, museum.shareToken);
     await startVisit(page);
-    await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale());
+    await page.evaluate(() =>
+      (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale(),
+    );
     await expect(page.locator('.finale-card')).toBeVisible();
     await waitForSnap(page, (n) => n.guide.opacity >= 1, 20_000, 'the Guide to settle');
     docks.push((await page.locator('.finale-card').getAttribute('data-dock')) ?? 'none');
     if (docks[docks.length - 1] === 'right') break;
   }
   test.info().annotations.push({ type: 'finale-dock-per-try', description: docks.join(', ') });
-  expect(docks[docks.length - 1], 'the finale card docks right on a 1280x720 desktop').toBe('right');
+  expect(docks[docks.length - 1], 'the finale card docks right on a 1280x720 desktop').toBe(
+    'right',
+  );
   // The follow camera keeps easing toward the podium for a while (longer on a loaded host): wait until it has been still for 1.2 s,
   // otherwise the framing differs run to run (22% of pixels in round 7).
-  await page.waitForFunction(() => {
-    const g = globalThis as unknown as { __qaCam?: { p: number[]; t: number } };
-    const c = ((globalThis as unknown as { __surpriseMuseum: { snapshot(): unknown } }).__surpriseMuseum.snapshot() as { camera: { x: number; y: number; z: number } }).camera;
-    const p = [c.x, c.y, c.z];
-    const last = g.__qaCam;
-    if (!last || Math.hypot(p[0] - last.p[0], p[1] - last.p[1], p[2] - last.p[2]) > 0.002) { g.__qaCam = { p, t: performance.now() }; return false; }
-    return performance.now() - last.t > 1200;
-  }, null, { timeout: 30_000, polling: 200 });
+  await page.waitForFunction(
+    () => {
+      const g = globalThis as unknown as { __qaCam?: { p: number[]; t: number } };
+      const c = (
+        (
+          globalThis as unknown as { __surpriseMuseum: { snapshot(): unknown } }
+        ).__surpriseMuseum.snapshot() as { camera: { x: number; y: number; z: number } }
+      ).camera;
+      const p = [c.x, c.y, c.z];
+      const last = g.__qaCam;
+      if (!last || Math.hypot(p[0] - last.p[0], p[1] - last.p[1], p[2] - last.p[2]) > 0.002) {
+        g.__qaCam = { p, t: performance.now() };
+        return false;
+      }
+      return performance.now() - last.t > 1200;
+    },
+    null,
+    { timeout: 30_000, polling: 200 },
+  );
   await expect(page).toHaveScreenshot('finale.png', { maxDiffPixelRatio: 0.02 });
 });
 
 test('visual: the full-screen picture viewer', async ({ page, museum }) => {
   await openVisit(page, museum.shareToken);
   await startVisit(page);
-  await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtPhoto(0));
+  await page.evaluate(() =>
+    (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtPhoto(0),
+  );
   await waitForSnap(page, (n) => n.guide.mode === 'present', 40_000, 'the Guide to present');
-  await page.getByRole('button', { name: /Look closer/i }).first().click();
+  await page
+    .getByRole('button', { name: /Look closer/i })
+    .first()
+    .click();
   await expect(page.locator('.viewer__image')).toHaveClass(/is-loaded/);
   await page.waitForTimeout(500);
-  await expect(page.locator('.viewer')).toHaveScreenshot('viewer.png', { maxDiffPixelRatio: 0.002 });
+  await expect(page.locator('.viewer')).toHaveScreenshot('viewer.png', {
+    maxDiffPixelRatio: 0.002,
+  });
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -127,7 +169,9 @@ test.describe('gender previews and visits', () => {
       visitorAvatar: { ...LEGACY_VISITOR_AVATAR, gender: 'masculine' },
     });
     await waitForPreview(page);
-    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot('preview-woman-man.png', { maxDiffPixelRatio: 0.02 });
+    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot('preview-woman-man.png', {
+      maxDiffPixelRatio: 0.02,
+    });
   });
 
   test('visual: builder preview, Guide Man and Visitor Woman', async ({ page }) => {
@@ -139,10 +183,14 @@ test.describe('gender previews and visits', () => {
       visitorAvatar: { ...LEGACY_VISITOR_AVATAR, gender: 'feminine' },
     });
     await waitForPreview(page);
-    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot('preview-man-woman.png', { maxDiffPixelRatio: 0.02 });
+    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot('preview-man-woman.png', {
+      maxDiffPixelRatio: 0.02,
+    });
   });
 
-  test('visual: builder preview from behind (the Visitor sees their own character from behind), Woman and Man', async ({ page }) => {
+  test('visual: builder preview from behind (the Visitor sees their own character from behind), Woman and Man', async ({
+    page,
+  }) => {
     await seedDraftAndOpen(page, {
       step: 3,
       visitorName: 'Alex',
@@ -153,10 +201,15 @@ test.describe('gender previews and visits', () => {
     await waitForPreview(page);
     await page.getByRole('button', { name: 'Back view' }).click();
     await page.waitForTimeout(1200);
-    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot('preview-woman-man-back.png', { maxDiffPixelRatio: 0.02 });
+    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot(
+      'preview-woman-man-back.png',
+      { maxDiffPixelRatio: 0.02 },
+    );
   });
 
-  test('visual: the restored draft equals a preview built from the same choices (US-46 AC-5)', async ({ page }) => {
+  test('visual: the restored draft equals a preview built from the same choices (US-46 AC-5)', async ({
+    page,
+  }) => {
     // Same baseline name as the first test: reloading the page must give exactly that preview.
     await seedDraftAndOpen(page, {
       step: 3,
@@ -168,16 +221,32 @@ test.describe('gender previews and visits', () => {
     await waitForPreview(page);
     await page.reload();
     await waitForPreview(page);
-    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot('preview-woman-man.png', { maxDiffPixelRatio: 0.02 });
+    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot('preview-woman-man.png', {
+      maxDiffPixelRatio: 0.02,
+    });
   });
 
-  test('visual: Woman on the deepest skin tones with dark hair, close up (spec 9.7 brow check)', async ({ page }) => {
+  test('visual: Woman on the deepest skin tones with dark hair, close up (spec 9.7 brow check)', async ({
+    page,
+  }) => {
     await seedDraftAndOpen(page, {
       step: 3,
       visitorName: 'Alex',
       guideName: 'Sam',
-      guideAvatar: { ...LEGACY_GUIDE_AVATAR, gender: 'feminine', skinTone: 'skin-10', hairColor: 'black', hairStyle: 'bob' },
-      visitorAvatar: { ...LEGACY_VISITOR_AVATAR, gender: 'feminine', skinTone: 'skin-09', hairColor: 'dark-brown', hairStyle: 'long-straight' },
+      guideAvatar: {
+        ...LEGACY_GUIDE_AVATAR,
+        gender: 'feminine',
+        skinTone: 'skin-10',
+        hairColor: 'black',
+        hairStyle: 'bob',
+      },
+      visitorAvatar: {
+        ...LEGACY_VISITOR_AVATAR,
+        gender: 'feminine',
+        skinTone: 'skin-09',
+        hairColor: 'dark-brown',
+        hairStyle: 'long-straight',
+      },
     });
     await waitForPreview(page);
     const box = (await page.locator('.preview-slot__stage').boundingBox())!;
@@ -198,7 +267,15 @@ test.describe('gender previews and visits', () => {
     });
     await openVisit(page, m.shareToken);
     await startVisit(page);
-    await waitForSnap(page, (n) => Object.values(n.photoStatus).every((v) => v === 'loaded') && n.labels.visitor && n.labels.guide, 30_000, 'photos and labels');
+    await waitForSnap(
+      page,
+      (n) =>
+        Object.values(n.photoStatus).every((v) => v === 'loaded') &&
+        n.labels.visitor &&
+        n.labels.guide,
+      30_000,
+      'photos and labels',
+    );
     await page.waitForTimeout(1200);
     await expect(page).toHaveScreenshot('entrance-woman-man.png', { maxDiffPixelRatio: 0.02 });
   });
@@ -214,17 +291,36 @@ test.describe('gender previews and visits', () => {
     });
     await openVisit(page, m.shareToken);
     await startVisit(page);
-    await waitForSnap(page, (n) => Object.values(n.photoStatus).every((v) => v === 'loaded') && n.labels.visitor && n.labels.guide, 30_000, 'photos and labels');
+    await waitForSnap(
+      page,
+      (n) =>
+        Object.values(n.photoStatus).every((v) => v === 'loaded') &&
+        n.labels.visitor &&
+        n.labels.guide,
+      30_000,
+      'photos and labels',
+    );
     await page.waitForTimeout(1200);
     await expect(page).toHaveScreenshot('entrance-man-woman.png', { maxDiffPixelRatio: 0.02 });
   });
 
-  test('visual: a museum published before v0.3 (no gender stored) looks exactly like the existing Neutral entrance baseline', async ({ page, museum }) => {
+  test('visual: a museum published before v0.3 (no gender stored) looks exactly like the existing Neutral entrance baseline', async ({
+    page,
+    museum,
+  }) => {
     // Uses the existing baseline `entrance.png` on purpose: FR-75 says older museums look the same.
     expect(await makeStoredMuseumsLegacy(page)).toBe(1);
     await openVisit(page, museum.shareToken);
     await startVisit(page);
-    await waitForSnap(page, (n) => Object.values(n.photoStatus).every((v) => v === 'loaded') && n.labels.visitor && n.labels.guide, 30_000, 'photos and labels');
+    await waitForSnap(
+      page,
+      (n) =>
+        Object.values(n.photoStatus).every((v) => v === 'loaded') &&
+        n.labels.visitor &&
+        n.labels.guide,
+      30_000,
+      'photos and labels',
+    );
     await page.waitForTimeout(1200);
     await expect(page).toHaveScreenshot('entrance.png', { maxDiffPixelRatio: 0.02 });
   });
@@ -246,20 +342,37 @@ test.describe('CR-4 character options', () => {
         visitorAvatar: { ...LEGACY_VISITOR_AVATAR },
       });
       await waitForPreview(page);
-      await expect(page.locator('.preview-slot__stage')).toHaveScreenshot(`face-${shape}.png`, { maxDiffPixelRatio: 0.02 });
+      await expect(page.locator('.preview-slot__stage')).toHaveScreenshot(`face-${shape}.png`, {
+        maxDiffPixelRatio: 0.02,
+      });
     });
   }
 
-  test('visual: builder preview, a sweater with stripes and overalls with checks', async ({ page }) => {
+  test('visual: builder preview, a sweater with stripes and overalls with checks', async ({
+    page,
+  }) => {
     await seedDraftAndOpen(page, {
       step: 3,
       visitorName: 'Alex',
       guideName: 'Sam',
-      guideAvatar: { ...LEGACY_GUIDE_AVATAR, outfitStyle: 'sweater', outfitColor: 'teal', outfitPattern: 'stripes' },
-      visitorAvatar: { ...LEGACY_VISITOR_AVATAR, outfitStyle: 'overalls', outfitColor: 'mustard', outfitPattern: 'checks' },
+      guideAvatar: {
+        ...LEGACY_GUIDE_AVATAR,
+        outfitStyle: 'sweater',
+        outfitColor: 'teal',
+        outfitPattern: 'stripes',
+      },
+      visitorAvatar: {
+        ...LEGACY_VISITOR_AVATAR,
+        outfitStyle: 'overalls',
+        outfitColor: 'mustard',
+        outfitPattern: 'checks',
+      },
     });
     await waitForPreview(page);
-    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot('styles-sweater-stripes-overalls-checks.png', { maxDiffPixelRatio: 0.02 });
+    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot(
+      'styles-sweater-stripes-overalls-checks.png',
+      { maxDiffPixelRatio: 0.02 },
+    );
   });
 
   test('visual: builder preview, a tracksuit with dots and a tunic', async ({ page }) => {
@@ -267,44 +380,85 @@ test.describe('CR-4 character options', () => {
       step: 3,
       visitorName: 'Alex',
       guideName: 'Sam',
-      guideAvatar: { ...LEGACY_GUIDE_AVATAR, outfitStyle: 'tracksuit', outfitColor: 'red', outfitPattern: 'dots' },
-      visitorAvatar: { ...LEGACY_VISITOR_AVATAR, outfitStyle: 'tunic', outfitColor: 'purple', outfitPattern: 'plain' },
+      guideAvatar: {
+        ...LEGACY_GUIDE_AVATAR,
+        outfitStyle: 'tracksuit',
+        outfitColor: 'red',
+        outfitPattern: 'dots',
+      },
+      visitorAvatar: {
+        ...LEGACY_VISITOR_AVATAR,
+        outfitStyle: 'tunic',
+        outfitColor: 'purple',
+        outfitPattern: 'plain',
+      },
     });
     await waitForPreview(page);
-    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot('styles-tracksuit-dots-tunic.png', { maxDiffPixelRatio: 0.02 });
+    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot(
+      'styles-tracksuit-dots-tunic.png',
+      { maxDiffPixelRatio: 0.02 },
+    );
   });
 
-  test('visual: builder preview, a coat with stripes and a cardigan with checks', async ({ page }) => {
+  test('visual: builder preview, a coat with stripes and a cardigan with checks', async ({
+    page,
+  }) => {
     await seedDraftAndOpen(page, {
       step: 3,
       visitorName: 'Alex',
       guideName: 'Sam',
-      guideAvatar: { ...LEGACY_GUIDE_AVATAR, outfitStyle: 'coat', outfitColor: 'charcoal', outfitPattern: 'checks' },
-      visitorAvatar: { ...LEGACY_VISITOR_AVATAR, outfitStyle: 'cardigan', outfitColor: 'coral', outfitPattern: 'stripes' },
+      guideAvatar: {
+        ...LEGACY_GUIDE_AVATAR,
+        outfitStyle: 'coat',
+        outfitColor: 'charcoal',
+        outfitPattern: 'checks',
+      },
+      visitorAvatar: {
+        ...LEGACY_VISITOR_AVATAR,
+        outfitStyle: 'cardigan',
+        outfitColor: 'coral',
+        outfitPattern: 'stripes',
+      },
     });
     await waitForPreview(page);
-    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot('styles-coat-checks-cardigan-stripes.png', { maxDiffPixelRatio: 0.02 });
+    await expect(page.locator('.preview-slot__stage')).toHaveScreenshot(
+      'styles-coat-checks-cardigan-stripes.png',
+      { maxDiffPixelRatio: 0.02 },
+    );
   });
 
-  test('visual: the Characters controls with More options open on the Outfit tab (spec 12.5.3)', async ({ page }) => {
+  test('visual: the Characters controls with More options open on the Outfit tab (spec 12.5.3)', async ({
+    page,
+  }) => {
     // Tall viewport, so the sticky action bar is not drawn over the panel in the element screenshot.
     await page.setViewportSize({ width: 1280, height: 1500 });
     await seedDraftAndOpen(page, {
       step: 3,
       visitorName: 'Alex',
       guideName: 'Sam',
-      guideAvatar: { ...LEGACY_GUIDE_AVATAR, outfitStyle: 'overalls', outfitPattern: 'dots', faceShape: 'round' },
+      guideAvatar: {
+        ...LEGACY_GUIDE_AVATAR,
+        outfitStyle: 'overalls',
+        outfitPattern: 'dots',
+        faceShape: 'round',
+      },
       visitorAvatar: { ...LEGACY_VISITOR_AVATAR },
     });
     await waitForPreview(page);
     await page.getByRole('tab', { name: 'Outfit', exact: true }).click();
     await expect(page.locator('.more-options__button')).toHaveAttribute('aria-expanded', 'true');
     await page.waitForTimeout(500);
-    await expect(page.locator('.characters__controls')).toHaveScreenshot('more-options-open-outfit.png', { maxDiffPixelRatio: 0.002 });
+    await expect(page.locator('.characters__controls')).toHaveScreenshot(
+      'more-options-open-outfit.png',
+      { maxDiffPixelRatio: 0.002 },
+    );
   });
 });
 
-test('visual: the entrance seen from above the ceiling at the top angle (the ceiling is cut away, FR-95)', async ({ page, museum }) => {
+test('visual: the entrance seen from above the ceiling at the top angle (the ceiling is cut away, FR-95)', async ({
+  page,
+  museum,
+}) => {
   await openVisit(page, museum.shareToken);
   await startVisit(page);
   await waitForSnap(page, (n) => n.guide.opacity >= 1, 30_000, 'the Guide to arrive');
@@ -315,4 +469,66 @@ test('visual: the entrance seen from above the ceiling at the top angle (the cei
   await waitForSnap(page, (n) => n.camera.pitch > 0.93, 10_000, 'the top angle');
   await page.waitForTimeout(1500);
   await expect(page).toHaveScreenshot('ceiling-cutaway-top-angle.png', { maxDiffPixelRatio: 0.02 });
+});
+
+/*
+ * Iteration 4 (design spec 5.18, 7.5, 10): the availability notice on the published screen and the edit page, the
+ * not-found screen with its new body, and the privacy page with its new sentence. `Date` is pinned and the zone is
+ * Sydney, so the end date reads 26/11/2026 12:30. The link fields hold random tokens, so they are masked; the notice,
+ * the labels and the layout around them are compared.
+ */
+test.describe('iteration 4 screens (FR-105, Q-33 (a), NFR-16)', () => {
+  test.use({ timezoneId: 'Australia/Sydney' });
+  const PIN = '2026-11-19T01:30:00.000Z';
+
+  test('visual: the published screen share card with the availability notice (spec 5.18)', async ({
+    page,
+  }) => {
+    await page.clock.setFixedTime(PIN);
+    await createMuseum(page, { photos: 1 });
+    await expect(page.locator('.availability')).toContainText('until 26/11/2026 12:30.');
+    await page.evaluate('document.fonts.ready');
+    await expect(page.locator('section[aria-labelledby="share-heading"]')).toHaveScreenshot(
+      'published-share-card.png',
+      {
+        maxDiffPixelRatio: 0.002,
+        mask: [page.getByRole('textbox', { name: 'Share link' })],
+      },
+    );
+  });
+
+  test('visual: the edit page of a published museum with the availability notice (spec 5.18)', async ({
+    page,
+  }) => {
+    await page.clock.setFixedTime(PIN);
+    const museum = await createMuseum(page, { photos: 1 });
+    await page.goto(`./#/edit/${museum.editToken}`);
+    await expect(page.locator('.availability')).toContainText('until 26/11/2026 12:30.');
+    await expect(page.locator('.edit-photos img')).toHaveCount(1);
+    await page.evaluate('document.fonts.ready');
+    await expect(page).toHaveScreenshot('edit-page.png', {
+      fullPage: true,
+      maxDiffPixelRatio: 0.002,
+      mask: [page.getByRole('textbox', { name: 'Share link' })],
+    });
+  });
+
+  test('visual: the not-found screen with the v2.1 body (spec 7.5)', async ({ page }) => {
+    await page.goto('./#/m/abcdefghijklmnopqrstuvwx');
+    await expect(
+      page.getByRole('heading', { level: 1, name: "We can't find that museum" }),
+    ).toBeVisible();
+    await page.evaluate('document.fonts.ready');
+    await expect(page).toHaveScreenshot('not-found.png', { maxDiffPixelRatio: 0.002 });
+  });
+
+  test('visual: the privacy page with the no-backups sentence (spec 10)', async ({ page }) => {
+    await page.goto('./#/privacy');
+    await expect(page.getByText('Our free plan keeps no backups', { exact: false })).toBeVisible();
+    await page.evaluate('document.fonts.ready');
+    await expect(page).toHaveScreenshot('privacy.png', {
+      fullPage: true,
+      maxDiffPixelRatio: 0.002,
+    });
+  });
 });

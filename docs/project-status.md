@@ -22,7 +22,7 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 | 1 Plan | Done | Requirements v0.7 (d8be836): NFR-16 7 days, NFR-32 free-tier hosting (Must), FR-105 publish notice (Must), FR-104 space-full (Could); US-68 to US-71; backlog.md created (CR-5 to CR-11, BUG-15, N-11 to N-13, V-1 to V-5, LEG-1, DEBT-1, PERF-1). Must count 90 (hand-counted). No 90-day figure left except superseded notes. Publish screen shows no end date today (checked src/ui), so FR-105 is new work | 18/11/2026 |
 | 2 Design | Done | Architect (4918550): ADR 0010 amended (7 days, purge within 24 h, no backups), ADR 0022 Proposed (read-only keep-alive Edge Function, daily workflow, usage in dashboard), architecture v1.6, contracts unchanged (expiresAt already in store; CONTRACT_VERSION 1), project and Deno .npmrc files. Designer: design spec v2.1 (5.18 availability notice on published screen and edit page, not-found body, privacy sentence). Build passes | 19/11/2026 |
 | 3 Build | Done | eb57dff: retention 7 days, keep-alive function and migration, api.md v1.2 (backend); AvailabilityNotice, formatEndDateTime, not-found and privacy copy (frontend). Tech lead isolated check: format, typecheck, lint, vitest 1084/1084, build, bundle 988.0/1000 kB all pass. Deno 35 tests pass (backend, Deno 2.9.6 via npx). QA Linux CI test fixes fc8b034 (tech lead accepted the CI-only FR-15 allowance of 4000 ms and the soft filechooser event). Smoke: home-and-demo and journey specs 14/14 pass on desktop-chromium and mobile-webkit, fresh test-mode build, run by the tech lead. Format check: the changed test files were already unformatted at HEAD (pre-existing debt, 25+ files); routed to phase 6 as one formatting commit plus enabling format:check in CI | 19/11/2026 |
-| 4 Verify | In progress | Performance Skipped: no 3D, render-loop or asset change; bundle unchanged at 988.0 of 1000 kB. QA: new e2e for US-68 to US-71 plus full regression on macOS and the Linux CI run | 19/11/2026 |
+| 4 Verify | In progress | Performance Skipped: no 3D, render-loop or asset change; bundle 988.0 of 1000 kB. QA round 8 (docs/qa-report.md): Go, no application bug; 24 retention e2e and 8 keep-alive static checks pass on 3 macOS projects; full macOS regression: desktop-chromium 375 passed, mobile-chromium 343, mobile-webkit 337, every failure passed on re-run alone (load flakes, none in iteration 4 code); 4 Linux failures from run 44457523893 fixed as test defects with no limit loosened; 4 new darwin baselines checked by the tech lead. Tech lead: format, tsc, e2e tsc, eslint, 1084 unit tests, build and bundle check pass. Waiting on the Linux CI run with the new specs | 20/11/2026 |
 | 5 Review | Not started | | |
 | 6 Release | Not started | Devops: keep-alive workflow, free-tier section in docs/deployment.md, CHANGELOG.md | |
 | 7 Operate and learn | Not started | | |
@@ -39,6 +39,8 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 - 18/11/2026 (user): host on free tiers only. Backend: Supabase Free with a keep-alive workflow so the project never reaches the 7-day idle pause.
 - 18/11/2026 (user): GitHub billing lock is fixed. Not yet confirmed by a CI run (last refused run 11/11/2026).
 - 18/11/2026 (user): first asked to auto-clear photos every 2 days; on being told this breaks the 90-day promise (NFR-16, Must), chose "change that as one week promise". The tech lead reads this as: the whole museum and its photos are deleted 7 days after first publish, and the link shows the existing expired message. Drafts already expire 7 days after creation.
+- 20/11/2026 (tech lead, QA request): `caption-card.spec.ts` U1 may use a CI-only upper bound of 1,500 ms (the run measured 1104.9 ms against 1,100 ms on a shared Linux runner), the same as the FR-15 CI allowance. The local limit stays 500 to 1,100 ms. Shared CI runners are not timing evidence.
+- 20/11/2026 (tech lead): formatted the six e2e files QA touched (they were already unformatted at HEAD); the rest of the format debt stays with devops-engineer in phase 6.
 - 18/11/2026 (tech lead): this is a Feature iteration, because a Must requirement and user-facing wording change, combined with hosting work. Route: 1, 2 (architect only), 3, 4, 5, 6, 7.
 
 ## Open questions (owner)
@@ -49,7 +51,9 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 - CI first real runs (18/11/2026): typecheck, lint, unit tests, build and bundle check PASS on Linux. Deno job failed: lockfiles held private-mirror tarball URLs (fixed by backend-developer, lockfiles regenerated against the public registry; deno check, lint, test pass on Deno 2.9.6 locally). Linux e2e (run 44298737907, cancelled by the user after about 10 min): mobile-webkit fails on the console message `Viewport argument key "interactive-widget" not recognized and ignored.`; mobile-chromium US-2 AC-5 file chooser timeout. Routed to qa-engineer.
 - Project .npmrc: done (4918550).
 - devops-engineer (phase 6): one `npm run format` commit and add format:check to ci.yml; keep-alive.yml per ADR 0022 section 5; add keep-alive to deploy-supabase if it lists functions; migration before function deploy; rename the stale "UNVERIFIED locally" Deno job label.
-- qa-engineer (phase 4): e2e for the notice on published and edit screens (with <time>), no notice on a draft, new not-found body, privacy sentence; visual baselines change for Published, Edit, Not found, Privacy.
+- qa-engineer (phase 4): round 8 done. Follow-up: apply the CI-only 1,500 ms U1 bound in `caption-card.spec.ts`; after phase 6, re-run `keep-alive-static.spec.ts` against `keep-alive.yml` and test US-70 (deployment guide free-tier section).
+- product-manager (phase 7): US-71 AC-3 and US-68 AC-3 say "edit", but the MVP only has re-publish (editing a published museum is Release 2). QA tested re-publish. Confirm or correct the wording.
+- devops-engineer (phase 6, from QA): fix stale line 98 in docs/deployment.md; record the Linux visual baselines (including the 4 new ones) with the existing manual workflow; attach the Firefox report.
 - architect (phase 5): set ADR 0022 status to Accepted (A2 approved 19/11/2026).
 
 ## Environment notes
@@ -61,7 +65,8 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 - Free-tier facts used (third-party sources, checked 18/11/2026; confirm on supabase.com/pricing): Supabase Free has 500 MB database, 1 GB file storage, about 5 GB egress a month, 2 active projects, and pauses after 7 days idle. GitHub Actions is free for public repos on standard runners. Scheduled workflows in public repos are switched off after 60 days with no repo activity.
 
 ## Not verified
-- CI on GitHub: first real run started 18/11/2026 (billing lock cleared); results pending.
+- CI on GitHub: runs since 18/11/2026 start (billing lock cleared). Run 44457523893: typecheck/lint/unit/build/bundle and Deno pass; Linux e2e 4 failures (fixed in round 8, not yet re-run on Linux).
+- Iteration 4, needs the deployed project: hourly purge, removal within 24 h, 23 runs in 24 h (US-68 AC-5, AC-6, US-24 AC-3, NFR-16 e/f), keep-alive counting as Supabase activity (NFR-32), US-69 AC-1 dashboard check, US-69 AC-5 red run.
 - Real devices, Safari and Firefox frame rate, screen readers, Linux visual baselines (carried from iteration 3).
 
 ---

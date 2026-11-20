@@ -28,7 +28,12 @@ const photoIntent = (l: Layout, index: number) => `photo:${l.slots[index]!.photo
 /** Stand at the picture's standing spot facing its wall. */
 async function standBeside(page: Parameters<typeof teleport>[0], l: Layout, index: number) {
   const slot = l.slots[index]!;
-  await teleport(page, slot.standingSpot.x, slot.standingSpot.z, slot.wall === 'left' ? FACE_LEFT_WALL : FACE_RIGHT_WALL);
+  await teleport(
+    page,
+    slot.standingSpot.x,
+    slot.standingSpot.z,
+    slot.wall === 'left' ? FACE_LEFT_WALL : FACE_RIGHT_WALL,
+  );
 }
 
 /** Open the shared 4-photo museum and press Start. */
@@ -46,7 +51,12 @@ test.describe('US-12 the Guide presents a picture', () => {
     const l = await layout(page);
     await standBeside(page, l, 0);
     const t0 = (await snap(page)).time;
-    const s = await waitForSnap(page, (n) => n.intent === photoIntent(l, 0), 15_000, 'presentation to start');
+    const s = await waitForSnap(
+      page,
+      (n) => n.intent === photoIntent(l, 0),
+      15_000,
+      'presentation to start',
+    );
     // Not before about a second of dwell, and not long after.
     expect(s.time - t0).toBeGreaterThan(0.85);
     expect(s.time - t0).toBeLessThan(2.6);
@@ -72,7 +82,9 @@ test.describe('US-12 the Guide presents a picture', () => {
     await expect(page.locator('.caption-card')).toHaveCount(0);
   });
 
-  test('US-12 AC-2: moving more than 4.5 m away closes the panel and the Guide follows again', async ({ page }) => {
+  test('US-12 AC-2: moving more than 4.5 m away closes the panel and the Guide follows again', async ({
+    page,
+  }) => {
     const l = await layout(page);
     await standBeside(page, l, 0);
     await waitForSnap(page, (n) => n.guide.mode === 'present', 25_000, 'to be presenting');
@@ -83,7 +95,9 @@ test.describe('US-12 the Guide presents a picture', () => {
     await waitForSnap(page, (n) => n.guide.mode === 'follow', 10_000, 'the Guide to follow again');
   });
 
-  test('US-12 AC-2: dismissing the panel closes it and the Guide follows again', async ({ page }) => {
+  test('US-12 AC-2: dismissing the panel closes it and the Guide follows again', async ({
+    page,
+  }) => {
     const l = await layout(page);
     await standBeside(page, l, 0);
     await waitForSnap(page, (n) => n.guide.mode === 'present', 25_000, 'to be presenting');
@@ -115,7 +129,12 @@ test.describe('US-12 the Guide presents a picture', () => {
     // Teleporting resets the director, so walk (real movement) to 3.8 m from the picture: outside
     // the 3 m start radius, inside the 4.5 m end radius.
     const walking = page.evaluate(
-      ([x, z]) => (globalThis as unknown as PageGlobals).__surpriseMuseum!.walkVisitorTo(x as number, z as number, 30_000),
+      ([x, z]) =>
+        (globalThis as unknown as PageGlobals).__surpriseMuseum!.walkVisitorTo(
+          x as number,
+          z as number,
+          30_000,
+        ),
       [slot.zone.x + 3.8, slot.standingSpot.z] as const,
     );
     let arrived = false;
@@ -134,13 +153,20 @@ test.describe('US-12 the Guide presents a picture', () => {
     await expect(page.locator('.caption-card')).toBeVisible();
     // Further out than 4.5 m it closes.
     await page.evaluate(
-      ([x, z]) => (globalThis as unknown as PageGlobals).__surpriseMuseum!.walkVisitorTo(x as number, z as number, 30_000),
+      ([x, z]) =>
+        (globalThis as unknown as PageGlobals).__surpriseMuseum!.walkVisitorTo(
+          x as number,
+          z as number,
+          30_000,
+        ),
       [slot.zone.x + 5.2, slot.standingSpot.z] as const,
     );
     await waitForSnap(page, (n) => n.intent === 'none', 8_000, 'the presentation to close');
   });
 
-  test('US-12 AC-4: a picture with no caption still gets the Guide beside her but no panel', async ({ page }) => {
+  test('US-12 AC-4: a picture with no caption still gets the Guide beside her but no panel', async ({
+    page,
+  }) => {
     const l = await layout(page);
     await standBeside(page, l, 1); // photo 2 has no caption
     await waitForSnap(page, (n) => n.intent === photoIntent(l, 1), 20_000, 'a presentation');
@@ -204,6 +230,13 @@ test.describe('US-13 moving between pictures quickly', () => {
     await expect(page.locator('.caption-card')).toContainText('Caption one');
     await standBeside(page, l, 2);
     await waitForSnap(page, (n) => n.intent === photoIntent(l, 2), 15_000, 'B to be presented');
+    // The card for B opens when the Guide has arrived at B; a slow software renderer (CI) takes longer than the default 10 s to walk her there.
+    await waitForSnap(
+      page,
+      (n) => n.intent === photoIntent(l, 2) && n.guide.mode === 'present',
+      30_000,
+      'the Guide to arrive at B',
+    );
     await expect(page.locator('.caption-card')).toHaveCount(1);
     await expect(page.locator('.caption-card')).toContainText('Caption three.');
   });
@@ -250,7 +283,9 @@ test.describe('US-14 the finale and the closing message', () => {
   test('US-14 AC-1 and US-5 AC-3: stepping on the podium shows the closing message, line breaks kept', async ({
     page,
   }) => {
-    await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale());
+    await page.evaluate(() =>
+      (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale(),
+    );
     const card = page.locator('.finale-card');
     await expect(card).toBeVisible();
     await expect(card.getByRole('heading', { level: 2 })).toHaveText('A note from Sam');
@@ -266,13 +301,20 @@ test.describe('US-14 the finale and the closing message', () => {
   });
 
   test('US-14 AC-3: Keep exploring closes the panel and she can move freely', async ({ page }) => {
-    await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale());
+    await page.evaluate(() =>
+      (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale(),
+    );
     await page.getByRole('button', { name: 'Keep exploring' }).click();
     await expect(page.locator('.finale-card')).toHaveCount(0);
     const before = await snap(page);
     await page.locator('.scene-root').focus();
     await page.keyboard.down('d');
-    await waitForSnap(page, (n) => Math.abs(n.visitor.x - before.visitor.x) > 0.3, 12_000, 'her to move');
+    await waitForSnap(
+      page,
+      (n) => Math.abs(n.visitor.x - before.visitor.x) > 0.3,
+      12_000,
+      'her to move',
+    );
     await page.keyboard.up('d');
     await expect(page.locator('.finale-card')).toHaveCount(0);
   });
@@ -283,10 +325,17 @@ test.describe('US-14 the finale and the closing message', () => {
     const l = await layout(page);
     const walk = (x: number, z: number) =>
       page.evaluate(
-        ([px, pz]) => (globalThis as unknown as PageGlobals).__surpriseMuseum!.walkVisitorTo(px as number, pz as number, 40_000),
+        ([px, pz]) =>
+          (globalThis as unknown as PageGlobals).__surpriseMuseum!.walkVisitorTo(
+            px as number,
+            pz as number,
+            40_000,
+          ),
         [x, z] as const,
       );
-    await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale());
+    await page.evaluate(() =>
+      (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale(),
+    );
     await page.getByRole('button', { name: 'Keep exploring' }).click();
     await expect(page.locator('.finale-card')).toHaveCount(0);
     // Still on the podium: it must not re-open on its own.
@@ -307,20 +356,31 @@ test.describe('US-14 the finale and the closing message', () => {
     await standBeside(page, l, 0);
     await waitForSnap(page, (n) => n.guide.mode === 'present', 25_000, 'a presentation');
     await expect(page.getByText('1 of 4 pictures viewed')).toBeAttached();
-    await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale());
+    await page.evaluate(() =>
+      (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale(),
+    );
     await page.getByRole('button', { name: 'Replay from the start' }).click();
     await expect(page.locator('.finale-card')).toHaveCount(0);
-    const s = await waitForSnap(page, (n) => dist(n.visitor, l.spawn) < 0.6, 10_000, 'her to be at the entrance');
+    const s = await waitForSnap(
+      page,
+      (n) => dist(n.visitor, l.spawn) < 0.6,
+      10_000,
+      'her to be at the entrance',
+    );
     expect(dist(s.guide, s.visitor)).toBeLessThan(2.5);
     await expect(page.getByText('0 of 4 pictures viewed')).toBeAttached();
   });
 });
 
-test('US-14 AC-5 and US-5 AC-2: a blank closing message shows "The end" with the same options', async ({ page }) => {
+test('US-14 AC-5 and US-5 AC-2: a blank closing message shows "The end" with the same options', async ({
+  page,
+}) => {
   const { createMuseum } = await import('./support/app');
   const made = await createMuseum(page, { photos: 1, closingMessage: '' });
   await enter(page, made.shareToken);
-  await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale());
+  await page.evaluate(() =>
+    (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale(),
+  );
   const card = page.locator('.finale-card');
   await expect(card.getByRole('heading', { level: 2 })).toHaveText('The end');
   await expect(card).toContainText('Thanks for visiting, Alex.');
@@ -345,11 +405,18 @@ test.describe('US-42 the Guide follows and stays out of the way', () => {
     }
     await page.keyboard.up('w');
     expect(worst).toBeLessThan(5.2);
-    const idle = await waitForSnap(page, (n) => n.guide.locomotion === 'idle', 15_000, 'the Guide to idle');
+    const idle = await waitForSnap(
+      page,
+      (n) => n.guide.locomotion === 'idle',
+      15_000,
+      'the Guide to idle',
+    );
     expect(dist(idle.guide, idle.visitor)).toBeLessThan(5.2);
   });
 
-  test('US-42 AC-2: while presenting the Guide is not between the Visitor and the picture', async ({ page }) => {
+  test('US-42 AC-2: while presenting the Guide is not between the Visitor and the picture', async ({
+    page,
+  }) => {
     const l = await layout(page);
     const slot = l.slots[0]!;
     await standBeside(page, l, 0);
@@ -361,23 +428,44 @@ test.describe('US-42 the Guide follows and stays out of the way', () => {
     const az = s.visitor.z;
     const bx = slot.zone.x;
     const bz = slot.zone.z;
-    const t = Math.max(0, Math.min(1, ((s.guide.x - ax) * (bx - ax) + (s.guide.z - az) * (bz - az)) / ((bx - ax) ** 2 + (bz - az) ** 2)));
+    const t = Math.max(
+      0,
+      Math.min(
+        1,
+        ((s.guide.x - ax) * (bx - ax) + (s.guide.z - az) * (bz - az)) /
+          ((bx - ax) ** 2 + (bz - az) ** 2),
+      ),
+    );
     const d = Math.hypot(s.guide.x - (ax + t * (bx - ax)), s.guide.z - (az + t * (bz - az)));
     expect(d).toBeGreaterThan(0.45);
   });
 
-  test('US-42 AC-4: if the Guide is more than 8 m away it reappears beside her', async ({ page }) => {
+  test('US-42 AC-4: if the Guide is more than 8 m away it reappears beside her', async ({
+    page,
+  }) => {
     const l = await layout(page);
     await teleport(page, l.finale.x, l.finale.z + 2.5, Math.PI);
-    const s = await waitForSnap(page, (n) => dist(n.guide, n.visitor) < 5.5, 15_000, 'the Guide to catch up or reappear');
+    const s = await waitForSnap(
+      page,
+      (n) => dist(n.guide, n.visitor) < 5.5,
+      15_000,
+      'the Guide to catch up or reappear',
+    );
     expect(dist(s.guide, s.visitor)).toBeLessThan(5.5);
   });
 
-  test('US-42 AC-5: the Guide never ends inside a wall while following a long walk', async ({ page }) => {
+  test('US-42 AC-5: the Guide never ends inside a wall while following a long walk', async ({
+    page,
+  }) => {
     const l = await layout(page);
     const samples: Snap[] = [];
     const walk = page.evaluate(
-      ([x, z]) => (globalThis as unknown as PageGlobals).__surpriseMuseum!.walkVisitorTo(x as number, z as number, 60_000),
+      ([x, z]) =>
+        (globalThis as unknown as PageGlobals).__surpriseMuseum!.walkVisitorTo(
+          x as number,
+          z as number,
+          60_000,
+        ),
       [l.slots[3]!.standingSpot.x, l.slots[3]!.standingSpot.z] as const,
     );
     let done = false;
