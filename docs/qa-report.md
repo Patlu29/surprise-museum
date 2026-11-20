@@ -9,6 +9,8 @@ Build tested: `VITE_API_MODE=mock npm run build -- --mode test` (hook `__APP_TES
 - No application bug was found in iteration 4. Every criterion that can be checked before deploy passed (table below).
 - Conditions, none of them a code defect: (1) US-69 AC-2, AC-3, AC-5 and US-70 stay open until the devops-engineer writes `keep-alive.yml` and the deployment guide in phase 6; (2) the purge, the 24-hour removal and the keep-alive's effect on the Supabase pause need the deployed project (Not verified); (3) the Linux CI run that contains this round's new specs and baselines has not happened yet.
 
+Follow-up 20/11/2026: `caption-card` U1 (1280x720) measured 1104.9 ms in Linux run 44457523893 (mobile-chromium) against 500 to 1,100 ms. With the tech lead's approval the upper bound is `CARD_UPGRADE_MAX_MS` in `support/app.ts`: 1,100 ms locally, 1,500 ms when `CI` is set. The lower bound is 500 ms everywhere. Linux is Not verified until the next CI run.
+
 ### Iteration 4 criteria
 
 | Story | Criterion | Result | How and limits |

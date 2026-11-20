@@ -26,7 +26,14 @@ export interface PageGlobals {
 export interface Snap {
   ready: boolean;
   time: number;
-  visitor: { x: number; z: number; heading: number; speed: number; locomotion: string; presentation: string };
+  visitor: {
+    x: number;
+    z: number;
+    heading: number;
+    speed: number;
+    locomotion: string;
+    presentation: string;
+  };
   guide: {
     x: number;
     z: number;
@@ -99,7 +106,9 @@ const IGNORED_CONSOLE = [
  * on-screen keyboard opens, and WebKit ignores it harmlessly. The match is anchored to this exact message
  * and applies on WebKit only, so every other console error, and this one on any other engine, still fails.
  */
-const WEBKIT_ONLY_CONSOLE = [/^Viewport argument key "interactive-widget" not recognized and ignored\.$/];
+const WEBKIT_ONLY_CONSOLE = [
+  /^Viewport argument key "interactive-widget" not recognized and ignored\.$/,
+];
 
 /**
  * Warnings that are known and not the app's fault. They are listed in docs/qa-report.md (BUG-5, accepted as
@@ -118,7 +127,12 @@ const KNOWN_WARNINGS = [
  * Call `expectClean()` at the end of a test.
  */
 export function trackProblems(page: Page): Problems & { expectClean: () => void } {
-  const problems: Problems = { consoleErrors: [], pageErrors: [], failedRequests: [], warnings: [] };
+  const problems: Problems = {
+    consoleErrors: [],
+    pageErrors: [],
+    failedRequests: [],
+    warnings: [],
+  };
   const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
   page.on('console', (msg) => {
     const text = msg.text();
@@ -170,6 +184,14 @@ export function trackProblems(page: Page): Problems & { expectClean: () => void 
  * is checked only where the tests run on a developer machine (CI unset) and on a real device it is Not verified.
  */
 export const FR15_BUDGET_MS = process.env.CI ? 4000 : 1000;
+
+/**
+ * Upper bound for the caption card upgrade delay (design spec 3.5 U1), in ms. The rule is a 600 ms dwell sampled
+ * every 100 ms, and the local window is 500 to 1,100 ms. Shared CI runners are not timing evidence: Linux run
+ * 44457523893 measured 1104.9 ms on mobile-chromium. So CI gets 1,500 ms (tech lead decision, 20/11/2026). The lower
+ * bound is unchanged everywhere, so an upgrade that happens too early still fails.
+ */
+export const CARD_UPGRADE_MAX_MS = process.env.CI ? 1500 : 1100;
 
 export interface MuseumOptions {
   photos?: number | UploadFile[];
@@ -273,17 +295,27 @@ export async function startVisit(page: Page): Promise<void> {
 }
 
 export async function waitForScene(page: Page): Promise<void> {
-  await page.waitForFunction(() => (globalThis as unknown as PageGlobals).__surpriseMuseum !== undefined && ((globalThis as unknown as PageGlobals).__surpriseMuseum!.snapshot() as Snap).ready === true, null, {
-    timeout: 60_000,
-  });
+  await page.waitForFunction(
+    () =>
+      (globalThis as unknown as PageGlobals).__surpriseMuseum !== undefined &&
+      ((globalThis as unknown as PageGlobals).__surpriseMuseum!.snapshot() as Snap).ready === true,
+    null,
+    {
+      timeout: 60_000,
+    },
+  );
 }
 
 export async function snap(page: Page): Promise<Snap> {
-  return page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.snapshot() as Snap);
+  return page.evaluate(
+    () => (globalThis as unknown as PageGlobals).__surpriseMuseum!.snapshot() as Snap,
+  );
 }
 
 export async function layout(page: Page): Promise<Layout> {
-  return page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.layout() as Layout);
+  return page.evaluate(
+    () => (globalThis as unknown as PageGlobals).__surpriseMuseum!.layout() as Layout,
+  );
 }
 
 /** Poll the snapshot until `predicate` holds. */
@@ -295,7 +327,11 @@ export async function waitForSnap(
 ): Promise<Snap> {
   const deadline = Date.now() + timeout;
   // The scene hook appears when the museum canvas mounts, which can be after Start on a slow device.
-  await page.waitForFunction(() => (globalThis as unknown as PageGlobals).__surpriseMuseum !== undefined, null, { timeout });
+  await page.waitForFunction(
+    () => (globalThis as unknown as PageGlobals).__surpriseMuseum !== undefined,
+    null,
+    { timeout },
+  );
   let last = await snap(page);
   while (Date.now() < deadline) {
     if (predicate(last)) return last;
@@ -306,9 +342,11 @@ export async function waitForSnap(
 }
 
 export function attachJson(testInfo: TestInfo, name: string, value: unknown) {
-  return testInfo.attach(name, { body: JSON.stringify(value, null, 2), contentType: 'application/json' });
+  return testInfo.attach(name, {
+    body: JSON.stringify(value, null, 2),
+    contentType: 'application/json',
+  });
 }
-
 
 /** Cut the Visitor to a point, facing `heading` (radians). */
 export async function teleport(page: Page, x: number, z: number, heading?: number): Promise<void> {
@@ -328,7 +366,11 @@ export const FACE_LEFT_WALL = -Math.PI / 2;
 export const FACE_RIGHT_WALL = Math.PI / 2;
 
 /** Read the session store (mode test builds only). */
-export async function sessionState<T>(page: Page, pick: (state: Record<string, any>) => T): Promise<T> { // eslint-disable-line @typescript-eslint/no-explicit-any
+export async function sessionState<T>(
+  page: Page,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  pick: (state: Record<string, any>) => T,
+): Promise<T> {
   return page.evaluate(
     `(${pick.toString()})((globalThis).__APP_TEST__.useSessionStore.getState())`,
   ) as Promise<T>;
@@ -343,7 +385,6 @@ export function captionCard(page: Page) {
 export function dist(a: { x: number; z: number }, b: { x: number; z: number }): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
 }
-
 
 // ---------------------------------------------------------------------------
 // CR-1 (gender), CR-3 (restored-draft notice) and CR-2 (presentation camera) helpers
@@ -407,7 +448,10 @@ export async function seedDraftAndOpen(page: Page, seed: DraftSeed): Promise<voi
     },
   };
   await page.evaluate(
-    ([key, value]) => (globalThis as unknown as { localStorage: { setItem(k: string, v: string): void } }).localStorage.setItem(key as string, value as string),
+    ([key, value]) =>
+      (
+        globalThis as unknown as { localStorage: { setItem(k: string, v: string): void } }
+      ).localStorage.setItem(key as string, value as string),
     [DRAFT_KEY, JSON.stringify(draft)] as const,
   );
   await page.goto('about:blank');
@@ -415,19 +459,35 @@ export async function seedDraftAndOpen(page: Page, seed: DraftSeed): Promise<voi
 }
 
 /** Read the draft key back as parsed JSON (or null). */
-export async function savedDraft(page: Page): Promise<{ fields: { guideAvatar: Record<string, unknown>; visitorAvatar: Record<string, unknown> } } | null> {
-  const raw = await page.evaluate((key) => (globalThis as unknown as { localStorage: { getItem(k: string): string | null } }).localStorage.getItem(key), DRAFT_KEY);
+export async function savedDraft(page: Page): Promise<{
+  fields: { guideAvatar: Record<string, unknown>; visitorAvatar: Record<string, unknown> };
+} | null> {
+  const raw = await page.evaluate(
+    (key) =>
+      (
+        globalThis as unknown as { localStorage: { getItem(k: string): string | null } }
+      ).localStorage.getItem(key),
+    DRAFT_KEY,
+  );
   return raw ? (JSON.parse(raw) as never) : null;
 }
 
 /** Both avatars as the builder store holds them (mode test builds only). */
-export async function builderAvatars(page: Page): Promise<{ guide: Record<string, string>; visitor: Record<string, string> }> {
-  return page.evaluate(`(() => { const s = globalThis.__APP_TEST__.useBuilderStore.getState(); return { guide: { ...s.guideAvatar }, visitor: { ...s.visitorAvatar } }; })()`) as never;
+export async function builderAvatars(
+  page: Page,
+): Promise<{ guide: Record<string, string>; visitor: Record<string, string> }> {
+  return page.evaluate(
+    `(() => { const s = globalThis.__APP_TEST__.useBuilderStore.getState(); return { guide: { ...s.guideAvatar }, visitor: { ...s.visitorAvatar } }; })()`,
+  ) as never;
 }
 
 /** Both avatars of the museum currently loaded for a visit or preview. */
-export async function museumAvatars(page: Page): Promise<{ guide: Record<string, string>; visitor: Record<string, string> }> {
-  return page.evaluate(`(() => { const c = globalThis.__APP_TEST__.useMuseumStore.getState().content; return { guide: { ...c.guideAvatar }, visitor: { ...c.visitorAvatar } }; })()`) as never;
+export async function museumAvatars(
+  page: Page,
+): Promise<{ guide: Record<string, string>; visitor: Record<string, string> }> {
+  return page.evaluate(
+    `(() => { const c = globalThis.__APP_TEST__.useMuseumStore.getState().content; return { guide: { ...c.guideAvatar }, visitor: { ...c.visitorAvatar } }; })()`,
+  ) as never;
 }
 
 /**
@@ -466,8 +526,22 @@ export async function rewriteDemoState(page: Page, mutateSource: string): Promis
 }
 
 /** The stored demo museums, as JSON, for assertions about what was (or was not) written. */
-export async function readDemoState(page: Page): Promise<{ museums: Record<string, { status: string; document: { guideAvatar: Record<string, unknown>; visitorAvatar: Record<string, unknown> } | null }> }> {
-  await rewriteDemoState(page, `(state) => { globalThis.__qaState = JSON.parse(JSON.stringify(state)); }`);
+export async function readDemoState(page: Page): Promise<{
+  museums: Record<
+    string,
+    {
+      status: string;
+      document: {
+        guideAvatar: Record<string, unknown>;
+        visitorAvatar: Record<string, unknown>;
+      } | null;
+    }
+  >;
+}> {
+  await rewriteDemoState(
+    page,
+    `(state) => { globalThis.__qaState = JSON.parse(JSON.stringify(state)); }`,
+  );
   return (await page.evaluate(`globalThis.__qaState`)) as never;
 }
 
@@ -480,7 +554,11 @@ export async function makeStoredMuseumsLegacy(page: Page): Promise<number> {
 }
 
 /** Add 1 photo and reach the Characters step through the real UI. */
-export async function toCharactersStep(page: Page, visitorName = 'Alex', guideName = 'Sam'): Promise<void> {
+export async function toCharactersStep(
+  page: Page,
+  visitorName = 'Alex',
+  guideName = 'Sam',
+): Promise<void> {
   await page.goto('./?e2e=1#/create');
   await expect(page.getByRole('heading', { level: 1, name: 'Photos' })).toBeVisible();
   await addPhotos(page, makePhotos(1));
@@ -492,8 +570,15 @@ export async function toCharactersStep(page: Page, visitorName = 'Alex', guideNa
 }
 
 /** Choose a gender tile for a character on the Body tab. */
-export async function chooseGender(page: Page, role: 'Guide' | 'Visitor', label: 'Woman' | 'Man' | 'Neutral'): Promise<void> {
+export async function chooseGender(
+  page: Page,
+  role: 'Guide' | 'Visitor',
+  label: 'Woman' | 'Man' | 'Neutral',
+): Promise<void> {
   await page.getByRole('tab', { name: new RegExp(`^${role}`) }).click();
   await page.getByRole('tab', { name: 'Body' }).click();
-  await page.getByRole('radiogroup', { name: 'Gender (optional)' }).getByRole('radio', { name: label, exact: true }).click();
+  await page
+    .getByRole('radiogroup', { name: 'Gender (optional)' })
+    .getByRole('radio', { name: label, exact: true })
+    .click();
 }

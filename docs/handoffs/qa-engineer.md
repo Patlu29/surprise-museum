@@ -5,6 +5,8 @@
 ### Summary
 Wrote the iteration 4 e2e specs, recorded four darwin baselines (each viewed), ran the full suite on desktop-chromium, mobile-chromium and mobile-webkit, diagnosed the Linux CI run 44457523893 and fixed four test defects. No app bug. Details, per-criterion table, counts and the recommendation (Go, with conditions) are in `docs/qa-report.md` round 8.
 
+Follow-up 20/11/2026 (tech lead approved): `caption-card.spec.ts` U1 upper bound now `CARD_UPGRADE_MAX_MS` (`support/app.ts`: 1,100 ms locally, 1,500 ms on CI; lower bound 500 ms unchanged). Reason: Linux run 44457523893 measured 1104.9 ms. `tests/README.md` and `docs/qa-report.md` round 8 updated. Not re-run on Linux.
+
 ### Files changed
 - `tests/e2e/retention.spec.ts` (new, 24 tests), `tests/e2e/keep-alive-static.spec.ts` (new, 8 tests, 2 skipped until the workflow exists)
 - `tests/e2e/visual.spec.ts`: 4 tests; baselines `published-share-card.png`, `edit-page.png`, `not-found.png`, `privacy.png` under `__screenshots__/desktop-chromium-darwin/visual.spec.ts/`

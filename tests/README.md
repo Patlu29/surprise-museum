@@ -76,7 +76,8 @@ rectangles with fixed ones (spec 3.5 fixtures) by defining getters on `screenRec
 - Pin time with `page.clock.setFixedTime(iso)` (timers keep running) before the first `goto`; the demo backend reads `Date.now()`, so first publish, the end date and the 7-day boundary are exact. Re-publish has no screen in the MVP: `retention.spec.ts` resets `publish` to `idle` in the store and uses the Review step's Publish button.
 - `visual.spec.ts` gained four baselines (published share card, edit page, not found, privacy). They are macOS only; the CI step leaves that file out of Linux runs.
 - `pixelDiffRatioInset` (in `support/images.ts`) ignores a border when comparing element screenshots of a live and a reloaded stage (the clip is fractional and the last row can pick up a neighbour).
-- Linux CI run 44457523893: the gender live-versus-rebuilt pair was a one-pixel last-row difference (fixed by the inset); the WebKit 720-combination test no longer waits on animation frames; two waits (name label, Guide arrival at B) were added. One timing window, `caption-card` U1 (500 to 1,100 ms), still flakes by a few ms on CI.
+- Linux CI run 44457523893: the gender live-versus-rebuilt pair was a one-pixel last-row difference (fixed by the inset); the WebKit 720-combination test no longer waits on animation frames; two waits (name label, Guide arrival at B) were added. `caption-card` U1 measured 1104.9 ms against its 500 to 1,100 ms window.
+- CI allowances for timing, both in `support/app.ts` and both applied only when `CI` is set: `FR15_BUDGET_MS` (1000 ms locally, 4000 ms on CI) and `CARD_UPGRADE_MAX_MS` (upper bound of the `caption-card` U1 upgrade window: 1,100 ms locally, 1,500 ms on CI, tech lead decision 20/11/2026). The U1 lower bound (500 ms) is the same everywhere. The strict windows are checked locally only; on a real device they are Not verified.
 
 ## Linux CI differences (first Linux run, 18/11/2026, run 44301433771)
 
