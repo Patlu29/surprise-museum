@@ -1,6 +1,43 @@
 # Handoff: architect
 
-Iteration: 4 (Feature and hosting: free-tier hosting, 7-day retention). Phase: 5 Review (20/11/2026). The phase 2 Design note follows below.
+Iteration: 4 (Feature and hosting: free-tier hosting, 7-day retention). Phase: 7 Operate and learn (23/11/2026), documentation sync. The phase 5 Review and phase 2 Design notes follow below.
+
+## Phase 7 documentation sync (23/11/2026)
+
+### Summary
+Fixed my own review finding REV-3 and brought the architecture in line with phase 6. `docs/architecture.md` is v1.6.1: ADR 0022 Accepted, Q-33 (a) and Q-35 (a) recorded as the user's A2 decisions, the edit-page end date recorded as built, and the keep-alive workflow, the migrations-first Supabase deploy, `format:check` in CI and the `tokens.css` Prettier exception described. No contract changed. No code touched; nothing committed.
+
+### Files changed
+- `docs/architecture.md` v1.6 to v1.6.1: header and version note; 7.4 (Q-33 (a) no longer "provisional"); 7.5 (workflow built in cbbd7e4, not yet run; failure signal includes missing key and non-https URL, key masked); 7.6 (FR-105 row: Must per Q-35 (a), `AvailabilityNotice` on `PublishedScreen` and `EditScreen`); 8.1 (edit page as built; formatter signature and `new Date` parsing as built; wording from design spec v2.1 5.18); 9 (edit route "built"); 13 (scripts row notes `format:check` in CI; new Formatting row for `.prettierignore` and `tokens.css`; deployment paragraph: migrations first, then all five functions, smoke test is a reminder run by hand, nothing deployed); 14 (`.prettierignore` listed as architect root config); 15 (signed-URL cap is a backlog candidate, no longer an open question); 16 (ADR 0022 Accepted); 17 (v1.6.1 row).
+- `docs/decisions/0010-retention-with-pg-cron.md` line 32: Q-33 (a) is the user's A2 decision (19/11/2026), not "provisionally accepted by the tech lead".
+- `docs/decisions/0022-free-tier-hosting-and-keep-alive.md` status: the section 5 workflow is built (cbbd7e4) with two extra guards (missing key, non-https URL; key masked), not yet run on GitHub.
+- `docs/handoffs/architect.md`: this section; REV-3 marked done.
+
+### Verification
+| Check | Result | Label |
+|---|---|---|
+| Edit page shows the end date | `src/ui/screens/EditScreen.tsx:176` renders `AvailabilityNotice` with `data.expiresAt`, `context="edit"`, inside `link && document`; `PublishedScreen.tsx:79` uses the same component | Verified (read) |
+| Formatter as described | `src/lib/format.ts:26-34` | Verified (read) |
+| Keep-alive facts in 7.5 | Read `.github/workflows/keep-alive.yml`: cron `37 20 * * *`, `workflow_dispatch`, `permissions: {}`, job `if: vars.VITE_SUPABASE_URL != ''`, key check, https check, `add-mask`, curl `--retry 3`, `jq` body check | Verified (read) |
+| Deploy facts in 13 | Read `.github/workflows/deploy-supabase.yml`: `migrations` input default true, dry run then `db push`, then `functions deploy --no-verify-jwt` with no names; smoke test only in the summary reminder | Verified (read) |
+| `format:check` in CI, `tokens.css` ignored | `ci.yml:54`; `.prettierignore` last line | Verified (read) |
+| No "Proposed", "pending the" or stale "provisional" left for iteration 4 | `grep -nE "provisional\|Proposed\|pending the\|recommended" docs/architecture.md`: remaining hits are the lapsed ADR 0021 6,500 ceiling and historical change-log rows | Verified |
+| Prettier | `*.md` is in `.prettierignore`; `npx prettier --check docs/architecture.md` reports clean | Verified |
+| Workflows run on GitHub | not run; nothing deployed | Not verified |
+
+### Decisions
+- **Historical change-log rows left as written** (v1.6 says "Edit-page end date recommended"): they record what was true on that date. The v1.6.1 row supersedes them.
+- **`.prettierignore` listed as architect-owned root config** (team-conventions: Prettier config is the architect's). The devops-engineer's `tokens.css` line, made at the tech lead's direction, is accepted as is.
+
+### Not done
+- Nothing in scope. Other owners' REV items are unchanged by this task.
+
+### Requests for other agents
+- None new.
+
+---
+
+## Phase 5 Review (20/11/2026)
 
 ## Summary
 I reviewed iteration 4 for release by reading the code from `2260e88~3` to HEAD 5b307f5. The review is `docs/review.md`: **no critical or major finding open**, 5 Minor, 9 Note. Retention is correct end to end. The keep-alive writes nothing, is granted to `service_role` only, and leaks nothing. No secret, credential or mirror hostname is in the current files. The test hook is absent from a production build. The four QA commits loosen no limit that hides a defect. ADR 0022 is now Accepted (user A2, 19/11/2026), with two clarifications that change no decision. Nothing is committed.
@@ -30,7 +67,7 @@ I reviewed iteration 4 for release by reading the code from `2260e88~3` to HEAD 
 - QA round 8 counts and the tech lead's record of CI run 44686612364 are accurate. I did not open the run.
 
 ## Not done
-- REV-3 (my own `architecture.md` and ADR 0010 status text): out of this task's edit scope; do it in the phase 6 or 7 sync.
+- REV-3 (my own `architecture.md` and ADR 0010 status text): out of this task's edit scope then; done in the phase 7 sync (see above).
 
 ## Open questions
 - None for the user. Q-34 (confirm free-plan figures) still stands. REV-11 adds Edge Function invocations to the figures the user should confirm.
@@ -42,7 +79,7 @@ I reviewed iteration 4 for release by reading the code from `2260e88~3` to HEAD 
 - [open] qa-engineer: REV-8 (regex gap; fail on a missing `keep-alive.yml` after phase 6), REV-9 (anchor the WebKit preload filter), REV-10 (state in release readiness where the strict timing windows were last met).
 - [open] ux-ui-designer: REV-4 (drop "provisional" in spec 7.5 and the change note).
 - [open] frontend-developer: REV-12 (record the `src/api/` test edit as an ownership exception).
-- [open] architect (me, next sync): REV-3.
+- [done] architect (me): REV-3, in the phase 7 sync (23/11/2026, v1.6.1).
 
 ## Requests received
 - [done] from tech lead (phase 5): release review in `docs/review.md`; ADR 0022 set to Accepted.

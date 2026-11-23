@@ -1,6 +1,8 @@
 # User stories: Virtual 3D Photo Museum
 
-Version 0.7 | 18/11/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.7)
+Version 0.7.1 | 23/11/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.7.1)
+
+Change in v0.7.1 (iteration 4, phase 7; no ID or criterion number changed): US-27 AC-1 and US-68 AC-2 name the shared not-found screen instead of an "expired" screen (Q-33 (a), review REV-2). US-27 AC-5, US-68 AC-3 and US-71 AC-3 say "re-publish" instead of "re-publish or edit", because the MVP can only re-publish; editing a published museum is Release 2 and the same rule applies then (answer to QA's question, round 8b).
 
 Change in v0.7 (iteration 4, user decisions of 18/11/2026: museums last 7 days; free tiers only): US-24 AC-3 changed (purge within 24 hours, was 7 days). US-27 rewritten (a Creator-set expiry can only shorten the 7 days; 5 numbered criteria; stays Should). New Must stories: US-68 (7-day life and purge, NFR-16, which had no story before), US-69 (free tiers and keep-alive, NFR-32 (a) and (b)), US-70 (deployment guide free-tier section, NFR-32 (c) to (f)) and US-71 (publish screen states the 7 days, FR-105). FR-104 (Could, in-app space full) has no story and is deferred (backlog CR-9). No story or criterion mentioned 90 days. US-22 is unchanged.
 
@@ -323,11 +325,11 @@ As a Creator, I want to add a passcode, so that the link alone is not enough.
 As a Creator, I want to set an earlier time when the link stops working, so that the museum does not stay online for the full 7 days if I do not want it to.
 
 **Acceptance criteria** (changed in v0.7: an expiry can only shorten the 7 days of NFR-16)
-- Given I set an expiry that is after now plus 1 hour and before the first publish plus 7 days, when that time passes, then within 1 minute the share link shows the "expired" screen (Q-33)
+- Given I set an expiry that is after now plus 1 hour and before the first publish plus 7 days, when that time passes, then within 1 minute the share link shows the not-found screen shared with deleted and wrong-token links (Q-33 (a)), with no museum content
 - Given I try to choose an expiry later than the first publish plus 7 days, when I confirm, then it is refused with a message that gives the latest allowed date and time
 - Given I try to choose an expiry less than 1 hour from now, when I confirm, then it is refused with a message that gives the earliest allowed time
 - Given the expiry has passed, when 24 hours have passed since it, then 0 photos, 0 text rows and 0 storage objects for the museum remain in live storage
-- Given I have set an expiry, when I re-publish or edit the museum, then the expiry time is unchanged
+- Given I have set an expiry, when I re-publish the museum (the only way to change a published museum in the MVP; editing is Release 2), then the expiry time is unchanged
 
 ### US-28: Send via my phone's share options (FR-48, Should)
 As a Creator on a phone, I want to share the link in my messaging app directly, so that I don't have to copy and paste.
@@ -348,8 +350,8 @@ As a Creator, I want to know exactly how long the museum lasts, so that I can ti
 
 **Acceptance criteria** (T is the moment of the museum's first publish)
 - Given the museum was first published at T, when I open the share link at any time before T plus 168 hours, then the museum loads with all its photos and captions
-- Given T plus 168 hours has passed, when I open the share link within 60 seconds of that time or later, then no photo, caption or name is shown and the screen says the museum is no longer available because it has expired or been deleted (Q-33)
-- Given the museum was first published at T, when I re-publish or edit it on day 3, then it still ends at T plus 168 hours, within 1 minute
+- Given T plus 168 hours has passed, when I open the share link within 60 seconds of that time or later, then no photo, caption or name is shown and the shared not-found screen says the museum is not available and may have been deleted or its 7 days may have ended (Q-33 (a): the same screen as deleted and wrong-token links)
+- Given the museum was first published at T, when I re-publish it on day 3 (the only way to change a published museum in the MVP; editing is Release 2 and must then behave the same), then it still ends at T plus 168 hours, within 1 minute
 - Given a draft was created at time D, when D plus 168 hours has passed without a publish, then the draft can no longer be opened and its photos are purged
 - Given the museum's 168 hours have ended at time E, when E plus 24 hours has passed, then 0 database rows and 0 storage objects for the museum remain (checked by a row count and a storage listing)
 - Given the hourly purge job, when I read its run record for any 24-hour window after launch, then it shows at least 23 completed runs
@@ -381,7 +383,7 @@ As a Creator, I want to see when the museum will stop working, so that I can sen
 **Acceptance criteria**
 - Given publishing has completed, when the publish screen appears, then it says the museum is available for 7 days
 - Given publishing has completed, when the publish screen appears, then it shows the end date and time as DD/MM/YYYY and a 24-hour time in my local time zone, equal to the first publish plus 168 hours within 1 minute
-- Given I re-publish or edit the museum, when I open the publish screen again, then the end date and time shown are unchanged
+- Given I re-publish the museum (the only way to change a published museum in the MVP; editing is Release 2 and must then behave the same), when I open the publish screen again, then the end date and time shown are unchanged
 - Given the screen is at 360 px wide with the browser text size at 200%, when I read the 7-day notice, then it is fully visible with no horizontal scrolling
 - Given the notice, when I read it, then it says that deleting through the edit link ends the museum sooner
 

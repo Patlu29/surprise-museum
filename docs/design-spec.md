@@ -1,8 +1,10 @@
 # Design spec: Surprise Museum
 
-Version 2.1 | 19/11/2026 | Owner: ux-ui-designer | Based on requirements v0.7 (iteration 4), user stories v0.7 and architecture v1.6
+Version 2.1.1 | 23/11/2026 | Owner: ux-ui-designer | Based on requirements v0.7 (iteration 4), user stories v0.7 and architecture v1.6
 
-**Change note, v2.1 (iteration 4: 7-day retention, 19/11/2026).** Copy and one small component; no token added or changed. (1) New **5.18** "Availability notice": one block stating "Available for 7 days, until DD/MM/YYYY HH:mm" plus how to end it sooner, used on the published screen (12.5.5) and on the edit page (FR-105, US-71). (2) The edit page shows the same end date (US-71 AC-3), in its Share link section. (3) 7.5 Not found: heading unchanged, body now also covers an ended 7 days; the uniform not-found response stays (Q-33 (a), provisional); the old "R2 adds expired variants" line is removed. (4) Privacy page gains one sentence on no backups and removal within 24 hours (10). (5) Copy deck, 2.1, 2.3, 8.3, coverage table updated. (6) Search for "90", "days", "retention" and long-lived wording found no 90-day text in the spec; the only conflicting statement was the R2 "expired" variant in 7.5.
+**Change note, v2.1.1 (review fix REV-4, 23/11/2026).** Wording only. The word "provisional" is removed from the Q-33 (a) statements in this note and in 7.5, which now record the decision: one shared not-found screen for a wrong link and an ended or deleted museum, approved at A2 on 19/11/2026. No behaviour, copy or token changed.
+
+**Change note, v2.1 (iteration 4: 7-day retention, 19/11/2026).** Copy and one small component; no token added or changed. (1) New **5.18** "Availability notice": one block stating "Available for 7 days, until DD/MM/YYYY HH:mm" plus how to end it sooner, used on the published screen (12.5.5) and on the edit page (FR-105, US-71). (2) The edit page shows the same end date (US-71 AC-3), in its Share link section. (3) 7.5 Not found: heading unchanged, body now also covers an ended 7 days; the uniform not-found response stays (Q-33 (a): decided by the user, approved at A2 on 19/11/2026); the old "R2 adds expired variants" line is removed. (4) Privacy page gains one sentence on no backups and removal within 24 hours (10). (5) Copy deck, 2.1, 2.3, 8.3, coverage table updated. (6) Search for "90", "days", "retention" and long-lived wording found no 90-day text in the spec; the only conflicting statement was the R2 "expired" variant in 7.5.
 
 **Change note, v2.0.3 (BUG-18 fix round 1, 11/11/2026).** (1) Tokens: `--look-rim-max` 0.6 to 0.85 and `--look-contour-max` 0.95 to 1 to match the shader; comment records the 0.7 rim and 0.25 contour colour scaling. (2) 12.8.6: edge contrast is accepted at pixel ratio 1.5 (phone Low tier), not supersampled; 1.0 is a stretch case; the DPR governor floor is unchanged (tech-lead, 11/11/2026). (3) 12.8.2: as-built edge note. (4) 12.8.2 review of the darker, wider outline against "ink-aubergine", and the lit-linen option, recorded in the handoff for the user's decision; no wall change made.
 
@@ -1084,7 +1086,7 @@ Paper screen, centred, no navigation to other museums.
 - Heading (h1): "We can't find that museum".
 - Body (v2.1): "The link might have a typo, or the museum may have been deleted. Museums are only kept for 7 days, so it may have ended. Check the link, or ask the person who sent it for a new link." The number is `LIMITS.retentionDays`. Every sentence is conditional ("might", "may") and is shown identically for every failing link, so it cannot tell a viewer whether a museum ever existed there. Only the body changed; the heading and the action are as before.
 - Action: **Go to the home page** (secondary). No other content, no hints about what existed.
-- Used for unknown, deleted and expired links and unknown routes (FR-55), and for an edit link that is unknown, deleted or past its end. There is no separate "expired" screen (Q-33 (a), provisional until the user decides at design approval).
+- Used for unknown, deleted and expired links and unknown routes (FR-55), and for an edit link that is unknown, deleted or past its end. There is no separate "expired" screen (Q-33 (a): one shared not-found screen for a wrong link and an ended or deleted museum, approved at A2 on 19/11/2026).
 
 ### 7.6 Couldn't open it (MVP)
 

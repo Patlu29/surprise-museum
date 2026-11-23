@@ -1,5 +1,9 @@
 # Handoff: ux-ui-designer
 
+## Update v2.1.1: REV-4 wording fix (23/11/2026)
+
+Iteration 4, phase 7. Removed "provisional" from the Q-33 (a) statements in `docs/design-spec.md` (change note v2.1 and 7.5); they now state the decision (approved at A2, 19/11/2026). Added a v2.1.1 change note and bumped the header version. No behaviour, copy or token changed; `tokens.css` untouched. Nothing committed. Check by search: "provisional" no longer appears next to Q-33 (**Verified**, Grep). Other "provisional" hits (outfit ids, lines about 1295 to 2226) are unrelated and unchanged.
+
 ## Update v2.1: 7-day notice, edit-page end date, not-found body, privacy sentence (19/11/2026)
 
 Iteration 4, phase 2 Design. Spec is v2.1. No token added or changed; `tokens.css` untouched. Nothing committed. Visual judgements are **Not verified** (no render).

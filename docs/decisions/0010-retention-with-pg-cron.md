@@ -29,7 +29,7 @@ NFR-16 v0.7 (user decision 18/11/2026, "one week promise"; Q-5):
 | Draft lasts | 7 days from creation | Unchanged |
 | Deleted or expired content leaves live storage | Within 7 days | **Within 24 hours** of the delete or of the end of the 7 days |
 | Backups | Follow the Supabase plan, at most 30 days | **None.** The Supabase Free plan has no backups (NFR-16(f), NFR-32) |
-| After the end | (not stated) | The link shows no content and the uniform not-found screen (Q-33 (a), provisionally accepted by the tech lead) |
+| After the end | (not stated) | The link shows no content and the uniform not-found screen (Q-33 (a), the user's decision at the A2 design approval, 19/11/2026) |
 
 ### Decision
 The mechanism stays exactly as decided above. Only the published retention value changes, from 90 to 7 days. It is one constant, `LIMITS.retentionDays` in `supabase/functions/_shared/contract.ts`, which `manage-museum` passes to `publish_museum(p_retention_days)` and which the browser (`LegalScreen`, the demo mock) also reads.

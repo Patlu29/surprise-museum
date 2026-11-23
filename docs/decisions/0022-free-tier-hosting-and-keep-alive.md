@@ -1,7 +1,7 @@
 # 0022: Free-tier hosting and a daily keep-alive
 
 ## Status
-Accepted (19/11/2026, the user's A2 design approval for iteration 4). Proposed 18/11/2026. Amends ADR 0003 (a fifth Edge Function) and builds on ADR 0002 (GitHub Pages) and ADR 0010 (retention). Two clarifications from the release review (20/11/2026) are at the end; they change no decision. Built in eb57dff (function, migration, tests); the workflow in section 5 is phase 6 work (devops-engineer).
+Accepted (19/11/2026, the user's A2 design approval for iteration 4). Proposed 18/11/2026. Amends ADR 0003 (a fifth Edge Function) and builds on ADR 0002 (GitHub Pages) and ADR 0010 (retention). Two clarifications from the release review (20/11/2026) are at the end; they change no decision. Built in eb57dff (function, migration, tests). The section 5 workflow, `.github/workflows/keep-alive.yml`, was built in phase 6 (cbbd7e4) as specified, with two added guards: once `VITE_SUPABASE_URL` is set, a missing anon key or a URL that does not start with `https://` fails the run, and the key is masked in the log. It has not yet run on GitHub; nothing is deployed (23/11/2026).
 
 ## Context
 The user decided on 18/11/2026 to host on free tiers only: GitHub Pages from the public repository, and the Supabase Free plan with a scheduled keep-alive (NFR-32, US-69, US-70). The free-limit guardrail is documentation plus a usage check, with no in-app "space full" handling (FR-104 is deferred).

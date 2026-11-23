@@ -1,49 +1,58 @@
 # Handoff: product-manager
 
-Iteration: 4 (Feature and hosting: free-tier hosting, 7-day retention). Phase: 1 Plan.
+Iteration: 4 (Feature and hosting). Phase: 7 Operate and learn. Nothing deployed (user, 23/11/2026: "No deploy yet"); A3 approved as "release with known issues".
 
 ## Summary
-Requirements and stories are now v0.7. Retention is 7 days from first publish (NFR-16, Q-5 recorded), FR-54 can only shorten it, and a new Must NFR-32 covers free-tier hosting with keep-alive, guide, limits and capacity. The backlog file now exists. The Must count is 90 (65 functional, 25 non-functional).
+Requirements and stories are v0.7.1 and the backlog is v0.7.1. Iteration 4 items are Done, review REV-2 is fixed, and QA's "edit" question is settled by changing the wording to "re-publish". The Must count is unchanged at 90.
 
 ## Files changed
-- docs/requirements/requirements.md: v0.7. Changed NFR-16, FR-54, NFR-20, NFR-21, A-9, A-13, Q-5, Q-18, section 5 Must count, out of scope, change log. New NFR-32, FR-104 (Could), FR-105 (Must), A-35 to A-37, Q-33 to Q-35
-- docs/requirements/user-stories.md: v0.7. Changed US-24 AC-3 and US-27 (rewritten). New US-68 to US-71. Story map and traceability updated
-- docs/requirements/backlog.md: new. CR-5 to CR-11, BUG-15, N-11 to N-13, V-1 to V-5, LEG-1, DEBT-1, PERF-1
+- docs/requirements/requirements.md: v0.7.1 and change-log row. Q-33 and Q-35 marked answered (a) and (a), 19/11/2026. NFR-16 (d), FR-54 now name the shared not-found screen. FR-105 gets a note: the MVP can only re-publish; editing is Release 2
+- docs/requirements/user-stories.md: v0.7.1 and change note. US-27 AC-1 and US-68 AC-2 name the shared not-found screen. US-27 AC-5, US-68 AC-3, US-71 AC-3 say "re-publish" (note that editing is Release 2 and must then behave the same). No ID or AC number changed
+- docs/requirements/backlog.md: v0.7.1. CR-5, CR-6, CR-7 Done (iteration 4; not deployed, see V-6 and V-7). CR-8 and CR-10 Done (iteration 4). New rows below
 - docs/handoffs/product-manager.md: this note
+
+## New backlog IDs (by the tech lead's item number)
+| Item | ID | Priority |
+|---|---|---|
+| 1 Post-deploy verification (sub-points a to k) | V-6 | Must before launch |
+| 2 Q-34 user checks on supabase.com | V-7 | Must before launch |
+| 3 Browsers and devices | V-8 (overlaps V-1 to V-4) | Should (Firefox job, Linux baselines Must before CI is trusted) |
+| 4 Test stability and CI-only allowances | DEBT-2 | Should |
+| 5 Purge-failure alerting | OPS-1 | Should |
+| 6 Signed URLs capped at expires_at / purgeHealthy flag / draft end date on edit page | CR-12 / CR-13 / CR-14 | Could |
+| 7 REV-13 deno.lock | DEBT-3 | Could |
+| 8 Traceability iterations 1 to 3 | DEBT-4 | Could |
+
+Existing open items (BUG-15, N-11 to N-13, LEG-1, CR-9, CR-11, V-1 to V-5, DEBT-1, PERF-1) are unchanged. FR-54 / US-27 stay Should and are not Open backlog items beyond the wording fix.
 
 ## Verification
 | Check | Result | Label |
 |---|---|---|
-| Search of docs/requirements for "90 day", "90-day", "retention", "backup" after edits | Only superseded-decision mentions remain: Q-5 (old decision, 27/10/2026), the v0.7 change log and NFR-16 text, which name 90 days as the old value | Verified (Grep run after the last edits: the only "90 days" mentions are the v0.7 change log, the Q-5 old decision and the stories change note, all naming 90 days as the superseded value) |
-| Every Must has a story | NFR-16 had none before; now US-68. NFR-32 has US-69, US-70. FR-105 has US-71 | Verified by reading the traceability table |
-| Must count 65 + 25 = 90 | Counted from the NFR table by hand | Partly verified (manual count) |
-| Free-plan figures | Third-party, checked 18/11/2026 by the tech lead; not checked on supabase.com by me | Not verified |
-| Existing "expired" screen behaviour | `docs/api.md` returns the uniform not-found body for expired museums; I did not see the screen copy in code | Not verified (Q-33) |
+| Edited text re-read against the quoted REV-2 locations (requirements 173, 336, 450, 452; stories 326) | all five changed | Partly verified (no formatter run; I have no command-line tool, so `npm run format:check` on the three requirements files is for the tech lead) |
+| Every item 1 to 8 has a backlog ID | yes | Verified (by reading the file) |
+| Iteration 4 rows not left "In progress" | CR-5 to CR-8, CR-10 are Done | Verified |
+| Whether CR-5 to CR-7 work in production | not deployed | Not verified (V-6) |
+
+## Correction from tech lead (23/11/2026)
+- [done] V-5 marked Done (iteration 4) with the evidence of CI run 44686612364 (20/11/2026) and green required jobs since. Remaining parts point to V-8 (Firefox job), V-4 (Linux baselines) and V-6 (f) (first keep-alive run).
 
 ## Decisions
-- 24-hour purge figure: the hourly job leaves 23 hours for retries. Creator delete is still immediate for the link (FR-52)
-- Keep-alive interval at most 3 days (4 days of margin to the 7-day pause)
-- IDs: new NFR is NFR-32; FR-104 is the deferred "space full" Could; FR-105 is my added Must for the publish-screen notice
-- NFR-20 and NFR-21 (Should) marked not targeted on free tiers, because they would otherwise contradict NFR-32
+- QA wording: I changed "edit" to "re-publish" in the criteria (US-68 AC-3, US-71 AC-3, and also US-27 AC-5 for consistency) because a tester can then check them as written. The note records that editing is Release 2 and the same rule applies then. FR-105 and NFR-16 (b) keep "editing" as the standing rule.
+- CR-5 to CR-7 are Done in the sense "built and checked locally"; the live checks are V-6 and V-7.
 
 ## Assumptions
-- A-35 photo sizes, A-36 keep-alive margin, A-37 free-plan limits (third-party)
-- The 5 GB egress is about 300 full visits a month at about 16 MB per visit (my arithmetic)
+- Priorities on the new items are my suggestions, not user decisions.
+- The expired-link screen text is the Q-33 (a) wording in the requirements; I did not check it against `src/` copy.
 
 ## Not done
-- Nothing from the task is skipped. FR-104 has no story by design (Could, deferred)
+- Q-34 is still open until the user does V-7.
 
 ## Open questions
-- Q-33: after 7 days, show the uniform not-found screen with wording that covers expiry (a, recommended), or a distinct "expired" screen (b)? The API already returns the uniform body. Owner: user
-- Q-34: confirm the 1 GB, 500 MB and 5 GB figures on supabase.com/pricing. Default: figures stand, marked "confirm". Owner: user
-- Q-35: keep FR-105 (publish screen states the 7 days) as Must (a, recommended), Should (b) or drop it (c)? Owner: user
+- Q-34 (user, before launch): confirm the free-plan figures; recommendation, do the V-7 checks on supabase.com once.
 
 ## Requests for other agents
-- [open] architect: amend ADR 0010 (published museums expire 7 days after first publish, purge within 24 hours, no backups); write the keep-alive ADR naming the request (must not call purge, must create nothing)
-- [open] backend-developer: change the retention constant from 90 to 7 days and update `docs/api.md`; enforce FR-54 range (earliest now plus 1 hour, latest first publish plus 7 days) if FR-54 is built
-- [open] frontend-developer: FR-105 publish-screen text and any hard-coded "90 days" copy
-- [open] devops-engineer: keep-alive workflow and the free-tier section in `docs/deployment.md` (US-70)
-- [open] qa-engineer: tests for US-68 to US-71; the 24-hour purge check needs a clock-shift or a seeded row
+- [open] qa-engineer: US-68 AC-3 and US-71 AC-3 now say "re-publish"; the re-publish test you ran matches as written. US-68 AC-2 and US-27 AC-1 now expect the shared not-found screen.
+- [open] tech lead: run the format check on `docs/requirements/`; update `docs/project-status.md` to show REV-2 done and the new IDs.
 
 ## Requests received
-- [done] from tech lead: items 1 to 7 of the iteration 4 Plan task
+- [done] from tech lead: backlog update, REV-2, QA wording question
