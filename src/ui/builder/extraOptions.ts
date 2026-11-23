@@ -10,7 +10,8 @@ import { selectedOptionValue } from '@/lib/avatars';
 export const MORE_OPTIONS_LABEL = 'More options';
 
 export const FACE_SHAPE_GROUP = 'Face shape (optional)';
-export const FACE_SHAPE_HELPER = 'Changes the shape of the face. Your other choices stay as they are.';
+export const FACE_SHAPE_HELPER =
+  'Changes the shape of the face. Your other choices stay as they are.';
 
 export const PATTERN_GROUP = 'Pattern (optional)';
 export const PATTERN_HELPER =

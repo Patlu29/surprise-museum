@@ -207,9 +207,7 @@ export function CharactersStep() {
     </Button>
   );
 
-  const description = (
-    <p className="preview-slot__description">{activeDescription}</p>
-  );
+  const description = <p className="preview-slot__description">{activeDescription}</p>;
 
   return (
     <div className="characters">

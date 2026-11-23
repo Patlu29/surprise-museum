@@ -2,12 +2,7 @@ import { useId } from 'react';
 import { useExitingItems } from '@/hooks/useExitingItems';
 import type { DraftIssue } from '@/state/draft';
 import { Icon } from '@/ui/components/Icon';
-import {
-  sortByStep,
-  stillToDoLabel,
-  STILL_TO_DO_HEADING,
-  STILL_TO_DO_READY,
-} from './stepCopy';
+import { sortByStep, stillToDoLabel, STILL_TO_DO_HEADING, STILL_TO_DO_READY } from './stepCopy';
 
 interface StillToDoProps {
   /** Issues from `validateDraft(..., 'publish')`: the same list the Preview dialog filters. */
@@ -29,10 +24,7 @@ export function StillToDo({ issues, onSelect, placement }: StillToDoProps) {
   const sorted = sortByStep(issues);
   const rows = useExitingItems(sorted, (issue) => issue.id);
   return (
-    <section
-      className={`still-to-do still-to-do--${placement}`}
-      aria-labelledby={headingId}
-    >
+    <section className={`still-to-do still-to-do--${placement}`} aria-labelledby={headingId}>
       <p id={headingId} className="still-to-do__heading">
         {STILL_TO_DO_HEADING}
       </p>

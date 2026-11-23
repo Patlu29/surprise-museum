@@ -96,7 +96,12 @@ export function FinaleCard({
         ref={cardRef}
         role="region"
         aria-labelledby={headingId}
-        className={['finale-card', 'surface-paper', 'ui-hit', placement.size === 'strip' && 'is-strip']
+        className={[
+          'finale-card',
+          'surface-paper',
+          'ui-hit',
+          placement.size === 'strip' && 'is-strip',
+        ]
           .filter(Boolean)
           .join(' ')}
         style={style}

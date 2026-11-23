@@ -1,5 +1,16 @@
 import { expect, test as base, type Page } from '@playwright/test';
-import { addPhotos, chooseGender, createMuseum, fillWords, layout, openVisit, seedDraftAndOpen, startVisit, waitForSnap, type PageGlobals } from './support/app';
+import {
+  addPhotos,
+  chooseGender,
+  createMuseum,
+  fillWords,
+  layout,
+  openVisit,
+  seedDraftAndOpen,
+  startVisit,
+  waitForSnap,
+  type PageGlobals,
+} from './support/app';
 import { enterVisit, standAndFrame } from './support/presentation';
 import { makePhotos } from './support/images';
 
@@ -29,33 +40,47 @@ type AxeBuilderCtor = new (options: { page: Page }) => AxeBuilderLike;
 let AxeBuilder: AxeBuilderCtor | null = null;
 try {
   const specifier = '@axe-core/playwright';
-  AxeBuilder = ((await import(/* @vite-ignore */ specifier)) as { default: AxeBuilderCtor }).default;
+  AxeBuilder = ((await import(/* @vite-ignore */ specifier)) as { default: AxeBuilderCtor })
+    .default;
 } catch {
   AxeBuilder = null;
 }
 
-const test = base.extend<{ axe: (page: Page, label: string, exclude?: string[]) => Promise<void> }>({
-  axe: async ({ browserName }, use, testInfo) => {
-    void browserName;
-    await use(async (page, label, exclude = []) => {
-      const Builder = AxeBuilder;
-      if (!Builder) return;
-      let builder = new Builder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']);
-      for (const selector of exclude) builder = builder.exclude(selector);
-      const results = await builder.analyze();
-      const summary = results.violations.map((v) => ({
-        id: v.id,
-        impact: v.impact,
-        help: v.help,
-        nodes: v.nodes.slice(0, 4).map((n) => ({ target: n.target, why: n.failureSummary?.slice(0, 240) })),
-      }));
-      if (summary.length > 0) {
-        await testInfo.attach(`axe-${label}.json`, { body: JSON.stringify(summary, null, 2), contentType: 'application/json' });
-      }
-      expect(summary, `axe violations on ${label}`).toEqual([]);
-    });
+const test = base.extend<{ axe: (page: Page, label: string, exclude?: string[]) => Promise<void> }>(
+  {
+    axe: async ({ browserName }, use, testInfo) => {
+      void browserName;
+      await use(async (page, label, exclude = []) => {
+        const Builder = AxeBuilder;
+        if (!Builder) return;
+        let builder = new Builder({ page }).withTags([
+          'wcag2a',
+          'wcag2aa',
+          'wcag21a',
+          'wcag21aa',
+          'wcag22aa',
+        ]);
+        for (const selector of exclude) builder = builder.exclude(selector);
+        const results = await builder.analyze();
+        const summary = results.violations.map((v) => ({
+          id: v.id,
+          impact: v.impact,
+          help: v.help,
+          nodes: v.nodes
+            .slice(0, 4)
+            .map((n) => ({ target: n.target, why: n.failureSummary?.slice(0, 240) })),
+        }));
+        if (summary.length > 0) {
+          await testInfo.attach(`axe-${label}.json`, {
+            body: JSON.stringify(summary, null, 2),
+            contentType: 'application/json',
+          });
+        }
+        expect(summary, `axe violations on ${label}`).toEqual([]);
+      });
+    },
   },
-});
+);
 
 test.skip(AxeBuilder === null, '@axe-core/playwright is not installed');
 
@@ -75,7 +100,10 @@ test.describe('axe: Creator side', () => {
     await axe(page, 'not-found');
   });
 
-  test('builder: all four steps, with errors showing, and the published screen', async ({ page, axe }) => {
+  test('builder: all four steps, with errors showing, and the published screen', async ({
+    page,
+    axe,
+  }) => {
     await page.goto('./#/create');
     await expect(page.getByRole('button', { name: 'Add photos' })).toBeVisible();
     await axe(page, 'builder-1-empty');
@@ -102,11 +130,15 @@ test.describe('axe: Creator side', () => {
     await axe(page, 'builder-4-consent-error');
     await page.getByRole('checkbox', { name: /I have the right to share/ }).check();
     await page.getByRole('button', { name: /Publish museum/ }).click();
-    await expect(page.getByRole('heading', { name: 'Your museum is ready' })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('heading', { name: 'Your museum is ready' })).toBeVisible({
+      timeout: 60_000,
+    });
     await axe(page, 'published');
   });
 
-  test('BUG-3 (fixed): the Guide and Visitor tabs point aria-controls at an element that exists', async ({ page }) => {
+  test('BUG-3 (fixed): the Guide and Visitor tabs point aria-controls at an element that exists', async ({
+    page,
+  }) => {
     await page.goto('./#/create');
     await addPhotos(page, makePhotos(1));
     await fillWords(page, {});
@@ -114,7 +146,9 @@ test.describe('axe: Creator side', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible();
     for (const id of ['guide', 'visitor']) {
       const target = await page.locator(`#character-tab-${id}`).getAttribute('aria-controls');
-      expect(await page.locator(`#${target}`).count(), `${id} tab aria-controls="${target}"`).toBe(1);
+      expect(await page.locator(`#${target}`).count(), `${id} tab aria-controls="${target}"`).toBe(
+        1,
+      );
     }
   });
 
@@ -133,14 +167,20 @@ test.describe('axe: Visitor side', () => {
   // Reduced motion removes fades, so axe never samples a half-transparent button (a false contrast hit).
   test.use({ reducedMotion: 'reduce' });
   test('welcome, roaming HUD, caption card, sheets, viewer and finale', async ({ page, axe }) => {
-    const made = await createMuseum(page, { photos: 3, captions: ['First caption here.', 'Second.', 'Third.'], closingMessage: 'A note.\nWith two lines.' });
+    const made = await createMuseum(page, {
+      photos: 3,
+      captions: ['First caption here.', 'Second.', 'Third.'],
+      closingMessage: 'A note.\nWith two lines.',
+    });
     await openVisit(page, made.shareToken);
     await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
     await axe(page, 'welcome');
     await startVisit(page);
     await page.waitForTimeout(700); // the welcome card fades out
     await axe(page, 'roaming-hud');
-    await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtPhoto(0));
+    await page.evaluate(() =>
+      (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtPhoto(0),
+    );
     await waitForSnap(page, (n) => n.guide.mode === 'present', 30_000, 'a presentation');
     await expect(page.locator('.caption-card')).toBeVisible();
     await axe(page, 'caption-card');
@@ -156,12 +196,17 @@ test.describe('axe: Visitor side', () => {
     await expect(page.getByRole('dialog').first()).toBeVisible();
     await axe(page, 'help-sheet');
     await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: /Look closer/i }).first().click();
+    await page
+      .getByRole('button', { name: /Look closer/i })
+      .first()
+      .click();
     await expect(page.getByRole('dialog', { name: /Photo 1 of 3/ })).toBeVisible();
     await expect(page.locator('.viewer__image')).toHaveClass(/is-loaded/);
     await axe(page, 'viewer');
     await page.keyboard.press('Escape');
-    await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale());
+    await page.evaluate(() =>
+      (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale(),
+    );
     await expect(page.locator('.finale-card')).toBeVisible();
     await axe(page, 'finale-card');
   });
@@ -171,7 +216,11 @@ test.describe('keyboard and focus (US-32 AC-1)', () => {
   test('the whole visit can be done with the keyboard: Start, move, present, Look closer, Close, finale, Replay', async ({
     page,
   }) => {
-    const made = await createMuseum(page, { photos: 2, captions: ['One.', 'Two.'], closingMessage: 'Bye.' });
+    const made = await createMuseum(page, {
+      photos: 2,
+      captions: ['One.', 'Two.'],
+      closingMessage: 'Bye.',
+    });
     await openVisit(page, made.shareToken);
     await expect(page.getByRole('button', { name: 'Start' })).toBeFocused();
     await page.keyboard.press('Enter');
@@ -184,7 +233,12 @@ test.describe('keyboard and focus (US-32 AC-1)', () => {
     // Open the Pictures list with P and choose photo 1 with Enter.
     await page.keyboard.press('p');
     await page.keyboard.press('Enter');
-    await waitForSnap(page, (n) => n.intent === `photo:${l.slots[0]!.photoId}`, 25_000, 'a presentation');
+    await waitForSnap(
+      page,
+      (n) => n.intent === `photo:${l.slots[0]!.photoId}`,
+      25_000,
+      'a presentation',
+    );
     await waitForSnap(page, (n) => n.guide.mode === 'present', 30_000, 'the Guide to arrive');
     // Tab to Look closer, open the viewer, close it with Escape.
     await page.getByRole('button', { name: /Look closer/i }).focus();
@@ -196,7 +250,10 @@ test.describe('keyboard and focus (US-32 AC-1)', () => {
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Pictures' }).focus();
     await page.keyboard.press('Enter');
-    await page.getByRole('dialog', { name: 'Pictures' }).getByRole('button', { name: /Finale/ }).focus();
+    await page
+      .getByRole('dialog', { name: 'Pictures' })
+      .getByRole('button', { name: /Finale/ })
+      .focus();
     await page.keyboard.press('Enter');
     await expect(page.locator('.finale-card')).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: 'Replay from the start' }).focus();
@@ -242,7 +299,10 @@ test.describe('reflow and zoom (WCAG 1.4.10)', () => {
 });
 
 test.describe('axe: CR-1, CR-2 and CR-3 additions (v0.3 and spec v1.4)', () => {
-  test('builder Body tab with the Gender group (Woman and Man chosen), and the Face tab with the Visitor facial hair group', async ({ page, axe }) => {
+  test('builder Body tab with the Gender group (Woman and Man chosen), and the Face tab with the Visitor facial hair group', async ({
+    page,
+    axe,
+  }) => {
     await page.goto('./#/create');
     await addPhotos(page, makePhotos(1));
     await fillWords(page, {});
@@ -258,7 +318,10 @@ test.describe('axe: CR-1, CR-2 and CR-3 additions (v0.3 and spec v1.4)', () => {
     await axe(page, 'builder-3-face-visitor-facial-hair');
   });
 
-  test('the "Photos aren\'t kept" notice on steps 1, 3 and 4 (contrast and structure)', async ({ page, axe }) => {
+  test('the "Photos aren\'t kept" notice on steps 1, 3 and 4 (contrast and structure)', async ({
+    page,
+    axe,
+  }) => {
     await seedDraftAndOpen(page, { step: 1, visitorName: 'Alex', guideName: 'Sam' });
     await expect(page.locator('.restored-notice')).toBeVisible();
     await axe(page, 'notice-step-1');
@@ -279,9 +342,15 @@ test.describe('axe: CR-1, CR-2 and CR-3 additions (v0.3 and spec v1.4)', () => {
       { width: 844, height: 390 },
       { width: 1280, height: 720 },
     ]) {
-      test(`caption card, strip expanded with Read more, at ${vp.width}x${vp.height}`, async ({ page, axe }) => {
+      test(`caption card, strip expanded with Read more, at ${vp.width}x${vp.height}`, async ({
+        page,
+        axe,
+      }) => {
         test.setTimeout(240_000);
-        const long = 'A long caption that runs over several lines so that the strip has to cut it off and offer Read more. '.repeat(3).trim();
+        const long =
+          'A long caption that runs over several lines so that the strip has to cut it off and offer Read more. '
+            .repeat(3)
+            .trim();
         const made = await createMuseum(page, { photos: 1, captions: [long] });
         await enterVisit(page, made.shareToken, vp);
         await standAndFrame(page, 0);
@@ -302,7 +371,8 @@ test.describe('axe: CR-1, CR-2 and CR-3 additions (v0.3 and spec v1.4)', () => {
 test.describe('axe: CR-4 surfaces (spec section 12, NFR-30, US-61 AC-5)', () => {
   test.setTimeout(240_000);
 
-  const tabNamed = (page: Page, name: string) => page.getByRole('tab', { name, exact: true }).click();
+  const tabNamed = (page: Page, name: string) =>
+    page.getByRole('tab', { name, exact: true }).click();
   const characters = async (page: Page, vp: { width: number; height: number }) => {
     await page.setViewportSize(vp);
     await page.goto('./#/create');
@@ -313,7 +383,10 @@ test.describe('axe: CR-4 surfaces (spec section 12, NFR-30, US-61 AC-5)', () => 
     await expect(page.getByText('Getting your characters ready')).toBeHidden({ timeout: 30_000 });
   };
 
-  for (const vp of [{ width: 360, height: 640 }, { width: 1280, height: 720 }]) {
+  for (const vp of [
+    { width: 360, height: 640 },
+    { width: 1280, height: 720 },
+  ]) {
     test(`landing page at ${vp.width}x${vp.height}`, async ({ page, axe }) => {
       await page.setViewportSize(vp);
       await page.goto('./');
@@ -322,27 +395,46 @@ test.describe('axe: CR-4 surfaces (spec section 12, NFR-30, US-61 AC-5)', () => 
     });
   }
 
-  for (const vp of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { width: 1280, height: 720 }]) {
-    test(`builder step 3 at ${vp.width}x${vp.height}: sticky preview, More options closed and open (face shape, More styles, pattern, count chip)`, async ({ page, axe }) => {
+  for (const vp of [
+    { width: 360, height: 640 },
+    { width: 390, height: 844 },
+    { width: 1280, height: 720 },
+  ]) {
+    test(`builder step 3 at ${vp.width}x${vp.height}: sticky preview, More options closed and open (face shape, More styles, pattern, count chip)`, async ({
+      page,
+      axe,
+    }) => {
       await characters(page, vp);
       await axe(page, `cr4-step3-body-${vp.width}`);
       await tabNamed(page, 'Face');
       await axe(page, `cr4-step3-face-closed-${vp.width}`);
       await page.locator('.more-options__button').click();
       await axe(page, `cr4-step3-face-open-${vp.width}`);
-      await page.getByRole('radiogroup', { name: 'Face shape (optional)' }).getByRole('radio', { name: 'Heart', exact: true }).click();
+      await page
+        .getByRole('radiogroup', { name: 'Face shape (optional)' })
+        .getByRole('radio', { name: 'Heart', exact: true })
+        .click();
       await page.locator('.more-options__button').click(); // closed with a count chip
       await expect(page.locator('.more-options__count')).toHaveText('1 changed');
       await axe(page, `cr4-step3-face-closed-chip-${vp.width}`);
       await tabNamed(page, 'Outfit');
       await page.locator('.more-options__button').click();
-      await page.getByRole('radiogroup', { name: 'More styles (optional)' }).getByRole('radio', { name: 'Overalls', exact: true }).click();
-      await page.getByRole('radiogroup', { name: 'Pattern (optional)' }).getByRole('radio', { name: 'Checks', exact: true }).click();
+      await page
+        .getByRole('radiogroup', { name: 'More styles (optional)' })
+        .getByRole('radio', { name: 'Overalls', exact: true })
+        .click();
+      await page
+        .getByRole('radiogroup', { name: 'Pattern (optional)' })
+        .getByRole('radio', { name: 'Checks', exact: true })
+        .click();
       await axe(page, `cr4-step3-outfit-open-${vp.width}`);
     });
   }
 
-  test('builder at 1280x720: the rail, Still to do chips, Preview beside Publish on step 4 and the consent error', async ({ page, axe }) => {
+  test('builder at 1280x720: the rail, Still to do chips, Preview beside Publish on step 4 and the consent error', async ({
+    page,
+    axe,
+  }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto('./#/create');
     await expect(page.getByRole('button', { name: 'Add photos' })).toBeVisible();
@@ -374,8 +466,15 @@ test.describe('axe: CR-4 surfaces (spec section 12, NFR-30, US-61 AC-5)', () => 
   test.describe('visit UI', () => {
     test.use({ reducedMotion: 'reduce' });
 
-    test('phone portrait: the caption card with Done, the finale with Carry on, and the finale footer at 320x568 with 200% text', async ({ page, axe }) => {
-      const made = await createMuseum(page, { photos: 3, captions: ['First caption here.', 'Second.', 'Third.'], closingMessage: 'A note.\nWith two lines.' });
+    test('phone portrait: the caption card with Done, the finale with Carry on, and the finale footer at 320x568 with 200% text', async ({
+      page,
+      axe,
+    }) => {
+      const made = await createMuseum(page, {
+        photos: 3,
+        captions: ['First caption here.', 'Second.', 'Third.'],
+        closingMessage: 'A note.\nWith two lines.',
+      });
       await enterVisit(page, made.shareToken, { width: 390, height: 844 });
       await standAndFrame(page, 0);
       await expect(page.locator('.caption-card')).toBeVisible({ timeout: 20_000 });
@@ -385,24 +484,37 @@ test.describe('axe: CR-4 surfaces (spec section 12, NFR-30, US-61 AC-5)', () => 
         await expect(page.getByRole('button', { name: 'Done with this photo' })).toBeVisible();
       }
       await page.getByRole('button', { name: 'Close caption' }).click();
-      await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale());
+      await page.evaluate(() =>
+        (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale(),
+      );
       await expect(page.locator('.finale-card')).toBeVisible({ timeout: 30_000 });
       await page.waitForTimeout(800);
       await axe(page, 'cr4-visit-finale-390');
       await page.getByRole('button', { name: 'Keep exploring' }).click();
       await page.setViewportSize({ width: 320, height: 568 });
       await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
-      await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale());
+      await page.evaluate(() =>
+        (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale(),
+      );
       await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.replay());
-      await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale());
+      await page.evaluate(() =>
+        (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale(),
+      );
       await expect(page.locator('.finale-card')).toBeVisible({ timeout: 30_000 });
       await page.waitForTimeout(800);
       await axe(page, 'cr4-visit-finale-320-200pct');
     });
 
     test('the welcome screen, HUD trays and pill at 360x640 and 844x390', async ({ page, axe }) => {
-      const made = await createMuseum(page, { photos: 2, captions: ['One.', 'Two.'], closingMessage: 'Bye.' });
-      for (const vp of [{ width: 360, height: 640 }, { width: 844, height: 390 }]) {
+      const made = await createMuseum(page, {
+        photos: 2,
+        captions: ['One.', 'Two.'],
+        closingMessage: 'Bye.',
+      });
+      for (const vp of [
+        { width: 360, height: 640 },
+        { width: 844, height: 390 },
+      ]) {
         await page.setViewportSize(vp);
         await openVisit(page, made.shareToken);
         await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
@@ -416,7 +528,9 @@ test.describe('axe: CR-4 surfaces (spec section 12, NFR-30, US-61 AC-5)', () => 
 });
 
 test.describe('reflow at 200% text (US-52 AC-4, FR-83)', () => {
-  test('US-52 AC-4 (was BUG-17): at 320x640 with the root text at 200% the option tabs on step 3 can be reached', async ({ page }) => {
+  test('US-52 AC-4 (was BUG-17): at 320x640 with the root text at 200% the option tabs on step 3 can be reached', async ({
+    page,
+  }) => {
     test.setTimeout(150_000);
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('./#/create');
@@ -432,21 +546,30 @@ test.describe('reflow at 200% text (US-52 AC-4, FR-83)', () => {
     await page.getByRole('tab', { name: 'Hair', exact: true }).click({ timeout: 8000 });
   });
 
-  test('US-52 AC-4 (was BUG-16): step 1 with a photo has no horizontal scrolling at 320 px with the root text at 200%', async ({ page }) => {
+  test('US-52 AC-4 (was BUG-16): step 1 with a photo has no horizontal scrolling at 320 px with the root text at 200%', async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('./#/create');
     await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
     await addPhotos(page, makePhotos(1));
-    const overflow = (await page.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')) as number;
+    const overflow = (await page.evaluate(
+      'document.documentElement.scrollWidth - document.documentElement.clientWidth',
+    )) as number;
     expect(overflow, 'horizontal overflow in px').toBeLessThanOrEqual(0);
   });
 
-  test('the builder steps and the visit overlays have no horizontal scrolling at 320 px with the root text at 200%', async ({ page }) => {
+  test('the builder steps and the visit overlays have no horizontal scrolling at 320 px with the root text at 200%', async ({
+    page,
+  }) => {
     test.setTimeout(240_000);
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('./#/create');
     await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
-    const overflow = () => page.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth') as Promise<number>;
+    const overflow = () =>
+      page.evaluate(
+        'document.documentElement.scrollWidth - document.documentElement.clientWidth',
+      ) as Promise<number>;
     expect(await overflow(), 'step 1 empty').toBeLessThanOrEqual(0);
     await addPhotos(page, makePhotos(1));
     // (Step 1 with a photo in the list was BUG-16, fixed, and has its own test below.)
@@ -471,7 +594,10 @@ test.describe('reflow at 200% text (US-52 AC-4, FR-83)', () => {
     const clipped = await page.evaluate(() =>
       [...document.querySelectorAll('.stepper__item')]
         .filter((e) => (e as HTMLElement).offsetParent !== null)
-        .map((e) => ({ t: e.textContent?.trim(), over: (e as HTMLElement).scrollWidth - (e as HTMLElement).clientWidth }))
+        .map((e) => ({
+          t: e.textContent?.trim(),
+          over: (e as HTMLElement).scrollWidth - (e as HTMLElement).clientWidth,
+        }))
         .filter((x) => x.over > 1),
     );
     expect(clipped, 'stepper labels fit their segments').toEqual([]);

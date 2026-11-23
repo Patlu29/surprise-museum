@@ -31,7 +31,9 @@ const violations = (page: Page) =>
 
 test('the production CSP is present and allows blob: images and workers', async ({ page }) => {
   await page.goto('./');
-  const csp = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
+  const csp = await page
+    .locator('meta[http-equiv="Content-Security-Policy"]')
+    .getAttribute('content');
   expect(csp).toBeTruthy();
   expect(csp).toMatch(/img-src[^;]*blob:/);
   expect(csp).toMatch(/worker-src[^;]*blob:/);
@@ -60,14 +62,18 @@ test('blob: photos load under the CSP: builder thumbnails, preview wall textures
   await fillWords(page, {});
   const review = await page
     .locator('.review-thumbs img')
-    .evaluateAll((els) => els.map((el) => (el as unknown as { naturalWidth: number }).naturalWidth));
+    .evaluateAll((els) =>
+      els.map((el) => (el as unknown as { naturalWidth: number }).naturalWidth),
+    );
   expect(review.every((w) => w > 0)).toBe(true);
   // The preview builds wall textures from the same blob: URLs inside WebGL.
   await page.getByRole('button', { name: 'Preview' }).first().click();
   await page.getByRole('button', { name: 'Start' }).click();
   const snap = await waitForSnap(
     page,
-    (n) => Object.keys(n.photoStatus).length === 2 && Object.values(n.photoStatus).every((v) => v === 'loaded'),
+    (n) =>
+      Object.keys(n.photoStatus).length === 2 &&
+      Object.values(n.photoStatus).every((v) => v === 'loaded'),
     40_000,
     'blob: wall textures to load in the preview',
   );
@@ -75,14 +81,19 @@ test('blob: photos load under the CSP: builder thumbnails, preview wall textures
   expect(await violations(page), `${browserName} CSP violations`).toEqual([]);
 });
 
-test('photos served to the Visitor (the demo backend returns blob: URLs) load under the CSP', async ({ page, browserName }) => {
+test('photos served to the Visitor (the demo backend returns blob: URLs) load under the CSP', async ({
+  page,
+  browserName,
+}) => {
   const { createMuseum } = await import('./support/app');
   const made = await createMuseum(page, { photos: 2 });
   await openVisit(page, made.shareToken);
   await startVisit(page);
   const snap = await waitForSnap(
     page,
-    (n) => Object.values(n.photoStatus).length === 2 && Object.values(n.photoStatus).every((v) => v === 'loaded'),
+    (n) =>
+      Object.values(n.photoStatus).length === 2 &&
+      Object.values(n.photoStatus).every((v) => v === 'loaded'),
     40_000,
     'photos to load for the Visitor',
   );

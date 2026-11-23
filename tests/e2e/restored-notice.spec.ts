@@ -40,7 +40,11 @@ async function recordAnnouncements(page: Page) {
         if (text.trim()) g.__qaLive.push({ t: g.performance.now(), text });
       }
     };
-    new g.MutationObserver(read).observe(g.document, { subtree: true, childList: true, characterData: true });
+    new g.MutationObserver(read).observe(g.document, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
   });
 }
 const liveLog = (page: Page) =>
@@ -61,21 +65,35 @@ test.describe('CR-3 "Photos aren\'t kept" notice', () => {
     // No heading element inside the notice, so the step's heading outline is unchanged.
     await expect(notice(page).getByRole('heading')).toHaveCount(0);
     // The notice never takes focus on load (the step heading does, as for any step change).
-    const inside = await notice(page).evaluate((el) => el.contains((el.ownerDocument as unknown as { activeElement: unknown }).activeElement as never));
+    const inside = await notice(page).evaluate((el) =>
+      el.contains(
+        (el.ownerDocument as unknown as { activeElement: unknown }).activeElement as never,
+      ),
+    );
     expect(inside).toBe(false);
     problems.expectClean();
   });
 
-  test('N1: a real reload (not a seeded draft) after typing names shows it, and the saved draft holds no notice state', async ({ page }) => {
+  test('N1: a real reload (not a seeded draft) after typing names shows it, and the saved draft holds no notice state', async ({
+    page,
+  }) => {
     await page.goto('./?e2e=1#/create');
     await addPhotos(page, makePhotos(1));
     await page.getByRole('button', { name: 'Next' }).click();
     await page.getByLabel(/Who is this museum for/).fill('Real Reload');
     await expect(notice(page), 'not shown for a draft started in this page load').toHaveCount(0);
     await page.reload();
-    await expect(page.getByLabel(/Who is this museum for/)).toHaveValue('Real Reload', { timeout: 10_000 });
+    await expect(page.getByLabel(/Who is this museum for/)).toHaveValue('Real Reload', {
+      timeout: 10_000,
+    });
     await expect(notice(page)).toBeVisible();
-    const raw = await page.evaluate((k) => (globalThis as unknown as { localStorage: { getItem(k: string): string | null } }).localStorage.getItem(k), DRAFT_KEY);
+    const raw = await page.evaluate(
+      (k) =>
+        (
+          globalThis as unknown as { localStorage: { getItem(k: string): string | null } }
+        ).localStorage.getItem(k),
+      DRAFT_KEY,
+    );
     expect(raw).not.toMatch(/notice|dismiss/i);
   });
 
@@ -83,7 +101,11 @@ test.describe('CR-3 "Photos aren\'t kept" notice', () => {
     page,
   }) => {
     // Defaults only, step 1: nothing was lost.
-    await seedDraftAndOpen(page, { step: 1, guideAvatar: LEGACY_GUIDE_AVATAR, visitorAvatar: LEGACY_VISITOR_AVATAR });
+    await seedDraftAndOpen(page, {
+      step: 1,
+      guideAvatar: LEGACY_GUIDE_AVATAR,
+      visitorAvatar: LEGACY_VISITOR_AVATAR,
+    });
     await expect(heading(page, 'Photos')).toBeVisible();
     await expect(notice(page)).toHaveCount(0);
     // Whitespace-only text is not content.
@@ -100,7 +122,13 @@ test.describe('CR-3 "Photos aren\'t kept" notice', () => {
     // No draft at all.
     await page.goto('about:blank');
     await page.goto('./?e2e=1');
-    await page.evaluate((k) => (globalThis as unknown as { localStorage: { removeItem(k: string): void } }).localStorage.removeItem(k), DRAFT_KEY);
+    await page.evaluate(
+      (k) =>
+        (
+          globalThis as unknown as { localStorage: { removeItem(k: string): void } }
+        ).localStorage.removeItem(k),
+      DRAFT_KEY,
+    );
     await page.goto('about:blank');
     await page.goto('./?e2e=1#/create');
     await expect(heading(page, 'Photos')).toBeVisible();
@@ -114,7 +142,10 @@ test.describe('CR-3 "Photos aren\'t kept" notice', () => {
       ['a title', { step: 1, title: 'Our year' }],
       ['a closing message', { step: 1, closingMessage: 'Love you' }],
       ['a Guide gender', { step: 1, guideAvatar: { ...LEGACY_GUIDE_AVATAR, gender: 'feminine' } }],
-      ['a Visitor beard', { step: 1, visitorAvatar: { ...LEGACY_VISITOR_AVATAR, facialHair: 'goatee' } }],
+      [
+        'a Visitor beard',
+        { step: 1, visitorAvatar: { ...LEGACY_VISITOR_AVATAR, facialHair: 'goatee' } },
+      ],
       ['a later saved step', { step: 2 }],
     ];
     for (const [label, seed] of cases) {
@@ -149,7 +180,9 @@ test.describe('CR-3 "Photos aren\'t kept" notice', () => {
     await page.getByRole('button', { name: /Publish museum/ }).click();
     await expect(page.getByText('Add at least one photo.').first()).toBeVisible();
     await expect(notice(page)).toBeVisible();
-    const noticeFirst = await page.evaluate(`(() => { const d = globalThis.document; const n = d.querySelector('.restored-notice'); const a = d.querySelector('main .alert, main [role=alert], main .alert--danger'); return a ? !!(n.compareDocumentPosition(a) & 4) : null; })()`);
+    const noticeFirst = await page.evaluate(
+      `(() => { const d = globalThis.document; const n = d.querySelector('.restored-notice'); const a = d.querySelector('main .alert, main [role=alert], main .alert--danger'); return a ? !!(n.compareDocumentPosition(a) & 4) : null; })()`,
+    );
     expect(noticeFirst, 'the notice comes before the error summary').not.toBe(false);
     // Back to step 2 keeps it and does not duplicate it.
     await page.getByRole('button', { name: 'Back', exact: true }).click();
@@ -165,7 +198,9 @@ test.describe('CR-3 "Photos aren\'t kept" notice', () => {
     await expect(notice(page).getByRole('button', { name: 'Add photos' })).toHaveCount(0);
   });
 
-  test('N4: Dismiss is a 44 px button; it removes the notice for this page load, moves focus to the step heading and is silent', async ({ page }) => {
+  test('N4: Dismiss is a 44 px button; it removes the notice for this page load, moves focus to the step heading and is silent', async ({
+    page,
+  }) => {
     await recordAnnouncements(page);
     await seedDraftAndOpen(page, { step: 3, visitorName: 'Alex', guideName: 'Sam' });
     const dismiss = notice(page).getByRole('button', { name: 'Dismiss notice' });
@@ -192,11 +227,19 @@ test.describe('CR-3 "Photos aren\'t kept" notice', () => {
     await expect(notice(page)).toBeVisible();
   });
 
-  test('N5: the notice is announced once, politely, after the step announcement; not again on step changes', async ({ page }) => {
+  test('N5: the notice is announced once, politely, after the step announcement; not again on step changes', async ({
+    page,
+  }) => {
     await recordAnnouncements(page);
     await seedDraftAndOpen(page, { step: 3, visitorName: 'Alex', guideName: 'Sam' });
     await expect(notice(page)).toBeVisible();
-    await expect.poll(async () => (await liveLog(page)).filter((e) => e.text.includes("Photos aren't kept")).length, { timeout: 5000 }).toBe(1);
+    await expect
+      .poll(
+        async () =>
+          (await liveLog(page)).filter((e) => e.text.includes("Photos aren't kept")).length,
+        { timeout: 5000 },
+      )
+      .toBe(1);
     const log = await liveLog(page);
     const noticeAt = log.findIndex((e) => e.text.includes("Photos aren't kept"));
     expect(log[noticeAt]!.text).toContain(`${LINE_1} ${LINE_2}`);
@@ -211,10 +254,14 @@ test.describe('CR-3 "Photos aren\'t kept" notice', () => {
     await page.getByRole('button', { name: 'Next' }).click();
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await page.waitForTimeout(1500);
-    expect((await liveLog(page)).filter((e) => e.text.includes("Photos aren't kept")).length).toBe(1);
+    expect((await liveLog(page)).filter((e) => e.text.includes("Photos aren't kept")).length).toBe(
+      1,
+    );
   });
 
-  test('N6: the notice disappears the moment a photo is added, silently, and does not return after the photo is removed', async ({ page }) => {
+  test('N6: the notice disappears the moment a photo is added, silently, and does not return after the photo is removed', async ({
+    page,
+  }) => {
     await recordAnnouncements(page);
     await seedDraftAndOpen(page, { step: 1, visitorName: 'Alex' });
     await expect(notice(page)).toBeVisible();
@@ -224,27 +271,50 @@ test.describe('CR-3 "Photos aren\'t kept" notice', () => {
     await expect(page.locator('.photo-list > li')).toHaveCount(1, { timeout: 30_000 });
     // Gone when the row is created, without waiting for the upload to finish.
     await expect(notice(page)).toHaveCount(0, { timeout: 3000 });
-    const flag = await page.evaluate(`globalThis.__APP_TEST__.useBuilderStore.getState().restoredDraftNotice`);
+    const flag = await page.evaluate(
+      `globalThis.__APP_TEST__.useBuilderStore.getState().restoredDraftNotice`,
+    );
     expect(flag).toBe(false);
     await expect(page.locator('.photo-row__status--ready')).toHaveCount(1, { timeout: 90_000 });
-    expect((await liveLog(page)).slice(before).filter((e) => e.text.includes("Photos aren't kept")), 'removal is silent').toHaveLength(0);
-    await page.locator('.photo-row').first().getByRole('button', { name: /^Remove/ }).click();
-    await page.getByRole('group', { name: 'Remove photo 1' }).getByRole('button', { name: 'Remove' }).click();
+    expect(
+      (await liveLog(page)).slice(before).filter((e) => e.text.includes("Photos aren't kept")),
+      'removal is silent',
+    ).toHaveLength(0);
+    await page
+      .locator('.photo-row')
+      .first()
+      .getByRole('button', { name: /^Remove/ })
+      .click();
+    await page
+      .getByRole('group', { name: 'Remove photo 1' })
+      .getByRole('button', { name: 'Remove' })
+      .click();
     await expect(page.locator('.photo-row')).toHaveCount(0);
     await expect(notice(page)).toHaveCount(0);
   });
 
-  test('N7: the notice wraps cleanly with no horizontal scroll at 320 px and does not cover the action bar', async ({ page }) => {
+  test('N7: the notice wraps cleanly with no horizontal scroll at 320 px and does not cover the action bar', async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await seedDraftAndOpen(page, { step: 3, visitorName: 'Alex', guideName: 'Sam' });
     await expect(notice(page)).toBeVisible();
-    const overflow = await page.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth');
+    const overflow = await page.evaluate(
+      'document.documentElement.scrollWidth - document.documentElement.clientWidth',
+    );
     expect(overflow).toBeLessThanOrEqual(0);
     const n = (await notice(page).boundingBox())!;
     expect(n.x).toBeGreaterThanOrEqual(0);
     expect(n.x + n.width).toBeLessThanOrEqual(320);
     // It scrolls with the content: it is not sticky or fixed, so it never covers a control (WCAG 2.4.11).
-    const position = await notice(page).evaluate((el) => (el.ownerDocument as unknown as { defaultView: { getComputedStyle(e: unknown): { position: string } } }).defaultView.getComputedStyle(el).position);
+    const position = await notice(page).evaluate(
+      (el) =>
+        (
+          el.ownerDocument as unknown as {
+            defaultView: { getComputedStyle(e: unknown): { position: string } };
+          }
+        ).defaultView.getComputedStyle(el).position,
+    );
     expect(['static', 'relative']).toContain(position);
   });
 });

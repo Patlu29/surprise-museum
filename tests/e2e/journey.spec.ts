@@ -54,7 +54,9 @@ test('the full journey: build, preview, publish, visit, roam, present, view, jum
   // Publish.
   await page.getByRole('checkbox', { name: /I have the right to share/ }).check();
   await page.getByRole('button', { name: /Publish museum/ }).click();
-  await expect(page.getByRole('heading', { name: 'Your museum is ready' })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('heading', { name: 'Your museum is ready' })).toBeVisible({
+    timeout: 60_000,
+  });
   const share = await page.getByRole('textbox', { name: 'Share link' }).inputValue();
   const edit = await page.getByRole('textbox', { name: 'Private edit link' }).inputValue();
   await page.getByRole('checkbox', { name: /saved my edit link/ }).check();
@@ -74,7 +76,12 @@ test('the full journey: build, preview, publish, visit, roam, present, view, jum
   await page.keyboard.up('w');
   // Walk to the first picture; the Guide comes and presents it.
   await page.evaluate(
-    ([x, z]) => (globalThis as unknown as PageGlobals).__surpriseMuseum!.walkVisitorTo(x as number, z as number, 60_000),
+    ([x, z]) =>
+      (globalThis as unknown as PageGlobals).__surpriseMuseum!.walkVisitorTo(
+        x as number,
+        z as number,
+        60_000,
+      ),
     [l.slots[0]!.standingSpot.x, l.slots[0]!.standingSpot.z] as const,
   );
   await waitForSnap(page, (n) => n.guide.mode === 'present', 40_000, 'the Guide to present');
@@ -90,13 +97,24 @@ test('the full journey: build, preview, publish, visit, roam, present, view, jum
   await expect(viewer).toBeHidden();
   // Pictures list: jump to photo 3.
   await page.getByRole('button', { name: 'Pictures' }).click();
-  await page.getByRole('dialog', { name: 'Pictures' }).getByRole('button', { name: /Photo 3/ }).click();
-  await waitForSnap(page, (n) => n.intent === `photo:${l.slots[2]!.photoId}`, 30_000, 'photo 3 to be presented');
+  await page
+    .getByRole('dialog', { name: 'Pictures' })
+    .getByRole('button', { name: /Photo 3/ })
+    .click();
+  await waitForSnap(
+    page,
+    (n) => n.intent === `photo:${l.slots[2]!.photoId}`,
+    30_000,
+    'photo 3 to be presented',
+  );
   await expect(card).toContainText('Dinner at Nonna’s.');
   expect((await snap(page)).guide.presentation).toBeDefined();
   // Finale and Replay.
   await page.getByRole('button', { name: 'Pictures' }).click();
-  await page.getByRole('dialog', { name: 'Pictures' }).getByRole('button', { name: /Finale/ }).click();
+  await page
+    .getByRole('dialog', { name: 'Pictures' })
+    .getByRole('button', { name: /Finale/ })
+    .click();
   const finale = page.locator('.finale-card');
   await expect(finale).toContainText('Happy birthday, Mia.');
   await expect(finale).toContainText('Love, Dad');

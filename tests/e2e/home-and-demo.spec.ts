@@ -5,10 +5,14 @@ import { makePhotos } from './support/images';
 /** The home screen, legal pages, the "Report a problem" footer link and the demo-storage notice. */
 
 test.describe('home', () => {
-  test('US-1 AC-1: the home screen loads without sign-in and starts the builder', async ({ page }) => {
+  test('US-1 AC-1: the home screen loads without sign-in and starts the builder', async ({
+    page,
+  }) => {
     const problems = trackProblems(page);
     await page.goto('./');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Turn your photos into a little museum');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Turn your photos into a little museum',
+    );
     await expect(page.getByRole('link', { name: 'Create a museum' })).toBeVisible();
     await expect(page.getByText(/sign in|log in|password/i)).toHaveCount(0);
     problems.expectClean();
@@ -21,7 +25,10 @@ test.describe('home', () => {
     await page.goto('./');
     const footer = page.getByRole('navigation', { name: 'Footer' });
     const report = footer.getByRole('link', { name: 'Report a problem' });
-    await expect(report).toHaveAttribute('href', 'https://github.com/Patlu29/surprise-museum/issues');
+    await expect(report).toHaveAttribute(
+      'href',
+      'https://github.com/Patlu29/surprise-museum/issues',
+    );
     await expect(report).toHaveAttribute('target', '_blank');
     await expect(report).toHaveAttribute('rel', /noopener/);
     await expect(report).toHaveAttribute('rel', /noreferrer/);
@@ -35,11 +42,14 @@ test.describe('home', () => {
     void context;
   });
 
-  test('NFR-13: no third-party requests are made by the home, builder or a visit', async ({ page }) => {
+  test('NFR-13: no third-party requests are made by the home, builder or a visit', async ({
+    page,
+  }) => {
     const external: string[] = [];
     page.on('request', (request) => {
       const url = request.url();
-      if (!url.startsWith('http://localhost') && !/^(blob|data|about):/.test(url)) external.push(url);
+      if (!url.startsWith('http://localhost') && !/^(blob|data|about):/.test(url))
+        external.push(url);
     });
     await page.goto('./');
     await page.getByRole('link', { name: 'Create a museum' }).click();
@@ -68,11 +78,16 @@ test.describe('demo storage notice (mock backend)', () => {
     await expect(page.getByText(/\(1 museum, 2 photos\)/)).toBeVisible();
   });
 
-  test('clearing demo data in the builder keeps the draft and uploads the photos again', async ({ page }) => {
+  test('clearing demo data in the builder keeps the draft and uploads the photos again', async ({
+    page,
+  }) => {
     await page.goto('./#/create');
     await addPhotos(page, makePhotos(2));
     await page.getByRole('button', { name: 'Clear demo data' }).click();
-    await page.getByRole('alertdialog').getByRole('button', { name: /^Clear/ }).click();
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: /^Clear/ })
+      .click();
     await expect(page.getByRole('alertdialog')).toBeHidden({ timeout: 15_000 });
     // Rows are still there and end up ready again; storage shows the new copy.
     await expect(page.locator('.photo-list > li')).toHaveCount(2);

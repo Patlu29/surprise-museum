@@ -318,7 +318,9 @@ export function chooseCaptionDock(input: DockInputs): Placement {
 /** Candidates better than `placement` that are clear at the upgrade margin (16 px), best first. */
 export function clearUpgradeCandidates(placement: Placement, input: DockInputs): Candidate[] {
   return candidatesFor(input, UPGRADE_CLEARANCE).filter(
-    (candidate) => candidate.rank < placement.rank && isClear(candidate.rect, input, UPGRADE_CLEARANCE, UPGRADE_KEEP_OUT_CLEARANCE),
+    (candidate) =>
+      candidate.rank < placement.rank &&
+      isClear(candidate.rect, input, UPGRADE_CLEARANCE, UPGRADE_KEEP_OUT_CLEARANCE),
   );
 }
 

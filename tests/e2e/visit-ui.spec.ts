@@ -43,7 +43,9 @@ test.describe('US-16 view a picture full-screen', () => {
     const viewer = page.getByRole('dialog', { name: 'Photo 1 of 4' });
     await expect(viewer).toBeVisible();
     await expect(viewer).toContainText('Caption one: a day at the beach.');
-    await expect(viewer.getByRole('img', { name: 'Caption one: a day at the beach.' })).toBeVisible();
+    await expect(
+      viewer.getByRole('img', { name: 'Caption one: a day at the beach.' }),
+    ).toBeVisible();
     const before = await snap(page);
     await viewer.getByRole('button', { name: 'Close photo' }).click();
     await expect(viewer).toBeHidden();
@@ -58,9 +60,14 @@ test.describe('US-16 view a picture full-screen', () => {
     expect(dist(after.visitor, before.visitor)).toBeLessThan(0.3);
   });
 
-  test('US-16 AC-1: clicking or tapping a picture in the 3D view opens it', async ({ page, hasTouch }) => {
+  test('US-16 AC-1: clicking or tapping a picture in the 3D view opens it', async ({
+    page,
+    hasTouch,
+  }) => {
     // standAtPhoto is a jump, so the camera faces the picture as it does in the app.
-    await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtPhoto(0));
+    await page.evaluate(() =>
+      (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtPhoto(0),
+    );
     await waitForSnap(page, (n) => n.guide.mode === 'present', 30_000, 'the Guide to present');
     await page.getByRole('button', { name: 'Close caption' }).click();
     // Scan the canvas for the picture; the click is a real pointer click on the 3D scene.
@@ -84,10 +91,17 @@ test.describe('US-16 view a picture full-screen', () => {
     await expect(viewer).toContainText('Photo 1 of 4');
   });
 
-  test('US-16 AC-2: the scroll wheel zooms the picture in and Reset zoom restores it', async ({ page, browserName, isMobile }) => {
+  test('US-16 AC-2: the scroll wheel zooms the picture in and Reset zoom restores it', async ({
+    page,
+    browserName,
+    isMobile,
+  }) => {
     const noWheel = browserName === 'webkit' && isMobile; // Playwright has no wheel in mobile WebKit
     await presentPhoto(page, 0);
-    await page.getByRole('button', { name: /Look closer/i }).first().click();
+    await page
+      .getByRole('button', { name: /Look closer/i })
+      .first()
+      .click();
     const image = page.locator('.viewer__image');
     await expect(image).toHaveClass(/is-loaded/);
     const scaleOf = async () =>
@@ -139,7 +153,10 @@ test.describe('US-16 view a picture full-screen', () => {
   }) => {
     await presentPhoto(page, 0);
     await breakFullPicture(page);
-    await page.getByRole('button', { name: /Look closer/i }).first().click();
+    await page
+      .getByRole('button', { name: /Look closer/i })
+      .first()
+      .click();
     // Placeholder (the blurred LQIP) is there while the full picture is not.
     await expect(page.locator('.viewer__lqip')).toBeVisible();
     const error = page.getByRole('alert').filter({ hasText: "We couldn't load this photo" });
@@ -147,11 +164,18 @@ test.describe('US-16 view a picture full-screen', () => {
     await expect(error.getByRole('button', { name: 'Try again' })).toBeVisible();
   });
 
-  test('US-16 AC-5 (keyboard): Try again re-requests the picture and shows it', async ({ page }) => {
+  test('US-16 AC-5 (keyboard): Try again re-requests the picture and shows it', async ({
+    page,
+  }) => {
     await presentPhoto(page, 0);
     const broken = await breakFullPicture(page);
-    await page.getByRole('button', { name: /Look closer/i }).first().click();
-    await expect(page.getByRole('alert').filter({ hasText: "We couldn't load this photo" })).toBeVisible();
+    await page
+      .getByRole('button', { name: /Look closer/i })
+      .first()
+      .click();
+    await expect(
+      page.getByRole('alert').filter({ hasText: "We couldn't load this photo" }),
+    ).toBeVisible();
     broken.allow();
     await page.getByRole('button', { name: 'Try again' }).focus();
     await page.keyboard.press('Enter');
@@ -160,11 +184,18 @@ test.describe('US-16 view a picture full-screen', () => {
 
   // BUG-2: a pointer press on Try again is treated as a tap on the dark background by the viewer's
   // stage handler, so the viewer closes instead of retrying. Expected to fail until fixed.
-  test('US-16 AC-5 (BUG-2): clicking or tapping Try again retries and keeps the viewer open', async ({ page }) => {
+  test('US-16 AC-5 (BUG-2): clicking or tapping Try again retries and keeps the viewer open', async ({
+    page,
+  }) => {
     await presentPhoto(page, 0);
     const broken = await breakFullPicture(page);
-    await page.getByRole('button', { name: /Look closer/i }).first().click();
-    await expect(page.getByRole('alert').filter({ hasText: "We couldn't load this photo" })).toBeVisible();
+    await page
+      .getByRole('button', { name: /Look closer/i })
+      .first()
+      .click();
+    await expect(
+      page.getByRole('alert').filter({ hasText: "We couldn't load this photo" }),
+    ).toBeVisible();
     broken.allow();
     await page.getByRole('button', { name: 'Try again' }).click();
     await expect(page.locator('.viewer__image')).toHaveClass(/is-loaded/, { timeout: 5_000 });
@@ -184,13 +215,25 @@ test.describe('US-44 jump to a picture (the Pictures list)', () => {
     await expect(sheet.getByRole('button')).toHaveCount(5 + 1); // 4 pictures, the finale, and Close
     await sheet.getByRole('button', { name: /Photo 3/ }).click();
     await expect(sheet).toBeHidden();
-    const s = await waitForSnap(page, (n) => n.intent === `photo:${l.slots[2]!.photoId}`, 20_000, 'photo 3 to be presented');
+    const s = await waitForSnap(
+      page,
+      (n) => n.intent === `photo:${l.slots[2]!.photoId}`,
+      20_000,
+      'photo 3 to be presented',
+    );
     expect(dist(s.visitor, l.slots[2]!.standingSpot)).toBeLessThan(1);
     await expect(page.locator('.caption-card')).toContainText('Caption three.');
   });
 
-  test('US-44 AC-2: the list works with the keyboard alone (P opens it, Tab moves, Enter selects)', async ({ page, browserName, isMobile }) => {
-    test.skip(browserName === 'webkit' && isMobile, 'the iPhone emulation does not Tab to buttons (iOS needs Full Keyboard Access); desktop WebKit and Chromium cover it');
+  test('US-44 AC-2: the list works with the keyboard alone (P opens it, Tab moves, Enter selects)', async ({
+    page,
+    browserName,
+    isMobile,
+  }) => {
+    test.skip(
+      browserName === 'webkit' && isMobile,
+      'the iPhone emulation does not Tab to buttons (iOS needs Full Keyboard Access); desktop WebKit and Chromium cover it',
+    );
     const l = await layout(page);
     await page.locator('.scene-root').focus();
     await page.keyboard.press('p');
@@ -203,10 +246,17 @@ test.describe('US-44 jump to a picture (the Pictures list)', () => {
     await page.keyboard.press('Tab');
     await page.keyboard.press('Enter');
     await expect(sheet).toBeHidden();
-    await waitForSnap(page, (n) => n.intent === `photo:${l.slots[2]!.photoId}`, 20_000, 'photo 3 to be presented');
+    await waitForSnap(
+      page,
+      (n) => n.intent === `photo:${l.slots[2]!.photoId}`,
+      20_000,
+      'photo 3 to be presented',
+    );
   });
 
-  test('US-44 AC-3: pictures that have been viewed are marked "Viewed" in words', async ({ page }) => {
+  test('US-44 AC-3: pictures that have been viewed are marked "Viewed" in words', async ({
+    page,
+  }) => {
     await presentPhoto(page, 0);
     await page.getByRole('button', { name: 'Pictures' }).click();
     const sheet = page.getByRole('dialog', { name: 'Pictures' });
@@ -218,7 +268,10 @@ test.describe('US-44 jump to a picture (the Pictures list)', () => {
 
   test('US-44: the Finale entry in the list takes her to the closing message', async ({ page }) => {
     await page.getByRole('button', { name: 'Pictures' }).click();
-    await page.getByRole('dialog', { name: 'Pictures' }).getByRole('button', { name: /Finale/ }).click();
+    await page
+      .getByRole('dialog', { name: 'Pictures' })
+      .getByRole('button', { name: /Finale/ })
+      .click();
     await expect(page.locator('.finale-card')).toBeVisible({ timeout: 20_000 });
   });
 });
@@ -233,17 +286,23 @@ test.describe('US-35 hint and progress', () => {
     const hint = page.getByRole('button', { name: 'Where next?' });
     await hint.focus();
     await page.keyboard.press('Enter');
-    await expect.poll(() => sessionState(page, (s) => s.hint !== null), { timeout: 10_000 }).toBe(true);
+    await expect
+      .poll(() => sessionState(page, (s) => s.hint !== null), { timeout: 10_000 })
+      .toBe(true);
     const hintInfo = await sessionState(page, (s) => s.hint);
     expect(hintInfo.target.kind).toBe('photo');
     const after = await snap(page);
     expect(dist(after.visitor, before.visitor)).toBeLessThan(0.05);
     expect(Math.abs(after.camera.yaw - before.camera.yaw)).toBeLessThan(0.01);
     // It fades by itself and never blocks her.
-    await expect.poll(() => sessionState(page, (s) => s.hint === null), { timeout: 12_000 }).toBe(true);
+    await expect
+      .poll(() => sessionState(page, (s) => s.hint === null), { timeout: 12_000 })
+      .toBe(true);
   });
 
-  test('US-35 AC-3: the progress count increases when a new picture is presented', async ({ page }) => {
+  test('US-35 AC-3: the progress count increases when a new picture is presented', async ({
+    page,
+  }) => {
     await expect(page.locator('.hud-pill')).toContainText('0 of 4');
     await presentPhoto(page, 0);
     await expect(page.locator('.hud-pill')).toContainText('1 of 4');
@@ -251,7 +310,9 @@ test.describe('US-35 hint and progress', () => {
     await expect(page.locator('.hud-pill')).toContainText('2 of 4');
   });
 
-  test('US-43 AC-1: once everything is viewed the hint button says "To the finale"', async ({ page }) => {
+  test('US-43 AC-1: once everything is viewed the hint button says "To the finale"', async ({
+    page,
+  }) => {
     for (const i of [0, 1, 2, 3]) await presentPhoto(page, i);
     await expect(page.getByRole('button', { name: 'To the finale' })).toBeVisible();
   });
@@ -275,7 +336,12 @@ test.describe('WCAG 2.5.7 and US-34 on-screen controls and settings', () => {
     const box = (await forward.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
-    await waitForSnap(page, (n) => n.visitor.z < before.visitor.z - 0.4, 12_000, 'her to walk forward');
+    await waitForSnap(
+      page,
+      (n) => n.visitor.z < before.visitor.z - 0.4,
+      12_000,
+      'her to walk forward',
+    );
     await page.mouse.up();
     const turn = pad.getByRole('button', { name: 'Turn view right' });
     const tbox = (await turn.boundingBox())!;
@@ -288,7 +354,10 @@ test.describe('WCAG 2.5.7 and US-34 on-screen controls and settings', () => {
     // Every arrow button is a comfortable target (WCAG 2.5.8 needs 24, the design spec asks for 44).
     for (const button of await pad.getByRole('button').all()) {
       const b = (await button.boundingBox())!;
-      expect(b.width, (await button.getAttribute('aria-label')) ?? 'arrow button').toBeGreaterThanOrEqual(44);
+      expect(
+        b.width,
+        (await button.getAttribute('aria-label')) ?? 'arrow button',
+      ).toBeGreaterThanOrEqual(44);
       expect(b.height).toBeGreaterThanOrEqual(44);
     }
   });
@@ -299,18 +368,28 @@ test.describe('WCAG 2.5.7 and US-34 on-screen controls and settings', () => {
     const size = async (): Promise<number> =>
       text.evaluate((el) =>
         Number.parseFloat(
-          (globalThis as unknown as { getComputedStyle(e: unknown): { fontSize: string } }).getComputedStyle(el).fontSize,
+          (
+            globalThis as unknown as { getComputedStyle(e: unknown): { fontSize: string } }
+          ).getComputedStyle(el).fontSize,
         ),
       );
     const normal = await size();
     await page.getByRole('button', { name: 'Settings' }).click();
-    await page.getByRole('dialog', { name: 'Settings' }).getByRole('radio', { name: 'Extra large' }).check();
+    await page
+      .getByRole('dialog', { name: 'Settings' })
+      .getByRole('radio', { name: 'Extra large' })
+      .check();
     await expect.poll(size).toBeGreaterThan(normal + 2);
   });
 
-  test('US-32 AC-2 (settings): choosing Reduce motion sets the page to reduced motion', async ({ page }) => {
+  test('US-32 AC-2 (settings): choosing Reduce motion sets the page to reduced motion', async ({
+    page,
+  }) => {
     await page.getByRole('button', { name: 'Settings' }).click();
-    await page.getByRole('dialog', { name: 'Settings' }).getByRole('radio', { name: 'Reduce' }).check();
+    await page
+      .getByRole('dialog', { name: 'Settings' })
+      .getByRole('radio', { name: 'Reduce' })
+      .check();
     await expect(page.locator('html')).toHaveAttribute('data-motion', 'reduce');
   });
 
@@ -332,13 +411,28 @@ test.describe('US-30 a photo that fails to load', () => {
   }) => {
     const l = await layout(page);
     const first = l.slots[0]!;
-    await page.evaluate((id) => (globalThis as unknown as PageGlobals).__surpriseMuseum!.failPhoto(id), first.photoId);
-    await waitForSnap(page, (n) => n.photoStatus[first.photoId] === 'failed', 10_000, 'the photo to fail');
     await page.evaluate(
-      ([x, z, h]) => (globalThis as unknown as PageGlobals).__surpriseMuseum!.teleportVisitor(x as number, z as number, h as number),
+      (id) => (globalThis as unknown as PageGlobals).__surpriseMuseum!.failPhoto(id),
+      first.photoId,
+    );
+    await waitForSnap(
+      page,
+      (n) => n.photoStatus[first.photoId] === 'failed',
+      10_000,
+      'the photo to fail',
+    );
+    await page.evaluate(
+      ([x, z, h]) =>
+        (globalThis as unknown as PageGlobals).__surpriseMuseum!.teleportVisitor(
+          x as number,
+          z as number,
+          h as number,
+        ),
       [first.standingSpot.x, first.standingSpot.z, FACE_LEFT_WALL] as const,
     );
-    await expect(page.locator('.hud-chip--action')).toContainText('Photo 1 did not load.', { timeout: 10_000 });
+    await expect(page.locator('.hud-chip--action')).toContainText('Photo 1 did not load.', {
+      timeout: 10_000,
+    });
     // The Guide still presents the caption.
     await waitForSnap(page, (n) => n.guide.mode === 'present', 30_000, 'the Guide to present');
     await expect(page.locator('.caption-card')).toContainText('Caption one');
@@ -346,19 +440,36 @@ test.describe('US-30 a photo that fails to load', () => {
     const before = await snap(page);
     await page.locator('.scene-root').focus();
     await page.keyboard.down('d');
-    await waitForSnap(page, (n) => Math.abs(n.visitor.x - before.visitor.x) > 0.3, 12_000, 'her to move');
+    await waitForSnap(
+      page,
+      (n) => Math.abs(n.visitor.x - before.visitor.x) > 0.3,
+      12_000,
+      'her to move',
+    );
     await page.keyboard.up('d');
     // Retry loads it.
     await page.getByRole('button', { name: 'Retry' }).click();
-    await waitForSnap(page, (n) => n.photoStatus[first.photoId] === 'loaded', 20_000, 'the photo to load on retry');
+    await waitForSnap(
+      page,
+      (n) => n.photoStatus[first.photoId] === 'loaded',
+      20_000,
+      'the photo to load on retry',
+    );
     await expect(page.locator('.hud-chip--action')).toHaveCount(0);
   });
 });
 
 test.describe('US-31 WebGL is unavailable or lost', () => {
-  test('US-31 AC-1: without WebGL she sees a plain-language message and a way out', async ({ page, museum }) => {
+  test('US-31 AC-1: without WebGL she sees a plain-language message and a way out', async ({
+    page,
+    museum,
+  }) => {
     await page.addInitScript(() => {
-      const proto = (globalThis as unknown as { HTMLCanvasElement: { prototype: { getContext: (...a: unknown[]) => unknown } } }).HTMLCanvasElement.prototype;
+      const proto = (
+        globalThis as unknown as {
+          HTMLCanvasElement: { prototype: { getContext: (...a: unknown[]) => unknown } };
+        }
+      ).HTMLCanvasElement.prototype;
       const original = proto.getContext;
       proto.getContext = function (this: unknown, type: unknown, ...rest: unknown[]) {
         if (typeof type === 'string' && /webgl/i.test(type)) return null;
@@ -366,7 +477,9 @@ test.describe('US-31 WebGL is unavailable or lost', () => {
       };
     });
     await openVisit(page, museum.shareToken);
-    await expect(page.getByRole('heading', { name: "This device can't show the 3D museum" })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: "This device can't show the 3D museum" }),
+    ).toBeVisible();
     await expect(page.getByText(/Try the latest Chrome, Safari, Edge or Firefox/)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Go to the home page' })).toBeVisible();
     await expect(page.locator('canvas')).toHaveCount(0);
@@ -401,7 +514,10 @@ test.describe('US-33 portrait, landscape and small screens', () => {
     [400, 860],
     [440, 900],
   ] as const) {
-    test(`US-33 AC-1: every HUD control is fully on screen at ${width}x${height}`, async ({ page, museum }) => {
+    test(`US-33 AC-1: every HUD control is fully on screen at ${width}x${height}`, async ({
+      page,
+      museum,
+    }) => {
       // BUG-4 (fixed): at 412 px wide the Help button was pushed past the right edge. 320, 400 and 440
       // cover the narrowest phone and both sides of the 400 px label breakpoint.
       await page.setViewportSize({ width, height });
@@ -412,7 +528,9 @@ test.describe('US-33 portrait, landscape and small screens', () => {
         if (!(await button.isVisible())) continue;
         const b = (await button.boundingBox())!;
         if (b.x < -0.5 || b.x + b.width > width + 0.5) {
-          off.push(`${(await button.getAttribute('aria-label')) ?? (await button.innerText())} x=${Math.round(b.x)} w=${Math.round(b.width)}`);
+          off.push(
+            `${(await button.getAttribute('aria-label')) ?? (await button.innerText())} x=${Math.round(b.x)} w=${Math.round(b.width)}`,
+          );
         }
       }
       expect(off, 'HUD buttons cut off by the screen edge').toEqual([]);
@@ -440,7 +558,10 @@ test.describe('US-33 portrait, landscape and small screens', () => {
     await expect(page.locator('.hud-pill')).toContainText('1 of 4');
   });
 
-  test('US-33 AC-3: every control is at least 44 x 44 CSS px at 360 x 640', async ({ page, museum }) => {
+  test('US-33 AC-3: every control is at least 44 x 44 CSS px at 360 x 640', async ({
+    page,
+    museum,
+  }) => {
     await page.setViewportSize({ width: 360, height: 640 });
     await enter(page, museum.shareToken);
     await presentPhoto(page, 0);
@@ -450,7 +571,9 @@ test.describe('US-33 portrait, landscape and small screens', () => {
       if (!(await button.isVisible())) continue;
       const b = (await button.boundingBox())!;
       if (b.width < 43.5 || b.height < 43.5) {
-        small.push(`${(await button.getAttribute('aria-label')) ?? (await button.innerText())} ${Math.round(b.width)}x${Math.round(b.height)}`);
+        small.push(
+          `${(await button.getAttribute('aria-label')) ?? (await button.innerText())} ${Math.round(b.width)}x${Math.round(b.height)}`,
+        );
       }
     }
     expect(small, 'targets under 44 x 44').toEqual([]);

@@ -24,12 +24,21 @@ export const VIEWPORTS: Viewport[] = [
 ];
 
 /** Open the museum at a viewport and press Start. */
-export async function enterVisit(page: Page, token: string, vp: { width: number; height: number }): Promise<void> {
+export async function enterVisit(
+  page: Page,
+  token: string,
+  vp: { width: number; height: number },
+): Promise<void> {
   await page.setViewportSize({ width: vp.width, height: vp.height });
   await openVisit(page, token);
   await startVisit(page);
   // Let the arrival settle (the Guide and the camera) before a test starts its own clock.
-  await waitForSnap(page, (s) => s.guide.opacity >= 1 && s.presentationCamera.mode === 'follow', 30_000, 'the arrival to settle');
+  await waitForSnap(
+    page,
+    (s) => s.guide.opacity >= 1 && s.presentationCamera.mode === 'follow',
+    30_000,
+    'the arrival to settle',
+  );
 }
 
 export interface CamSample {
@@ -91,7 +100,9 @@ export async function startRecording(page: Page): Promise<void> {
 }
 
 export async function stopRecording(page: Page): Promise<CamRecord> {
-  return page.evaluate(`(() => { globalThis.__qaCamStop = true; return globalThis.__qaCam; })()`) as Promise<CamRecord>;
+  return page.evaluate(
+    `(() => { globalThis.__qaCamStop = true; return globalThis.__qaCam; })()`,
+  ) as Promise<CamRecord>;
 }
 
 export async function readRecording(page: Page): Promise<CamRecord> {
@@ -102,7 +113,10 @@ export async function readRecording(page: Page): Promise<CamRecord> {
  * Peak turning speed (degrees per second, simulation time) over consecutive samples that both satisfy `inRun`,
  * from the per-frame `shownYawDeg`. Frames that share a simulation time are skipped.
  */
-export function peakYawRate(rec: CamRecord, inRun: (s: CamSample) => boolean): { peak: number; frames: number } {
+export function peakYawRate(
+  rec: CamRecord,
+  inRun: (s: CamSample) => boolean,
+): { peak: number; frames: number } {
   let peak = 0;
   let frames = 0;
   for (let i = 1; i < rec.samples.length; i++) {
@@ -111,7 +125,7 @@ export function peakYawRate(rec: CamRecord, inRun: (s: CamSample) => boolean): {
     if (!inRun(a) || !inRun(b)) continue;
     const dt = b.simTime - a.simTime;
     if (dt <= 1e-4) continue;
-    const d = Math.abs((((b.yawDeg - a.yawDeg) % 360) + 540) % 360 - 180);
+    const d = Math.abs(((((b.yawDeg - a.yawDeg) % 360) + 540) % 360) - 180);
     frames++;
     peak = Math.max(peak, d / dt);
   }
@@ -122,11 +136,17 @@ export const pc = async (page: Page) => (await snap(page)).presentationCamera;
 
 /** Stand at a picture and wait until the camera has framed it. */
 export async function standAndFrame(page: Page, index: number, timeout = 40_000): Promise<Snap> {
-  const ok = await page.evaluate((i) => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtPhoto(i), index);
+  const ok = await page.evaluate(
+    (i) => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtPhoto(i),
+    index,
+  );
   expect(ok, `standAtPhoto(${index})`).toBe(true);
   return waitForSnap(
     page,
-    (s) => (s.presentationCamera.mode === 'framed' || s.presentationCamera.mode === 'cut') && s.presentationCamera.settled && s.presentationCamera.photoId !== null,
+    (s) =>
+      (s.presentationCamera.mode === 'framed' || s.presentationCamera.mode === 'cut') &&
+      s.presentationCamera.settled &&
+      s.presentationCamera.photoId !== null,
     timeout,
     `the camera to frame picture ${index + 1}`,
   );
@@ -146,13 +166,20 @@ export interface Rects {
 
 /** The scene's published rectangles (CSS px, viewport coordinates). */
 export async function sceneRects(page: Page): Promise<Rects> {
-  return page.evaluate(`(() => { const r = globalThis.__APP_TEST__.screenRects; const c = (x) => (x ? { x: x.x, y: x.y, width: x.width, height: x.height } : null); return { picture: c(r.picture), visitor: c(r.visitor), guide: c(r.guide) }; })()`) as Promise<Rects>;
+  return page.evaluate(
+    `(() => { const r = globalThis.__APP_TEST__.screenRects; const c = (x) => (x ? { x: x.x, y: x.y, width: x.width, height: x.height } : null); return { picture: c(r.picture), visitor: c(r.visitor), guide: c(r.guide) }; })()`,
+  ) as Promise<Rects>;
 }
 
 export const right = (r: Rect) => r.x + r.width;
 export const bottom = (r: Rect) => r.y + r.height;
 export function intersects(a: Rect, b: Rect, grow = 0): boolean {
-  return a.x < right(b) + grow && right(a) > b.x - grow && a.y < bottom(b) + grow && bottom(a) > b.y - grow;
+  return (
+    a.x < right(b) + grow &&
+    right(a) > b.x - grow &&
+    a.y < bottom(b) + grow &&
+    bottom(a) > b.y - grow
+  );
 }
 export function intersectionArea(a: Rect, b: Rect): number {
   const w = Math.min(right(a), right(b)) - Math.max(a.x, b.x);
@@ -170,7 +197,16 @@ export interface CardInfo {
   look: Rect | null;
   toggle: (Rect & { label: string; expanded: string | null }) | null;
   name: Rect & { text: string; lineHeight: number };
-  text: { box: Rect; lineHeight: number; totalLines: number; naturalLines: number; visibleLines: number; firstLine: Rect | null; clamped: boolean; overflowing: boolean };
+  text: {
+    box: Rect;
+    lineHeight: number;
+    totalLines: number;
+    naturalLines: number;
+    visibleLines: number;
+    firstLine: Rect | null;
+    clamped: boolean;
+    overflowing: boolean;
+  };
   scrollWidth: number;
   clientWidth: number;
   controls: Rect[];
@@ -222,8 +258,18 @@ export async function cardInfo(page: Page): Promise<CardInfo | null> {
 
 /** Leave the picture: back to the entrance hall, away from every picture, and wait for the camera to follow again. */
 export async function leavePicture(page: Page): Promise<void> {
-  await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.teleportVisitor(0, -3.5));
-  await waitForSnap(page, (s) => s.presentationCamera.mode === 'follow' && s.intent === 'none' && s.guide.presentation === 'none', 30_000, 'the presentation to end');
+  await page.evaluate(() =>
+    (globalThis as unknown as PageGlobals).__surpriseMuseum!.teleportVisitor(0, -3.5),
+  );
+  await waitForSnap(
+    page,
+    (s) =>
+      s.presentationCamera.mode === 'follow' &&
+      s.intent === 'none' &&
+      s.guide.presentation === 'none',
+    30_000,
+    'the presentation to end',
+  );
   await expect(page.locator('.caption-card')).toHaveCount(0, { timeout: 10_000 });
 }
 
@@ -232,19 +278,24 @@ export async function leavePicture(page: Page): Promise<void> {
  * rectangle away"). The scene's own writes are ignored until `release()`. Pass null for "no rectangle".
  */
 export async function fixRects(page: Page, rects: Partial<Rects>): Promise<void> {
-  await page.evaluate(
-    (r) => {
-      const g = globalThis as unknown as { __APP_TEST__: { screenRects: Record<string, unknown> }; __qaRectFix?: Record<string, unknown> };
-      const target = g.__APP_TEST__.screenRects;
-      const fix = (g.__qaRectFix = g.__qaRectFix ?? {});
-      for (const key of ['picture', 'visitor', 'guide'] as const) {
-        if (!(key in r)) continue;
-        fix[key] = (r as Record<string, unknown>)[key];
-        if (!Object.getOwnPropertyDescriptor(target, key)?.get) {
-          Object.defineProperty(target, key, { configurable: true, enumerable: true, get: () => fix[key] ?? null, set: () => undefined });
-        }
+  await page.evaluate((r) => {
+    const g = globalThis as unknown as {
+      __APP_TEST__: { screenRects: Record<string, unknown> };
+      __qaRectFix?: Record<string, unknown>;
+    };
+    const target = g.__APP_TEST__.screenRects;
+    const fix = (g.__qaRectFix = g.__qaRectFix ?? {});
+    for (const key of ['picture', 'visitor', 'guide'] as const) {
+      if (!(key in r)) continue;
+      fix[key] = (r as Record<string, unknown>)[key];
+      if (!Object.getOwnPropertyDescriptor(target, key)?.get) {
+        Object.defineProperty(target, key, {
+          configurable: true,
+          enumerable: true,
+          get: () => fix[key] ?? null,
+          set: () => undefined,
+        });
       }
-    },
-    rects,
-  );
+    }
+  }, rects);
 }

@@ -159,7 +159,9 @@ export function CaptionCard({
           <h2 id={headingId} className="caption-card__name user-text">
             {guideName}
           </h2>
-          <p id={labelId} className="caption-card__label">{label}</p>
+          <p id={labelId} className="caption-card__label">
+            {label}
+          </p>
         </div>
         {strip ? toggle : null}
         {showLook ? (

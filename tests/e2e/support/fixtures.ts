@@ -12,7 +12,12 @@ export interface Fixtures {
   museum: Published;
 }
 
-export const MUSEUM_CAPTIONS = ['Caption one: a day at the beach.', '', 'Caption three.', 'Caption four.'];
+export const MUSEUM_CAPTIONS = [
+  'Caption one: a day at the beach.',
+  '',
+  'Caption three.',
+  'Caption four.',
+];
 export const CLOSING = 'Dear Alex,\nThank you for visiting.\n\nLove, Sam';
 
 export const test = base.extend<Fixtures>({

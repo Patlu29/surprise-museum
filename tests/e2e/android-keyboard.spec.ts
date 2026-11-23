@@ -27,7 +27,10 @@ test('index.html asks for interactive-widget=resizes-content', async ({ page }) 
 });
 
 test.describe('builder with the keyboard open (emulated by shrinking the viewport)', () => {
-  test.skip(({ browserName, isMobile }) => browserName !== 'chromium' || !isMobile, 'Android Chromium emulation only');
+  test.skip(
+    ({ browserName, isMobile }) => browserName !== 'chromium' || !isMobile,
+    'Android Chromium emulation only',
+  );
 
   test('the focused caption stays visible above the sticky Next and Back bar', async ({ page }) => {
     await page.setViewportSize(PIXEL_7);
@@ -36,34 +39,52 @@ test.describe('builder with the keyboard open (emulated by shrinking the viewpor
     await page.setViewportSize({ width: PIXEL_7.width, height: PIXEL_7.height - KEYBOARD });
     const caption = page.getByLabel('Caption (optional)');
     await caption.click();
-    await caption.evaluate((el) => (el as unknown as { scrollIntoView(o: unknown): void }).scrollIntoView({ block: 'center' }));
+    await caption.evaluate((el) =>
+      (el as unknown as { scrollIntoView(o: unknown): void }).scrollIntoView({ block: 'center' }),
+    );
     const viewport = page.viewportSize()!;
     const field = (await caption.boundingBox())!;
     const bar = (await page.locator('.builder__actions').boundingBox())!;
     expect(field.y, 'field top is on screen').toBeGreaterThanOrEqual(0);
-    expect(field.y + field.height, 'field bottom is above the sticky bar').toBeLessThanOrEqual(bar.y + 1);
+    expect(field.y + field.height, 'field bottom is above the sticky bar').toBeLessThanOrEqual(
+      bar.y + 1,
+    );
     expect(bar.y + bar.height, 'sticky bar is on screen').toBeLessThanOrEqual(viewport.height + 1);
     await expect(page.getByRole('button', { name: 'Next' })).toBeInViewport();
   });
 
-  test('the Words fields can all be reached and typed into with the keyboard open', async ({ page }) => {
+  test('the Words fields can all be reached and typed into with the keyboard open', async ({
+    page,
+  }) => {
     await page.setViewportSize(PIXEL_7);
     await page.goto('./#/create');
     await addPhotos(page, makePhotos(1));
     await page.getByRole('button', { name: 'Next' }).click();
     await page.setViewportSize({ width: PIXEL_7.width, height: PIXEL_7.height - KEYBOARD });
-    for (const label of [/Who is this museum for/, /Your name/, /Museum title/, /Closing message/]) {
+    for (const label of [
+      /Who is this museum for/,
+      /Your name/,
+      /Museum title/,
+      /Closing message/,
+    ]) {
       const field = page.getByLabel(label);
       await field.click();
-      await field.evaluate((el) => (el as unknown as { scrollIntoView(o: unknown): void }).scrollIntoView({ block: 'center' }));
+      await field.evaluate((el) =>
+        (el as unknown as { scrollIntoView(o: unknown): void }).scrollIntoView({ block: 'center' }),
+      );
       const box = (await field.boundingBox())!;
       const bar = (await page.locator('.builder__actions').boundingBox())!;
       expect(box.y, `${label}`).toBeGreaterThanOrEqual(0);
-      expect(box.y + Math.min(box.height, 60), `${label} sits above the sticky bar`).toBeLessThanOrEqual(bar.y + 1);
+      expect(
+        box.y + Math.min(box.height, 60),
+        `${label} sits above the sticky bar`,
+      ).toBeLessThanOrEqual(bar.y + 1);
     }
   });
 
-  test('the 3D preview shrinks with the viewport and the options remain reachable', async ({ page }) => {
+  test('the 3D preview shrinks with the viewport and the options remain reachable', async ({
+    page,
+  }) => {
     await page.setViewportSize(PIXEL_7);
     await page.goto('./#/create');
     await addPhotos(page, makePhotos(1));

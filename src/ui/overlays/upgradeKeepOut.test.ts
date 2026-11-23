@@ -3,7 +3,12 @@ import type { DockInputs, Rect } from './chooseCaptionDock';
 import { chooseCaptionDock, clearUpgradeCandidates } from './chooseCaptionDock';
 import { detectLayout } from '@/lib/layout';
 
-const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
+const rect = (x: number, y: number, width: number, height: number): Rect => ({
+  x,
+  y,
+  width,
+  height,
+});
 
 /** BUG-7: the top bar is a keep-out and the dock starts 12 px below it (bar bottom 56, card top 68). */
 function withTopBar(width: number, height: number, actors: Rect[] = []): DockInputs {

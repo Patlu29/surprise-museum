@@ -44,7 +44,8 @@ export default defineConfig({
   reporter: process.env.CI
     ? [['github'], ['html', { open: 'never' }]]
     : [['list'], ['html', { open: 'never' }]],
-  snapshotPathTemplate: '{testDir}/__screenshots__/{projectName}-{platform}/{testFilePath}/{arg}{ext}',
+  snapshotPathTemplate:
+    '{testDir}/__screenshots__/{projectName}-{platform}/{testFilePath}/{arg}{ext}',
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',

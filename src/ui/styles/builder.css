@@ -929,8 +929,8 @@
 }
 .fabric--dots {
   background:
-    radial-gradient(circle at center, var(--tint) 0 var(--space-1), transparent var(--space-1)) 0 0 /
-      var(--space-4) var(--space-4),
+    radial-gradient(circle at center, var(--tint) 0 var(--space-1), transparent var(--space-1)) 0
+      0 / var(--space-4) var(--space-4),
     var(--swatch);
 }
 

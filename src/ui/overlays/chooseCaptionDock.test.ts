@@ -255,8 +255,12 @@ describe('landscape framed geometry (844 by 390, presentation camera)', () => {
   });
 
   it('wide and portrait docks also respect the minimum', () => {
-    expect(chooseCaptionDock(inputsFor(1280, 720)).rect.width).toBeGreaterThanOrEqual(MIN_CARD_WIDTH);
-    expect(chooseCaptionDock(inputsFor(360, 640)).rect.width).toBeGreaterThanOrEqual(MIN_CARD_WIDTH);
+    expect(chooseCaptionDock(inputsFor(1280, 720)).rect.width).toBeGreaterThanOrEqual(
+      MIN_CARD_WIDTH,
+    );
+    expect(chooseCaptionDock(inputsFor(360, 640)).rect.width).toBeGreaterThanOrEqual(
+      MIN_CARD_WIDTH,
+    );
   });
 });
 
@@ -265,9 +269,8 @@ describe('v1.4: strip, fitted card and widths (design spec 3.5)', () => {
     const picture = rect(12, 100, 336, 120);
     const heights = [1, 1.25, 1.5].map(
       (captionScale) =>
-        chooseCaptionDock(
-          inputsFor(360, 640, { picture, captionScale, bigText: captionScale > 1 }),
-        ).rect.height,
+        chooseCaptionDock(inputsFor(360, 640, { picture, captionScale, bigText: captionScale > 1 }))
+          .rect.height,
     );
     expect(heights).toEqual([104, 112, 124]);
     expect(stripHeightFor(1)).toBe(STRIP_HEIGHT);

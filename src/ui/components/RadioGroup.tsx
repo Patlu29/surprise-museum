@@ -121,7 +121,9 @@ export function RadioGroup<T extends string>({
                 </span>
               ) : (
                 <>
-                  {option.glyph ? <span className="radio-option__glyph">{option.glyph}</span> : null}
+                  {option.glyph ? (
+                    <span className="radio-option__glyph">{option.glyph}</span>
+                  ) : null}
                   {checked ? <Icon name="check" size="sm" /> : null}
                   <span>{option.label}</span>
                 </>

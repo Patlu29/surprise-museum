@@ -13,7 +13,9 @@ import { decodePng } from '../e2e/support/images.ts';
 
 export const BASE = `http://localhost:${process.env.AUDIT_PORT ?? 4173}/surprise-museum/`;
 // Playwright empties test-results/ at the start of every run, so write elsewhere and copy in at the end.
-export const OUT = (process.env.AUDIT_OUT ?? new URL('../../test-results/cr4-audit/', import.meta.url).pathname).replace(/\/?$/, '/');
+export const OUT = (
+  process.env.AUDIT_OUT ?? new URL('../../test-results/cr4-audit/', import.meta.url).pathname
+).replace(/\/?$/, '/');
 mkdirSync(OUT + 'data', { recursive: true });
 mkdirSync(OUT + 'shots', { recursive: true });
 
@@ -33,9 +35,7 @@ const SWIFTSHADER = [
 ];
 
 export async function launch(browserName) {
-  return browserName === 'webkit'
-    ? webkit.launch()
-    : chromium.launch({ args: SWIFTSHADER });
+  return browserName === 'webkit' ? webkit.launch() : chromium.launch({ args: SWIFTSHADER });
 }
 
 export async function newContext(browser, browserName, vpId, extra = {}) {
@@ -93,14 +93,20 @@ export function measureInPage(opts) {
       .replace(/\s+/g, ' ')
       .slice(0, 40);
   const cls = (el) => (el.className?.toString?.() ?? '').split(/\s+/).slice(0, 3).join('.');
-  const modal = [...document.querySelectorAll('[aria-modal="true"],dialog[open],[role=dialog]')].find(visible);
+  const modal = [
+    ...document.querySelectorAll('[aria-modal="true"],dialog[open],[role=dialog]'),
+  ].find(visible);
 
   // ---- tap targets
   let els = [...document.querySelectorAll(TARGET_SEL)].filter(
-    (el) => el.tagName !== 'CANVAS' && !el.closest('[inert]') && !el.closest('[aria-hidden="true"]'),
+    (el) =>
+      el.tagName !== 'CANVAS' && !el.closest('[inert]') && !el.closest('[aria-hidden="true"]'),
   );
   els = els.filter((el) => {
-    if (el.tagName === 'INPUT' && (el.type === 'file' || el.type === 'checkbox' || el.type === 'radio')) {
+    if (
+      el.tagName === 'INPUT' &&
+      (el.type === 'file' || el.type === 'checkbox' || el.type === 'radio')
+    ) {
       const lab = el.labels?.[0];
       return lab ? visible(lab) : visible(el) && !isSrOnly(el);
     }
@@ -109,7 +115,11 @@ export function measureInPage(opts) {
   if (modal) els = els.filter((el) => modal.contains(el));
   const targets = els.map((el) => {
     let r = el.getBoundingClientRect();
-    if (el.tagName === 'INPUT' && ['file', 'checkbox', 'radio'].includes(el.type) && el.labels?.[0]) {
+    if (
+      el.tagName === 'INPUT' &&
+      ['file', 'checkbox', 'radio'].includes(el.type) &&
+      el.labels?.[0]
+    ) {
       const lr = el.labels[0].getBoundingClientRect();
       if (r.width * r.height < lr.width * lr.height) r = lr;
     }
@@ -119,7 +129,13 @@ export function measureInPage(opts) {
     const cy = r.top + r.height / 2;
     if (cx >= 0 && cx <= vw && cy >= 0 && cy <= vh) {
       const top = document.elementFromPoint(cx, cy);
-      covered = !(top && (el === top || el.contains(top) || top.contains(el) || (el.labels && [...el.labels].some((l) => l.contains(top)))));
+      covered = !(
+        top &&
+        (el === top ||
+          el.contains(top) ||
+          top.contains(el) ||
+          (el.labels && [...el.labels].some((l) => l.contains(top))))
+      );
     }
     return {
       tag: el.tagName.toLowerCase(),
@@ -146,7 +162,12 @@ export function measureInPage(opts) {
       const dx = Math.max(0, a.x - (b.x + b.w), b.x - (a.x + a.w));
       const dy = Math.max(0, a.y - (b.y + b.h), b.y - (a.y + a.h));
       const d = Math.hypot(dx, dy);
-      if (d < 8 - 0.01) gaps.push({ a: `${a.name} [${a.cls}]`, b: `${b.name} [${b.cls}]`, gap: Math.round(d * 10) / 10 });
+      if (d < 8 - 0.01)
+        gaps.push({
+          a: `${a.name} [${a.cls}]`,
+          b: `${b.name} [${b.cls}]`,
+          gap: Math.round(d * 10) / 10,
+        });
     }
   }
   const clean = (t) => {
@@ -167,26 +188,50 @@ export function measureInPage(opts) {
     if (!visible(p) || isSrOnly(p)) continue;
     const cs = getComputedStyle(p);
     const key = `${parseFloat(cs.fontSize)}|${cs.fontFamily.split(',')[0].replace(/["']/g, '').trim()}`;
-    const g = groups.get(key) ?? { size: parseFloat(cs.fontSize), family: key.split('|')[1], n: 0, samples: [], cls: new Set(), weight: cs.fontWeight };
+    const g = groups.get(key) ?? {
+      size: parseFloat(cs.fontSize),
+      family: key.split('|')[1],
+      n: 0,
+      samples: [],
+      cls: new Set(),
+      weight: cs.fontWeight,
+    };
     g.n++;
     if (g.samples.length < 3) g.samples.push(text.slice(0, 40));
     if (g.cls.size < 4) g.cls.add(p.tagName.toLowerCase() + '.' + cls(p));
     groups.set(key, g);
   }
-  for (const f of document.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]),textarea,select')) {
+  for (const f of document.querySelectorAll(
+    'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]),textarea,select',
+  )) {
     if (!visible(f) || isSrOnly(f)) continue;
     const cs = getComputedStyle(f);
     const key = `${parseFloat(cs.fontSize)}|FIELD:${cs.fontFamily.split(',')[0].replace(/["']/g, '').trim()}`;
-    const g = groups.get(key) ?? { size: parseFloat(cs.fontSize), family: key.split('|')[1], n: 0, samples: [], cls: new Set(), weight: cs.fontWeight };
+    const g = groups.get(key) ?? {
+      size: parseFloat(cs.fontSize),
+      family: key.split('|')[1],
+      n: 0,
+      samples: [],
+      cls: new Set(),
+      weight: cs.fontWeight,
+    };
     g.n++;
     if (g.cls.size < 4) g.cls.add(f.tagName.toLowerCase() + '.' + cls(f));
     groups.set(key, g);
   }
-  const texts = [...groups.values()].map((g) => ({ ...g, cls: [...g.cls] })).sort((a, b) => a.size - b.size);
+  const texts = [...groups.values()]
+    .map((g) => ({ ...g, cls: [...g.cls] }))
+    .sort((a, b) => a.size - b.size);
 
   // ---- overflow and clipping
   const de = document.documentElement;
-  const doc = { scrollW: de.scrollWidth, clientW: de.clientWidth, scrollH: de.scrollHeight, clientH: de.clientHeight, hOverflow: de.scrollWidth > de.clientWidth + 1 };
+  const doc = {
+    scrollW: de.scrollWidth,
+    clientW: de.clientWidth,
+    scrollH: de.scrollHeight,
+    clientH: de.clientHeight,
+    hOverflow: de.scrollWidth > de.clientWidth + 1,
+  };
   const outside = [];
   const clipped = [];
   for (const el of document.body.querySelectorAll('*')) {
@@ -194,12 +239,27 @@ export function measureInPage(opts) {
     const r = el.getBoundingClientRect();
     const hasText = [...el.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim());
     if (hasText && (r.right > vw + 1 || r.left < -1)) {
-      outside.push({ el: `${el.tagName.toLowerCase()}.${cls(el)}`, text: el.textContent.trim().slice(0, 30), left: Math.round(r.left), right: Math.round(r.right) });
+      outside.push({
+        el: `${el.tagName.toLowerCase()}.${cls(el)}`,
+        text: el.textContent.trim().slice(0, 30),
+        left: Math.round(r.left),
+        right: Math.round(r.right),
+      });
     }
     const cs = getComputedStyle(el);
-    if (hasText && (cs.overflow !== 'visible' || cs.textOverflow === 'ellipsis' || cs.webkitLineClamp !== 'none')) {
+    if (
+      hasText &&
+      (cs.overflow !== 'visible' || cs.textOverflow === 'ellipsis' || cs.webkitLineClamp !== 'none')
+    ) {
       if (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1) {
-        clipped.push({ el: `${el.tagName.toLowerCase()}.${cls(el)}`, text: el.textContent.trim().slice(0, 40), sw: el.scrollWidth, cw: el.clientWidth, sh: el.scrollHeight, ch: el.clientHeight });
+        clipped.push({
+          el: `${el.tagName.toLowerCase()}.${cls(el)}`,
+          text: el.textContent.trim().slice(0, 40),
+          sw: el.scrollWidth,
+          cw: el.clientWidth,
+          sh: el.scrollHeight,
+          ch: el.clientHeight,
+        });
       }
     }
   }
@@ -212,7 +272,16 @@ export function measureInPage(opts) {
     if (!visible(el) || isSrOnly(el)) continue;
     const r = el.getBoundingClientRect();
     if (r.width < 40 || r.height < 20) continue;
-    bars.push({ el: `${el.tagName.toLowerCase()}.${cls(el)}`, pos: cs.position, top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), h: Math.round(r.height), w: Math.round(r.width) });
+    bars.push({
+      el: `${el.tagName.toLowerCase()}.${cls(el)}`,
+      pos: cs.position,
+      top: Math.round(r.top),
+      bottom: Math.round(r.bottom),
+      left: Math.round(r.left),
+      right: Math.round(r.right),
+      h: Math.round(r.height),
+      w: Math.round(r.width),
+    });
   }
 
   // ---- how much of the viewport is user interface rather than canvas (visit screens)
@@ -266,8 +335,15 @@ export async function publishMuseum(page, { photos = 3, visitor = 'Alex', guide 
   const { makePhotos } = await import('../e2e/support/images.ts');
   await page.goto('./?e2e=1#/create');
   await page.locator('input[type=file]').first().setInputFiles(makePhotos(photos));
-  await page.locator('.photo-row__status--ready').nth(photos - 1).waitFor({ timeout: 60000 });
-  for (let i = 0; i < photos; i++) await page.getByLabel('Caption (optional)').nth(i).fill(`Caption for photo ${i + 1}.`);
+  await page
+    .locator('.photo-row__status--ready')
+    .nth(photos - 1)
+    .waitFor({ timeout: 60000 });
+  for (let i = 0; i < photos; i++)
+    await page
+      .getByLabel('Caption (optional)')
+      .nth(i)
+      .fill(`Caption for photo ${i + 1}.`);
   await page.getByRole('button', { name: 'Next' }).click();
   await page.getByLabel('Who is this museum for?').fill(visitor);
   await page.getByLabel('Your name').fill(guide);
@@ -284,7 +360,9 @@ export async function openAndStart(page, token) {
   await page.goto('about:blank');
   await page.goto(`./?e2e=1#/m/${token}`);
   await page.getByRole('button', { name: 'Start' }).click();
-  await page.waitForFunction(() => globalThis.__surpriseMuseum?.snapshot().ready, null, { timeout: 60000 });
+  await page.waitForFunction(() => globalThis.__surpriseMuseum?.snapshot().ready, null, {
+    timeout: 60000,
+  });
   await page.waitForTimeout(1500);
 }
 
@@ -299,7 +377,8 @@ export const DEVTOOLS_INIT = () => {
       // window.__pinDpr (set by the audit): hold the renderer at that pixel ratio. The app's governor lowers the cap under load
       // (software WebGL is always slow), and an unpinned run is not valid FR-89 evidence (requirements v0.6.2, "Test conditions").
       o.render = (s, c) => {
-        if (window.__pinDpr && o.getPixelRatio() !== window.__pinDpr) o.setPixelRatio(window.__pinDpr);
+        if (window.__pinDpr && o.getPixelRatio() !== window.__pinDpr)
+          o.setPixelRatio(window.__pinDpr);
         window.__last = { scene: s, camera: c, renderer: o };
         return r(s, c);
       };

@@ -21,7 +21,14 @@ interface MoreOptionsProps {
  * `hidden` while closed, so it leaves the tab order and the accessibility tree. Choices are kept
  * when it closes.
  */
-export function MoreOptions({ available, open, onToggle, changed, reset, children }: MoreOptionsProps) {
+export function MoreOptions({
+  available,
+  open,
+  onToggle,
+  changed,
+  reset,
+  children,
+}: MoreOptionsProps) {
   const panelId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
   // Escape closes the open group and returns focus to the disclosure button (US-67 AC-3, BUG-13).
@@ -59,7 +66,12 @@ export function MoreOptions({ available, open, onToggle, changed, reset, childre
         {reset}
       </div>
       {available ? (
-        <div id={panelId} className="more-options__panel stack" hidden={!open} onKeyDown={onKeyDown}>
+        <div
+          id={panelId}
+          className="more-options__panel stack"
+          hidden={!open}
+          onKeyDown={onKeyDown}
+        >
           {children}
         </div>
       ) : null}

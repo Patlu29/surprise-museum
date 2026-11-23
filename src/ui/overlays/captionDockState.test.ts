@@ -124,7 +124,12 @@ describe('stepDock: upgrade rule', () => {
     // The blocker leaves at once; no upgrade before 3 s have passed.
     const after = run(1600, downgradedAt + DOWNGRADE_COOLDOWN_MS - 100, s, () => []);
     expect(after.changes).toHaveLength(0);
-    const later = run(downgradedAt + DOWNGRADE_COOLDOWN_MS, downgradedAt + 4500, after.state, () => []);
+    const later = run(
+      downgradedAt + DOWNGRADE_COOLDOWN_MS,
+      downgradedAt + 4500,
+      after.state,
+      () => [],
+    );
     expect(later.changes).toHaveLength(1);
   });
 

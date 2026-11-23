@@ -65,11 +65,7 @@ export function PhotosStep() {
 
       <StepSection title={SECTION.photos} tag="required" note={SECTION.photosNote}>
         <div
-          className={[
-            'dropzone',
-            photos.length === 0 && 'is-empty',
-            dropping && 'is-dropping',
-          ]
+          className={['dropzone', photos.length === 0 && 'is-empty', dropping && 'is-dropping']
             .filter(Boolean)
             .join(' ')}
           onDragOver={(event) => {
@@ -144,11 +140,7 @@ export function PhotosStep() {
             </ol>
             {!full ? (
               <div>
-                <Button
-                  variant="secondary"
-                  icon="plus"
-                  onClick={() => inputRef.current?.click()}
-                >
+                <Button variant="secondary" icon="plus" onClick={() => inputRef.current?.click()}>
                   Add more photos
                 </Button>
               </div>

@@ -16,16 +16,20 @@ describe('StillToDo', () => {
       />,
     );
     expect(html).toContain('Still to do');
-    const order = ['Add a photo', "Add the Visitor&#x27;s name", 'Confirm you can share the photos'].map((text) =>
-      html.indexOf(text),
-    );
+    const order = [
+      'Add a photo',
+      'Add the Visitor&#x27;s name',
+      'Confirm you can share the photos',
+    ].map((text) => html.indexOf(text));
     expect(order.every((at) => at >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(html.match(/still-to-do__chip/g)).toHaveLength(3);
   });
 
   it('says it is ready when nothing is left, and is not a live region', () => {
-    const html = renderToStaticMarkup(<StillToDo placement="rail" onSelect={() => {}} issues={[]} />);
+    const html = renderToStaticMarkup(
+      <StillToDo placement="rail" onSelect={() => {}} issues={[]} />,
+    );
     expect(html).toContain('Ready to publish');
     expect(html).not.toContain('aria-live');
     expect(html).not.toContain('role="status"');

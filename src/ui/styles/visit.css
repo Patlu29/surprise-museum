@@ -357,12 +357,17 @@
   width: var(--space-4);
   height: var(--space-4);
   border-radius: var(--radius-pill);
-  background: conic-gradient(
-    var(--color-brass) calc(var(--p, 0) * 1%),
-    var(--color-track-night) 0
+  background: conic-gradient(var(--color-brass) calc(var(--p, 0) * 1%), var(--color-track-night) 0);
+  -webkit-mask: radial-gradient(
+    circle,
+    transparent 0 var(--space-1),
+    var(--color-night) calc(var(--space-1) + 0.5px)
   );
-  -webkit-mask: radial-gradient(circle, transparent 0 var(--space-1), var(--color-night) calc(var(--space-1) + 0.5px));
-  mask: radial-gradient(circle, transparent 0 var(--space-1), var(--color-night) calc(var(--space-1) + 0.5px));
+  mask: radial-gradient(
+    circle,
+    transparent 0 var(--space-1),
+    var(--color-night) calc(var(--space-1) + 0.5px)
+  );
 }
 /* With Reset view showing the pill is tight on small phones, so it drops its ring. */
 @media (max-width: 399px) {
@@ -719,11 +724,21 @@
 /* Thin scroll shadows at the clipped edges of the full and fitted bodies (not on a strip). */
 .caption-card:not(.is-strip) .caption-card__body {
   background:
-    linear-gradient(var(--color-surface) 30%, transparent) center top / 100% var(--space-4) no-repeat local,
-    linear-gradient(transparent, var(--color-surface) 70%) center bottom / 100% var(--space-4) no-repeat local,
-    radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--color-text) 16%, transparent), transparent)
+    linear-gradient(var(--color-surface) 30%, transparent) center top / 100% var(--space-4)
+      no-repeat local,
+    linear-gradient(transparent, var(--color-surface) 70%) center bottom / 100% var(--space-4)
+      no-repeat local,
+    radial-gradient(
+        farthest-side at 50% 0,
+        color-mix(in srgb, var(--color-text) 16%, transparent),
+        transparent
+      )
       center top / 100% var(--space-2) no-repeat scroll,
-    radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--color-text) 16%, transparent), transparent)
+    radial-gradient(
+        farthest-side at 50% 100%,
+        color-mix(in srgb, var(--color-text) 16%, transparent),
+        transparent
+      )
       center bottom / 100% var(--space-2) no-repeat scroll;
 }
 .caption-card__text {
@@ -822,7 +837,12 @@
   width: var(--space-10);
   height: var(--space-10);
   border-radius: var(--radius-pill);
-  background: radial-gradient(circle at 35% 30%, var(--color-brass-hover), var(--color-brass) 60%, var(--color-brass-deep));
+  background: radial-gradient(
+    circle at 35% 30%,
+    var(--color-brass-hover),
+    var(--color-brass) 60%,
+    var(--color-brass-deep)
+  );
   color: var(--color-text);
   box-shadow: var(--shadow-inset-frame);
 }

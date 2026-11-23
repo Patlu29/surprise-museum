@@ -24,7 +24,14 @@ describe('More options rules (design spec 12.5.3)', () => {
 
   it('shows the new styles only when the builder list offers them', () => {
     const all = AVATAR_OPTIONS.outfitStyle as readonly string[];
-    expect(moreStyles(all)).toEqual(['sweater', 'overalls', 'coat', 'tracksuit', 'cardigan', 'tunic']);
+    expect(moreStyles(all)).toEqual([
+      'sweater',
+      'overalls',
+      'coat',
+      'tracksuit',
+      'cardigan',
+      'tunic',
+    ]);
     expect(moreStyles([...CLOSED_OUTFIT_STYLES])).toEqual([]);
   });
 
@@ -44,7 +51,11 @@ describe('More options rules (design spec 12.5.3)', () => {
     expect(changedInMoreOptions('outfit', legacy)).toBe(0);
     expect(changedInMoreOptions('face', { ...DEFAULT_GUIDE_AVATAR, faceShape: 'round' })).toBe(1);
     expect(
-      changedInMoreOptions('outfit', { ...DEFAULT_GUIDE_AVATAR, outfitStyle: 'coat', outfitPattern: 'dots' }),
+      changedInMoreOptions('outfit', {
+        ...DEFAULT_GUIDE_AVATAR,
+        outfitStyle: 'coat',
+        outfitPattern: 'dots',
+      }),
     ).toBe(2);
     expect(changedInMoreOptions('body', { ...DEFAULT_GUIDE_AVATAR, faceShape: 'long' })).toBe(0);
   });

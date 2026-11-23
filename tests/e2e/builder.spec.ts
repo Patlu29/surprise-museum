@@ -19,7 +19,13 @@ const DRAFT_KEY = 'surprise-museum:draft:v1';
 async function openBuilder(page: Page) {
   await page.goto('./?e2e=1#/create');
   await expect(page.getByRole('heading', { level: 1, name: 'Photos' })).toBeVisible();
-  const stored = await page.evaluate((key) => (globalThis as unknown as { localStorage: { getItem(k: string): string | null } }).localStorage.getItem(key), DRAFT_KEY);
+  const stored = await page.evaluate(
+    (key) =>
+      (
+        globalThis as unknown as { localStorage: { getItem(k: string): string | null } }
+      ).localStorage.getItem(key),
+    DRAFT_KEY,
+  );
   expect(stored, 'builder must start without a saved draft').toBeNull();
 }
 
@@ -34,7 +40,9 @@ test.describe('US-1 start without an account', () => {
     problems.expectClean();
   });
 
-  test('US-1 AC-3 and US-30 AC-1: a loading indicator shows while the builder chunk downloads', async ({ page }) => {
+  test('US-1 AC-3 and US-30 AC-1: a loading indicator shows while the builder chunk downloads', async ({
+    page,
+  }) => {
     await page.route('**/assets/CreateScreen-*.js', async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       await route.continue();
@@ -50,7 +58,7 @@ test.describe('US-1 start without an account', () => {
     await openBuilder(page);
     await addPhotos(page, makePhotos(2));
     const overflow = async () =>
-      page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth");
+      page.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth');
     expect(await overflow(), 'step 1').toBeLessThanOrEqual(0);
     await fillWords(page, {});
     // Review step is now showing; check the earlier steps by the stepper (steps 2 and 3).
@@ -58,7 +66,11 @@ test.describe('US-1 start without an account', () => {
     await page.getByRole('button', { name: /Edit characters/ }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible();
     expect(await overflow(), 'step 3').toBeLessThanOrEqual(0);
-    await page.getByRole('button', { name: /Edit words/ }).or(page.getByRole('button', { name: 'Back' })).first().click();
+    await page
+      .getByRole('button', { name: /Edit words/ })
+      .or(page.getByRole('button', { name: 'Back' }))
+      .first()
+      .click();
     expect(await overflow(), 'step 2').toBeLessThanOrEqual(0);
   });
 });
@@ -71,7 +83,9 @@ test.describe('US-2 upload photos', () => {
     await expect(page.locator('.photo-row__status--ready')).toHaveCount(3, { timeout: 60_000 });
     for (const img of await page.locator('.photo-row__thumb img').all()) {
       await expect(img).toBeVisible();
-      expect(await img.evaluate((el) => (el as unknown as { naturalWidth: number }).naturalWidth)).toBeGreaterThan(0);
+      expect(
+        await img.evaluate((el) => (el as unknown as { naturalWidth: number }).naturalWidth),
+      ).toBeGreaterThan(0);
     }
     await expect(page.getByText('3 of 20 photos')).toBeVisible();
   });
@@ -81,8 +95,16 @@ test.describe('US-2 upload photos', () => {
   }) => {
     await openBuilder(page);
     const valid = makePhotos(2);
-    const big = { name: 'huge.jpg', mimeType: 'image/jpeg', buffer: Buffer.alloc(25 * 1024 * 1024, 0xff) };
-    const pdf = { name: 'notes.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%fake\n') };
+    const big = {
+      name: 'huge.jpg',
+      mimeType: 'image/jpeg',
+      buffer: Buffer.alloc(25 * 1024 * 1024, 0xff),
+    };
+    const pdf = {
+      name: 'notes.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4\n%fake\n'),
+    };
     await page.locator('input[type=file]').first().setInputFiles([valid[0]!, big, pdf, valid[1]!]);
     const alert = page.getByRole('alert').filter({ hasText: "weren't added" });
     await expect(alert).toBeVisible();
@@ -106,10 +128,14 @@ test.describe('US-2 upload photos', () => {
     await expect(alert).toContainText('tiny-21.png');
     await expect(alert).toContainText('up to 20 photos');
     await expect(page.locator('.photo-list > li')).toHaveCount(20);
-    await expect(page.getByText(/You can add up to 20 photos\. Remove one to add another\./).first()).toBeVisible();
+    await expect(
+      page.getByText(/You can add up to 20 photos\. Remove one to add another\./).first(),
+    ).toBeVisible();
   });
 
-  test('US-2 AC-3: Retry re-sends only the failed photo and leaves the others untouched', async ({ page }) => {
+  test('US-2 AC-3: Retry re-sends only the failed photo and leaves the others untouched', async ({
+    page,
+  }) => {
     await openBuilder(page);
     await addPhotos(page, makePhotos(3));
     // The demo backend never drops a connection, so a mid-upload network failure is injected into
@@ -137,23 +163,32 @@ test.describe('US-2 upload photos', () => {
     // The other two photos kept their server ids: only the failed one was re-sent.
     const idsAfter = await page.evaluate(() => {
       const g = globalThis as unknown as PageGlobals;
-      return (g.__APP_TEST__!.useBuilderStore.getState().photos as Array<{ photoId: string | null }>).map(
-        (p) => p.photoId,
-      );
+      return (
+        g.__APP_TEST__!.useBuilderStore.getState().photos as Array<{ photoId: string | null }>
+      ).map((p) => p.photoId);
     });
     expect(idsAfter[0]).toBe(idsBefore[0]);
     expect(idsAfter[2]).toBe(idsBefore[2]);
     expect(idsAfter[1]).not.toBeNull();
   });
 
-  test('US-2 AC-4: a JPEG carrying GPS EXIF is re-encoded and the served file has no EXIF or GPS', async ({ page }) => {
+  test('US-2 AC-4: a JPEG carrying GPS EXIF is re-encoded and the served file has no EXIF or GPS', async ({
+    page,
+  }) => {
     // The production CSP (connect-src 'self') stops page code fetching blob: bytes, so this one test
     // serves index.html without the CSP <meta> purely to be able to read the bytes. (Playwright's
     // bypassCSP does not cover WebKit.) CSP itself is covered in csp-blob.spec.ts.
     await page.route(/\/surprise-museum\/(\?.*)?$/, async (route) => {
       const response = await route.fetch();
-      const html = (await response.text()).replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, '');
-      await route.fulfill({ response, body: html, headers: { ...response.headers(), 'content-length': String(Buffer.byteLength(html)) } });
+      const html = (await response.text()).replace(
+        /<meta http-equiv="Content-Security-Policy"[^>]*>/,
+        '',
+      );
+      await route.fulfill({
+        response,
+        body: html,
+        headers: { ...response.headers(), 'content-length': String(Buffer.byteLength(html)) },
+      });
     });
     await openBuilder(page);
     const { withExifGps } = await import('./support/images');
@@ -167,7 +202,7 @@ test.describe('US-2 upload photos', () => {
     expect(jpeg.includes(Buffer.from('GPS-LATITUDE'))).toBe(true);
     await addPhotos(page, [{ name: 'gps.jpg', mimeType: 'image/jpeg', buffer: jpeg }]);
     // What the museum will serve: the wall and full renditions the app holds for this photo.
-    const served = await page.evaluate(`(async () => {
+    const served = (await page.evaluate(`(async () => {
       const state = globalThis.__APP_TEST__.useBuilderStore.getState();
       const photo = state.photos[0];
       const out = {};
@@ -179,7 +214,7 @@ test.describe('US-2 upload photos', () => {
         out[key] = { length: bytes.length, exif: text.includes('Exif'), gps: text.includes('GPS'), app1: text.includes('\\xff\\xe1') };
       }
       return out;
-    })()`) as Record<string, { length: number; exif: boolean; gps: boolean; app1: boolean }>;
+    })()`)) as Record<string, { length: number; exif: boolean; gps: boolean; app1: boolean }>;
     expect(Object.keys(served).length).toBeGreaterThan(0);
     for (const [key, info] of Object.entries(served)) {
       expect(info.length, key).toBeGreaterThan(100);
@@ -188,8 +223,14 @@ test.describe('US-2 upload photos', () => {
     }
   });
 
-  test('US-2 AC-5: Add photos is keyboard focusable and Enter opens the file chooser', async ({ page, browserName }) => {
-    test.skip(browserName === 'webkit', 'WebKit does not raise a filechooser event for a programmatic input click');
+  test('US-2 AC-5: Add photos is keyboard focusable and Enter opens the file chooser', async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(
+      browserName === 'webkit',
+      'WebKit does not raise a filechooser event for a programmatic input click',
+    );
     await openBuilder(page);
     const add = page.getByRole('button', { name: 'Add photos' });
     await add.focus();
@@ -212,12 +253,18 @@ test.describe('US-2 upload photos', () => {
     await page.keyboard.press('Enter');
     // Hard requirement: Enter on the focused button clicks the file input.
     await expect
-      .poll(() => page.evaluate('globalThis.__fileInputClicks'), { message: 'Enter on Add photos must click the file input', timeout: 10_000 })
+      .poll(() => page.evaluate('globalThis.__fileInputClicks'), {
+        message: 'Enter on Add photos must click the file input',
+        timeout: 10_000,
+      })
       .toBe(1);
     // Where the browser surfaces the dialog to Playwright, it must also have opened. Headless Chromium on
     // Linux with the Pixel profile did not (CI run 44298737907), so a missing event is recorded, not failed.
     if (!(await chooser)) {
-      test.info().annotations.push({ type: 'filechooser', description: 'input was clicked but no filechooser event was raised' });
+      test.info().annotations.push({
+        type: 'filechooser',
+        description: 'input was clicked but no filechooser event was raised',
+      });
     }
   });
 });
@@ -228,13 +275,19 @@ test.describe('US-3 arrange photos and write captions', () => {
     await addPhotos(page, makePhotos(3));
     const names = () => page.locator('.photo-row__file').allTextContents();
     expect(await names()).toEqual(['photo-1.png', 'photo-2.png', 'photo-3.png']);
-    await page.locator('.photo-list > li').nth(2).getByRole('button', { name: /Earlier/ }).click();
+    await page
+      .locator('.photo-list > li')
+      .nth(2)
+      .getByRole('button', { name: /Earlier/ })
+      .click();
     expect(await names()).toEqual(['photo-1.png', 'photo-3.png', 'photo-2.png']);
     await page.locator('.photo-list > li').nth(0).getByRole('button', { name: /Later/ }).click();
     expect(await names()).toEqual(['photo-3.png', 'photo-1.png', 'photo-2.png']);
   });
 
-  test('US-3 AC-1: the keyboard can grab a photo with Space and move it with the arrow keys', async ({ page }) => {
+  test('US-3 AC-1: the keyboard can grab a photo with Space and move it with the arrow keys', async ({
+    page,
+  }) => {
     await openBuilder(page);
     await addPhotos(page, makePhotos(3));
     const names = () => page.locator('.photo-row__file').allTextContents();
@@ -246,7 +299,9 @@ test.describe('US-3 arrange photos and write captions', () => {
     expect(await names()).toEqual(['photo-2.png', 'photo-1.png', 'photo-3.png']);
   });
 
-  test('US-3 AC-1 and AC-5: dragging a grip with the pointer reorders the photos', async ({ page }) => {
+  test('US-3 AC-1 and AC-5: dragging a grip with the pointer reorders the photos', async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 1280, height: 1800 });
     await openBuilder(page);
     await addPhotos(page, makePhotos(3));
@@ -263,7 +318,9 @@ test.describe('US-3 arrange photos and write captions', () => {
     expect(await names()).toEqual(['photo-3.png', 'photo-1.png', 'photo-2.png']);
   });
 
-  test('US-3 AC-2 and AC-3: captions stop at 280 characters, show a count and explain the limit', async ({ page }) => {
+  test('US-3 AC-2 and AC-3: captions stop at 280 characters, show a count and explain the limit', async ({
+    page,
+  }) => {
     await openBuilder(page);
     await addPhotos(page, makePhotos(1));
     const caption = page.getByLabel('Caption (optional)');
@@ -276,27 +333,43 @@ test.describe('US-3 arrange photos and write captions', () => {
     expect([...(await caption.inputValue())]).toHaveLength(280);
   });
 
-  test('US-3 AC-4: removing asks to confirm, discards the caption; replacing keeps the caption', async ({ page }) => {
+  test('US-3 AC-4: removing asks to confirm, discards the caption; replacing keeps the caption', async ({
+    page,
+  }) => {
     await openBuilder(page);
     await addPhotos(page, makePhotos(2));
     const rows = page.locator('.photo-list > li');
     await rows.nth(0).getByLabel('Caption (optional)').fill('Keep me');
     await rows.nth(1).getByLabel('Caption (optional)').fill('Remove me');
     // Replace photo 1 with a new file: caption kept.
-    await rows.nth(0).locator('input[type=file]').setInputFiles({
-      name: 'replacement.png',
-      mimeType: 'image/png',
-      buffer: makePng(700, 500, 9),
+    await rows
+      .nth(0)
+      .locator('input[type=file]')
+      .setInputFiles({
+        name: 'replacement.png',
+        mimeType: 'image/png',
+        buffer: makePng(700, 500, 9),
+      });
+    await expect(rows.nth(0).locator('.photo-row__file')).toHaveText('replacement.png', {
+      timeout: 30_000,
     });
-    await expect(rows.nth(0).locator('.photo-row__file')).toHaveText('replacement.png', { timeout: 30_000 });
     await expect(rows.nth(0).getByLabel('Caption (optional)')).toHaveValue('Keep me');
     // Remove photo 2: a confirmation first.
-    await rows.nth(1).getByRole('button', { name: /^Remove/ }).click();
+    await rows
+      .nth(1)
+      .getByRole('button', { name: /^Remove/ })
+      .click();
     await expect(page.getByText('Remove photo 2 and its caption?')).toBeVisible();
     await rows.nth(1).getByRole('button', { name: 'Keep' }).click();
     await expect(rows).toHaveCount(2);
-    await rows.nth(1).getByRole('button', { name: /^Remove/ }).click();
-    await page.getByRole('group', { name: 'Remove photo 2' }).getByRole('button', { name: 'Remove' }).click();
+    await rows
+      .nth(1)
+      .getByRole('button', { name: /^Remove/ })
+      .click();
+    await page
+      .getByRole('group', { name: 'Remove photo 2' })
+      .getByRole('button', { name: 'Remove' })
+      .click();
     await expect(rows).toHaveCount(1);
     await expect(page.getByText('Remove me')).toHaveCount(0);
   });
@@ -338,7 +411,9 @@ test.describe('US-4 and US-5 names, title and closing message', () => {
     await expect(page.locator('.sample__labels')).toContainText('Renée');
   });
 
-  test('US-5 AC-1: the closing message stops at 1,000 characters with an explanation', async ({ page }) => {
+  test('US-5 AC-1: the closing message stops at 1,000 characters with an explanation', async ({
+    page,
+  }) => {
     await openBuilder(page);
     await addPhotos(page, makePhotos(1));
     await NEXT(page).click();
@@ -394,11 +469,16 @@ test.describe('US-6 and US-7 customise the characters', () => {
     expect(await counts(page, 'Facial hair')).toBeGreaterThanOrEqual(4); // none plus 3 styles
   });
 
-  test('US-6 AC-2 and AC-4: options are chosen with the keyboard and the description updates', async ({ page }) => {
+  test('US-6 AC-2 and AC-4: options are chosen with the keyboard and the description updates', async ({
+    page,
+  }) => {
     await toCharacters(page);
     await page.getByRole('tab', { name: 'Hair' }).click();
     const group = page.getByRole('radiogroup', { name: 'Hair style' });
-    const before = await group.getByRole('radio', { checked: true }).getAttribute('aria-label').catch(() => null);
+    const before = await group
+      .getByRole('radio', { checked: true })
+      .getAttribute('aria-label')
+      .catch(() => null);
     const description = page.locator('.preview-slot__description');
     const was = await description.textContent();
     await group.getByRole('radio', { checked: true }).focus();
@@ -408,7 +488,9 @@ test.describe('US-6 and US-7 customise the characters', () => {
     void before;
   });
 
-  test('US-6 AC-5: the 3D preview shows a loading indicator and its option lists stay usable', async ({ page }) => {
+  test('US-6 AC-5: the 3D preview shows a loading indicator and its option lists stay usable', async ({
+    page,
+  }) => {
     await openBuilder(page);
     await page.route('**/assets/AvatarPreview-*.js', async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 2500));
@@ -425,9 +507,15 @@ test.describe('US-6 and US-7 customise the characters', () => {
     await expect(page.getByText('Getting your characters ready')).toBeHidden({ timeout: 20_000 });
   });
 
-  test('US-6 AC-5: without WebGL the preview is replaced by a message and the options still work', async ({ page }) => {
+  test('US-6 AC-5: without WebGL the preview is replaced by a message and the options still work', async ({
+    page,
+  }) => {
     await page.addInitScript(() => {
-      const proto = (globalThis as unknown as { HTMLCanvasElement: { prototype: { getContext: (...a: unknown[]) => unknown } } }).HTMLCanvasElement.prototype;
+      const proto = (
+        globalThis as unknown as {
+          HTMLCanvasElement: { prototype: { getContext: (...a: unknown[]) => unknown } };
+        }
+      ).HTMLCanvasElement.prototype;
       const original = proto.getContext;
       proto.getContext = function (this: unknown, type: unknown, ...rest: unknown[]) {
         if (typeof type === 'string' && /webgl/i.test(type)) return null;
@@ -438,7 +526,9 @@ test.describe('US-6 and US-7 customise the characters', () => {
     await expect(page.getByText("3D preview isn't available on this device")).toBeVisible();
     await page.getByRole('tab', { name: 'Hair' }).click();
     await page.getByRole('radiogroup', { name: 'Hair style' }).getByRole('radio').nth(2).click();
-    await expect(page.getByRole('radiogroup', { name: 'Hair style' }).getByRole('radio').nth(2)).toBeChecked();
+    await expect(
+      page.getByRole('radiogroup', { name: 'Hair style' }).getByRole('radio').nth(2),
+    ).toBeChecked();
   });
 
   test('US-7 AC-3: the two previews each show their own name', async ({ page }) => {
@@ -461,9 +551,14 @@ test.describe('US-6 and US-7 customise the characters', () => {
     expect(chosen, 'a non-default hair style was chosen').not.toBe(initial);
     await page.reload();
     await page.goto('./?e2e=1#/create');
-    await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible({
+      timeout: 5_000,
+    });
     await page.getByRole('tab', { name: 'Hair' }).click();
-    const after = await page.getByRole('radiogroup', { name: 'Hair style' }).getByRole('radio', { checked: true }).getAttribute('value');
+    const after = await page
+      .getByRole('radiogroup', { name: 'Hair style' })
+      .getByRole('radio', { checked: true })
+      .getAttribute('value');
     expect(after).toBe(chosen);
   });
 });
@@ -487,24 +582,38 @@ test.describe('US-8 preview before publishing', () => {
     await openBuilder(page);
     await addPhotos(page, makePhotos(2));
     await page.getByLabel('Caption (optional)').first().fill('Preview caption.');
-    await fillWords(page, { visitorName: 'Preview Pat', guideName: 'Guide Gus', closingMessage: 'Bye\nnow' });
+    await fillWords(page, {
+      visitorName: 'Preview Pat',
+      guideName: 'Guide Gus',
+      closingMessage: 'Bye\nnow',
+    });
     await page.getByRole('button', { name: 'Preview' }).first().click();
     // The welcome screen, then free roaming with the Guide's presentation and the finale.
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('A museum for Preview Pat');
     await expect(page.getByRole('region', { name: 'Preview' })).toContainText('Preview Pat');
     await page.getByRole('button', { name: 'Start' }).click();
-    await page.waitForFunction(() => (globalThis as unknown as PageGlobals).__surpriseMuseum !== undefined);
-    await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtPhoto(0));
-    await expect(page.locator('.caption-card')).toContainText('Preview caption.', { timeout: 30_000 });
+    await page.waitForFunction(
+      () => (globalThis as unknown as PageGlobals).__surpriseMuseum !== undefined,
+    );
+    await page.evaluate(() =>
+      (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtPhoto(0),
+    );
+    await expect(page.locator('.caption-card')).toContainText('Preview caption.', {
+      timeout: 30_000,
+    });
     await expect(page.locator('.caption-card')).toContainText('Guide Gus');
-    await page.evaluate(() => (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale());
+    await page.evaluate(() =>
+      (globalThis as unknown as PageGlobals).__surpriseMuseum!.standAtFinale(),
+    );
     await expect(page.locator('.finale-card')).toContainText('Bye', { timeout: 15_000 });
     // Exit preview: back on Review with everything intact.
     await page.getByRole('button', { name: 'Exit preview' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Review and publish' })).toBeVisible();
     await expect(page.locator('.review-list')).toContainText('Preview Pat');
     await expect(page.locator('.review-list')).toContainText('Guide Gus');
-    await expect(page.locator('.review-list')).toContainText('Bye\nnow'.replace('\n', ' ').split(' ')[0]!);
+    await expect(page.locator('.review-list')).toContainText(
+      'Bye\nnow'.replace('\n', ' ').split(' ')[0]!,
+    );
     await expect(page.locator('.review-thumbs img')).toHaveCount(2);
     problems.expectClean();
   });
@@ -520,8 +629,13 @@ test.describe('US-22 publish', () => {
   test('US-22 AC-1: Publish needs the consent tick, and the terms are linked', async ({ page }) => {
     await toReview(page);
     await page.getByRole('button', { name: /Publish museum/ }).click();
-    await expect(page.getByText('Please confirm you have the right to share these photos.').first()).toBeVisible();
-    await expect(page.getByRole('link', { name: /Read the terms/ })).toHaveAttribute('href', '#/terms');
+    await expect(
+      page.getByText('Please confirm you have the right to share these photos.').first(),
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: /Read the terms/ })).toHaveAttribute(
+      'href',
+      '#/terms',
+    );
     await expect(page.getByRole('heading', { name: 'Your museum is ready' })).toHaveCount(0);
   });
 
@@ -530,11 +644,14 @@ test.describe('US-22 publish', () => {
     context,
     browserName,
   }) => {
-    if (browserName === 'chromium') await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    if (browserName === 'chromium')
+      await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await toReview(page);
     await page.getByRole('checkbox', { name: /I have the right to share/ }).check();
     await page.getByRole('button', { name: /Publish museum/ }).click();
-    await expect(page.getByRole('heading', { name: 'Your museum is ready' })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('heading', { name: 'Your museum is ready' })).toBeVisible({
+      timeout: 60_000,
+    });
     await expect(page.getByText('Save this link now')).toBeVisible();
     const share = await page.getByRole('textbox', { name: 'Share link' }).inputValue();
     expect(share).toMatch(/#\/m\/[A-Za-z0-9_-]{16,}$/);
@@ -544,24 +661,35 @@ test.describe('US-22 publish', () => {
     await page.getByRole('button', { name: 'Copy link', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Link copied' })).toBeAttached();
     if (browserName === 'chromium') {
-      expect(await page.evaluate("navigator.clipboard.readText()")).toBe(share);
+      expect(await page.evaluate('navigator.clipboard.readText()')).toBe(share);
     }
     // The demo notice is honest that this is not a real link for anyone else.
     await expect(page.getByText(/Demo/).first()).toBeVisible();
     // Finish is blocked until the edit link is acknowledged.
-    await expect(page.getByRole('button', { name: 'Finish' })).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByRole('button', { name: 'Finish' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     await page.getByRole('checkbox', { name: /saved my edit link/ }).check();
     await page.getByRole('button', { name: 'Finish' }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Turn your photos into a little museum');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(
+      'Turn your photos into a little museum',
+    );
   });
 
-  test('US-22 AC-4: publishing cannot run twice (the button shows progress and is not available)', async ({ page }) => {
+  test('US-22 AC-4: publishing cannot run twice (the button shows progress and is not available)', async ({
+    page,
+  }) => {
     await toReview(page);
     await page.getByRole('checkbox', { name: /I have the right to share/ }).check();
     const publish = page.getByRole('button', { name: /Publish museum/ });
     await publish.dblclick();
-    await expect(page.getByRole('heading', { name: 'Your museum is ready' })).toBeVisible({ timeout: 60_000 });
-    const count = await page.evaluate(`globalThis.__APP_TEST__.useBuilderStore.getState().publish.phase`);
+    await expect(page.getByRole('heading', { name: 'Your museum is ready' })).toBeVisible({
+      timeout: 60_000,
+    });
+    const count = await page.evaluate(
+      `globalThis.__APP_TEST__.useBuilderStore.getState().publish.phase`,
+    );
     expect(count).toBe('done');
   });
 
@@ -569,17 +697,25 @@ test.describe('US-22 publish', () => {
     await toReview(page);
     await page.getByRole('checkbox', { name: /I have the right to share/ }).check();
     // Inject a failed state as the store would after a failed request, then retry for real.
-    await page.evaluate(`globalThis.__APP_TEST__.useBuilderStore.setState({ publish: { phase: 'failed', error: 'Something went wrong. Please try again.', shareToken: null } })`);
-    await expect(page.getByRole('alert').filter({ hasText: "Publishing didn't work" })).toBeVisible();
+    await page.evaluate(
+      `globalThis.__APP_TEST__.useBuilderStore.setState({ publish: { phase: 'failed', error: 'Something went wrong. Please try again.', shareToken: null } })`,
+    );
+    await expect(
+      page.getByRole('alert').filter({ hasText: "Publishing didn't work" }),
+    ).toBeVisible();
     await expect(page.locator('.review-thumbs img')).toHaveCount(2);
     await page.getByRole('button', { name: 'Try again' }).click();
-    await expect(page.getByRole('heading', { name: 'Your museum is ready' })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('heading', { name: 'Your museum is ready' })).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });
 
 test.describe('US-29 draft (partial: text and characters only; photo restore is Release 2)', () => {
   // Full US-29 AC-1 (photos and captions restored) is NOT BUILT, Release 2 (IndexedDB). It is not a bug.
-  test('US-29 AC-1 (partial): after a reload the names, text and characters are restored', async ({ page }) => {
+  test('US-29 AC-1 (partial): after a reload the names, text and characters are restored', async ({
+    page,
+  }) => {
     await openBuilder(page);
     await addPhotos(page, makePhotos(1));
     await NEXT(page).click();
@@ -593,9 +729,13 @@ test.describe('US-29 draft (partial: text and characters only; photo restore is 
     const chosen = await group.getByRole('radio', { checked: true }).getAttribute('value');
     await page.reload();
     await page.goto('./?e2e=1#/create');
-    await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByRole('heading', { level: 1, name: 'Characters' })).toBeVisible({
+      timeout: 5_000,
+    });
     await page.getByRole('tab', { name: 'Hair' }).click();
-    await expect(page.getByRole('radiogroup', { name: 'Hair style' }).getByRole('radio', { checked: true })).toHaveAttribute('value', chosen!);
+    await expect(
+      page.getByRole('radiogroup', { name: 'Hair style' }).getByRole('radio', { checked: true }),
+    ).toHaveAttribute('value', chosen!);
     await NEXT(page).click(); // Review step: the names are shown
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await page.getByRole('button', { name: 'Back', exact: true }).click();
@@ -603,18 +743,28 @@ test.describe('US-29 draft (partial: text and characters only; photo restore is 
     await expect(page.getByLabel(/Your name/)).toHaveValue('Sam');
   });
 
-  test('US-29 decision: photos are not persisted (US-6 AC-3 met; full photo restore is Release 2)', async ({ page }) => {
+  test('US-29 decision: photos are not persisted (US-6 AC-3 met; full photo restore is Release 2)', async ({
+    page,
+  }) => {
     await openBuilder(page);
     await addPhotos(page, makePhotos(1));
     await NEXT(page).click();
     await page.getByLabel(/Who is this museum for/).fill('Restored');
-    const raw = await page.evaluate((key) => (globalThis as unknown as { localStorage: { getItem(k: string): string | null } }).localStorage.getItem(key), DRAFT_KEY);
+    const raw = await page.evaluate(
+      (key) =>
+        (
+          globalThis as unknown as { localStorage: { getItem(k: string): string | null } }
+        ).localStorage.getItem(key),
+      DRAFT_KEY,
+    );
     expect(raw, 'a draft is saved after editing').not.toBeNull();
     expect(raw).not.toMatch(/blob:|data:image|photo/i);
     await page.reload();
     await page.goto('./?e2e=1#/create');
     // Opens on the saved step (Names), with no photos. Open product question in docs/qa-report.md.
-    await expect(page.getByLabel(/Who is this museum for/)).toHaveValue('Restored', { timeout: 5_000 });
+    await expect(page.getByLabel(/Who is this museum for/)).toHaveValue('Restored', {
+      timeout: 5_000,
+    });
     await page.getByRole('button', { name: 'Back' }).click();
     await expect(page.locator('.photo-row')).toHaveCount(0);
   });
@@ -622,6 +772,14 @@ test.describe('US-29 draft (partial: text and characters only; photo restore is 
   test('US-29 hygiene: a fresh browser context starts with no draft', async ({ page }) => {
     await page.goto('./?e2e=1#/create');
     await expect(page.getByRole('heading', { level: 1, name: 'Photos' })).toBeVisible();
-    expect(await page.evaluate((key) => (globalThis as unknown as { localStorage: { getItem(k: string): string | null } }).localStorage.getItem(key), DRAFT_KEY)).toBeNull();
+    expect(
+      await page.evaluate(
+        (key) =>
+          (
+            globalThis as unknown as { localStorage: { getItem(k: string): string | null } }
+          ).localStorage.getItem(key),
+        DRAFT_KEY,
+      ),
+    ).toBeNull();
   });
 });
