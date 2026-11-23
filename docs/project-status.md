@@ -2,9 +2,9 @@
 
 Application: Surprise Museum. A creator builds a small 3D museum of up to 20 photos with captions and a closing message, picks two stylised characters (the Visitor and the Guide), and shares an unlisted link. The recipient walks the Visitor through the museum while the Guide presents each photo. React Three Fiber on GitHub Pages, Supabase backend.
 Approval mode: Key gates
-Current iteration: 4 (Feature and hosting: free-tier hosting, 7-day retention)
-Current phase: 6 Release
-Last updated: 18/11/2026
+Current iteration: none open (iteration 4 closed 23/11/2026)
+Current phase: none (iteration 4 closed)
+Last updated: 23/11/2026
 
 ## Iterations
 | # | Type | Scope | Started | Closed | Outcome |
@@ -12,20 +12,12 @@ Last updated: 18/11/2026
 | 1 | New application | MVP (requirements v0.2) | 27/10/2026 | 29/10/2026 | Built and QA'd; not deployed |
 | 2 | Feature | CR-1 to CR-3 (gender, presentation camera, photo notice, caption card) | 29/10/2026 | 02/11/2026 | QA round 5 Go; pipeline written; not deployed |
 | 3 | Feature | CR-4 Improved UI | 02/11/2026 | 11/11/2026 | QA round 7 Go; FR-89 linen exceptions X-1 to X-5 accepted by the user; not deployed |
-| 4 | Feature and hosting | Free-tier hosting on GitHub Pages and Supabase Free with keep-alive; retention 90 to 7 days | 18/11/2026 | | |
+| 4 | Feature and hosting | Free-tier hosting on GitHub Pages and Supabase Free with keep-alive; retention 90 to 7 days | 18/11/2026 | 23/11/2026 | Released (prepared) with known issues; not deployed (user decision). Carried forward: V-6, V-7, V-8, DEBT-2, OPS-1, CR-12 to CR-14, DEBT-3, DEBT-4 (see docs/lifecycle/retrospective.md) |
 
 Iterations 1 to 3 ran under the earlier builder process; their record is under "History before ADLC" below. No retrospective was written for them.
 
 ## Phase log (current iteration)
-| Phase | Status | Evidence | Date |
-|---|---|---|---|
-| 1 Plan | Done | Requirements v0.7 (d8be836): NFR-16 7 days, NFR-32 free-tier hosting (Must), FR-105 publish notice (Must), FR-104 space-full (Could); US-68 to US-71; backlog.md created (CR-5 to CR-11, BUG-15, N-11 to N-13, V-1 to V-5, LEG-1, DEBT-1, PERF-1). Must count 90 (hand-counted). No 90-day figure left except superseded notes. Publish screen shows no end date today (checked src/ui), so FR-105 is new work | 18/11/2026 |
-| 2 Design | Done | Architect (4918550): ADR 0010 amended (7 days, purge within 24 h, no backups), ADR 0022 Proposed (read-only keep-alive Edge Function, daily workflow, usage in dashboard), architecture v1.6, contracts unchanged (expiresAt already in store; CONTRACT_VERSION 1), project and Deno .npmrc files. Designer: design spec v2.1 (5.18 availability notice on published screen and edit page, not-found body, privacy sentence). Build passes | 19/11/2026 |
-| 3 Build | Done | eb57dff: retention 7 days, keep-alive function and migration, api.md v1.2 (backend); AvailabilityNotice, formatEndDateTime, not-found and privacy copy (frontend). Tech lead isolated check: format, typecheck, lint, vitest 1084/1084, build, bundle 988.0/1000 kB all pass. Deno 35 tests pass (backend, Deno 2.9.6 via npx). QA Linux CI test fixes fc8b034 (tech lead accepted the CI-only FR-15 allowance of 4000 ms and the soft filechooser event). Smoke: home-and-demo and journey specs 14/14 pass on desktop-chromium and mobile-webkit, fresh test-mode build, run by the tech lead. Format check: the changed test files were already unformatted at HEAD (pre-existing debt, 25+ files); routed to phase 6 as one formatting commit plus enabling format:check in CI | 19/11/2026 |
-| 4 Verify | Done | Performance Skipped: no 3D, render-loop or asset change; bundle 988.0 of 1000 kB. QA round 8 (docs/qa-report.md): Go, no application bug; 24 retention e2e and 8 keep-alive static checks pass on 3 macOS projects; full macOS regression: desktop-chromium 375 passed, mobile-chromium 343, mobile-webkit 337, every failure passed on re-run alone (load flakes, none in iteration 4 code); 4 Linux failures from run 44457523893 fixed as test defects with no limit loosened; 4 new darwin baselines checked by the tech lead. Tech lead: format, tsc, e2e tsc, eslint, 1084 unit tests, build and bundle check pass. Linux CI run 44686612364 (commit 4a3c552): typecheck/lint/unit/build/bundle and Deno pass; e2e desktop-chromium 349 passed 0 failed, mobile-chromium 345 passed 2 flaky, mobile-webkit 336 passed 1 flaky (flaky = passed on retry: gender US-46 AC-2, presentation-camera CR-2 veil, ceiling FR-95 AC-1; none in iteration 4 code); Firefox non-blocking, cancelled. Two follow-up test fixes in Verify: caption-card U1 CI bound (d00f4d5), WebKit unused-preload notice filter (4a3c552). No critical or major bug open | 20/11/2026 |
-| 5 Review | Done | docs/review.md: 0 Critical, 0 Major, 5 Minor, 9 Note; REV-1, 5, 7, 8 (a), 9 fixed (1d74fae), the rest routed to phases 6 and 7. ADR 0022 Accepted. docs/lifecycle/traceability.md and release-readiness.md written (recommendation: release with known issues). CI run 44696065214 on 1d74fae, after the last code change: all required jobs pass (e2e 349, 347, 336 passed, 0 failed, 1 flaky). Exit checks met; A3 approved 23/11/2026 | 23/11/2026 |
-| 6 Release | In progress | a26a8b8 repo-wide format (tokens.css ignored). devops-engineer: format:check in CI; keep-alive.yml (daily 20:37 UTC + manual, skipped until VITE_SUPABASE_URL is set per ADR 0022, red on any failure after that); deploy-supabase runs migrations first (on by default) then all five functions; REV-6, REV-11 fixed; Firefox job 30-min limit and report always uploaded; docs/deployment.md v1.2 free-tier section (US-70 AC-1 to AC-6) and 10 manual steps; CHANGELOG.md. Local: format, tsc, eslint, 1084 unit, build, bundle, keep-alive-static 8 passed 0 skipped. Workflows not yet run on GitHub. No deploy (user, 23/11/2026) | 23/11/2026 |
-| 7 Operate and learn | Not started | | |
+No iteration is open. Iteration 4's phase log is in docs/lifecycle/retrospective.md. The next request starts iteration 5 (`/adlc-3d:change`).
 
 ## Approvals
 | Gate | Iteration | Decision | Given by | Date | Covers |
@@ -46,22 +38,10 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 - 18/11/2026 (tech lead): this is a Feature iteration, because a Must requirement and user-facing wording change, combined with hosting work. Route: 1, 2 (architect only), 3, 4, 5, 6, 7.
 
 ## Open questions (owner)
-- Q-34 (user, before launch): confirm the 1 GB storage, 500 MB database and about 5 GB egress figures on supabase.com/pricing.
-- Backlog candidates from the architect (tech lead: backlog, not this iteration): cap signed photo URLs at expires_at; purgeHealthy flag in the keep-alive response; draft end date on the edit page.
+- Q-34 (user, before launch; backlog V-7): confirm on supabase.com/pricing the 1 GB storage, 500 MB database, about 5 GB egress and about 500,000 Edge Function invocations a month, whether a Sydney region is offered on Free, what happens at each limit, and how long a paused project can be restored.
 
 ## Open requests (owner)
-- CI first real runs (18/11/2026): typecheck, lint, unit tests, build and bundle check PASS on Linux. Deno job failed: lockfiles held private-mirror tarball URLs (fixed by backend-developer, lockfiles regenerated against the public registry; deno check, lint, test pass on Deno 2.9.6 locally). Linux e2e (run 44298737907, cancelled by the user after about 10 min): mobile-webkit fails on the console message `Viewport argument key "interactive-widget" not recognized and ignored.`; mobile-chromium US-2 AC-5 file chooser timeout. Routed to qa-engineer.
-- Project .npmrc: done (4918550).
-- devops-engineer (phase 6): one `npm run format` commit and add format:check to ci.yml; keep-alive.yml per ADR 0022 section 5; add keep-alive to deploy-supabase if it lists functions; migration before function deploy; rename the stale "UNVERIFIED locally" Deno job label.
-- qa-engineer (phase 4): round 8 done. Follow-up: apply the CI-only 1,500 ms U1 bound in `caption-card.spec.ts`; after phase 6, re-run `keep-alive-static.spec.ts` against `keep-alive.yml` and test US-70 (deployment guide free-tier section).
-- product-manager (phase 7): US-71 AC-3 and US-68 AC-3 say "edit", but the MVP only has re-publish (editing a published museum is Release 2). QA tested re-publish. Confirm or correct the wording.
-- devops-engineer (phase 6, from QA): fix stale line 98 in docs/deployment.md; record the Linux visual baselines (including the 4 new ones) with the existing manual workflow; attach the Firefox report.
-- architect (phase 5): ADR 0022 set to Accepted; release review docs/review.md written 20/11/2026: 0 Critical, 0 Major, 5 Minor, 9 Note. Routing:
-  - In Review now: REV-1, REV-5, REV-7 (backend-developer: stale "90" comment in src/api/mockClient.ts, api.md "always within 24 hours", boot.ts "four functions"); REV-8 (a), REV-9 (qa-engineer: catch bare "90" in the static check; anchor the WebKit preload filter to the three and scene-shared chunks).
-  - Phase 6 (devops-engineer): REV-6 ("four" Edge Functions wording and stale Deno comment in ci.yml, deploy-supabase.yml, deployment.md; there are five); REV-11 (add Edge Function invocations to the usage check); the keep-alive workflow sends the `apikey` header (the review could not check whether the gateway needs it with verify_jwt off); first Supabase deploy must run with migrations on, or keep-alive returns 500.
-  - After phase 6 (qa-engineer): REV-8 (b), a missing keep-alive.yml fails instead of skipping.
-  - Phase 7 doc sync: REV-2 (product-manager: mark Q-33 and Q-35 answered; NFR-16 (d), FR-54, US-27 drop the non-existent "expired" screen); REV-3 (architect: architecture.md and ADR 0010 "Proposed/pending/provisional" wording); REV-4 (ux-ui-designer: drop "provisional" in spec 7.5 and the change note).
-  - No action: REV-10 (CI allowances judged sound), REV-12 (owner-path note, change was agreed), REV-14 (resolved in ADR 0022). Backlog: REV-13 (per-function deno.lock inconsistency).
+None open. Every iteration 4 request was done or moved to the backlog (V-6, V-7, V-8, DEBT-2, OPS-1, CR-12 to CR-14, DEBT-3, DEBT-4); review routing is recorded in docs/review.md and docs/lifecycle/retrospective.md.
 
 ## Environment notes
 - Node v26.7.0, npm 11.19.0, public npm registry reachable (18/11/2026).
@@ -72,7 +52,7 @@ Iterations 1 to 3 ran under the earlier builder process; their record is under "
 - Free-tier facts used (third-party sources, checked 18/11/2026; confirm on supabase.com/pricing): Supabase Free has 500 MB database, 1 GB file storage, about 5 GB egress a month, 2 active projects, and pauses after 7 days idle. GitHub Actions is free for public repos on standard runners. Scheduled workflows in public repos are switched off after 60 days with no repo activity.
 
 ## Not verified
-- CI on GitHub: green on Linux since run 44686612364 (20/11/2026) for typecheck, lint, unit, build, bundle, Deno and e2e on desktop-chromium, mobile-chromium and mobile-webkit. desktop-firefox has never finished (non-blocking, cancelled). visual.spec.ts is left out on Linux until Linux baselines are recorded.
+- CI on GitHub: green on Linux since run 44686612364 (20/11/2026); run 45156570793 (23/11/2026) concluded success overall, with format:check enforced. desktop-firefox (non-blocking) fails: 4 accessibility tests time out at Start/focus, then the 25-minute step limit (V-8). visual.spec.ts is left out on Linux until Linux baselines are recorded (V-4/V-8). Keep-alive workflow has not run with a real project (skipped until VITE_SUPABASE_URL is set).
 - Iteration 4, needs the deployed project: hourly purge, removal within 24 h, 23 runs in 24 h (US-68 AC-5, AC-6, US-24 AC-3, NFR-16 e/f), keep-alive counting as Supabase activity (NFR-32), US-69 AC-1 dashboard check, US-69 AC-5 red run.
 - Real devices, Safari and Firefox frame rate, screen readers, Linux visual baselines (carried from iteration 3).
 
