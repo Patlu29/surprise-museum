@@ -4,10 +4,10 @@
 # Deployment lives in deploy-pages.yml (manual only) and deploy-supabase.yml (manual only).
 #
 # Jobs (all are required unless noted):
-#   checks          typecheck, lint, unit tests, build, bundle-size budget
-#   deno            Deno check, lint and test for supabase/functions (UNVERIFIED locally, see below)
+#   checks          typecheck, lint, format check, unit tests, build, bundle-size budget
+#   deno            Deno check, lint and test for supabase/functions (all five Edge Functions)
 #   e2e             Playwright against a mock "test mode" build: desktop-chromium, mobile-chromium, mobile-webkit
-#   e2e-firefox     Playwright on desktop-firefox. NON-BLOCKING: never run before, never in the QA sign-off
+#   e2e-firefox     Playwright on desktop-firefox. NON-BLOCKING: not in the QA sign-off
 #
 # This file is also called by deploy-pages.yml (workflow_call) so a deploy re-runs every check first.
 name: CI
@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   checks:
-    name: Typecheck, lint, unit tests, build, bundle size
+    name: Typecheck, lint, format, unit tests, build, bundle size
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -48,10 +48,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # `npm run format:check` is deliberately NOT run: on 02/11/2026 it reports style issues in 30
-      # files (mostly tests/e2e, plus 8 under src/ and playwright.config.ts). Adding it now would
-      # fail every run. To enable it: run `npm run format` in a commit of its own (owners: qa-engineer
-      # for tests/, the src/ owners for src/), then add `run: npm run format:check` here.
+      # src/styles/tokens.css is listed in .prettierignore on purpose (two unit tests read its values
+      # one per line), so this check passes with that one file left as written.
+      - name: Format check
+        run: npm run format:check
 
       - name: Unit tests
         run: npm test
@@ -66,14 +66,13 @@ jobs:
         run: node .github/scripts/check-bundle-size.mjs dist
 
   deno:
-    name: 'Deno: supabase/functions (UNVERIFIED locally, first CI run)'
+    name: 'Deno: supabase/functions'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      # Deno was never installed on the development machine, so none of these three commands has
-      # been run by the team. If this job fails on its first run, read the log before assuming the
-      # code is wrong: a missing --allow flag or a lockfile mismatch is more likely. See
-      # docs/deployment.md, "Known gaps".
+      # The same three commands pass locally on Deno 2.9.6 and have passed on CI repeatedly. If one
+      # fails, read the log first: a missing --allow flag or a lockfile mismatch is more likely than
+      # a code fault. See docs/deployment.md, "Known gaps".
       - uses: actions/checkout@v7
 
       - uses: denoland/setup-deno@v2
@@ -89,7 +88,7 @@ jobs:
       - name: deno lint
         run: deno lint --config supabase/functions/deno.json supabase/functions
 
-      - name: deno test (the four handlers against an in-memory store)
+      - name: deno test (the five handlers against an in-memory store)
         run: deno test --config supabase/functions/deno.json supabase/functions
 
   e2e:
@@ -175,13 +174,15 @@ jobs:
           if-no-files-found: ignore
 
   e2e-firefox:
-    name: 'E2E: desktop-firefox (non-blocking, never verified)'
+    name: 'E2E: desktop-firefox (non-blocking)'
     needs: checks
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    # Firefox has never run in this project (it cannot launch in the agent sandbox), so a failure
-    # here is information, not a verdict. Nothing depends on this job. To make it blocking, remove
-    # continue-on-error and add it to the needs of the deploy workflow.
+    # Every run so far was cancelled with no result (reason not yet known: the job was cancelled
+    # rather than failed, which also marks the whole run "cancelled"). A 30-minute limit makes a
+    # stuck run end as a timeout failure instead, and the report below is uploaded either way, so
+    # it can be read. A failure here is information, not a verdict. Nothing depends on this job.
+    # To make it blocking, remove continue-on-error and add it to the needs of the deploy workflow.
+    timeout-minutes: 30
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -197,12 +198,15 @@ jobs:
         run: npx playwright install --with-deps firefox
 
       - name: Playwright (desktop-firefox)
+        # The step limit is shorter than the job limit, so a stuck run fails this step and the
+        # upload steps below still run (a job timeout would cancel them).
+        timeout-minutes: 25
         run: npx playwright test --project=desktop-firefox --workers=2
         env:
           CI: 'true'
 
       - name: Upload Playwright report
-        if: ${{ !cancelled() }}
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report-desktop-firefox
@@ -211,7 +215,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload traces and failure screenshots
-        if: ${{ !cancelled() }}
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: playwright-traces-desktop-firefox

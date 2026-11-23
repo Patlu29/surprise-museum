@@ -11,3 +11,6 @@ supabase/.temp
 
 # Hand-written documents owned by several agents; do not reflow them.
 *.md
+
+# Two unit tests (look.test.ts, palette.test.ts) read its token values one per line, and Prettier would split them.
+src/styles/tokens.css

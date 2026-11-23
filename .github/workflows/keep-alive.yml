@@ -1,0 +1,87 @@
+# Keep the Supabase Free project awake (ADR 0022 sections 1, 2, 5 and 6; US-69).
+#
+# Supabase pauses a Free project after 7 days without activity. This workflow calls the read-only
+# keep-alive Edge Function once a day. The function runs one query (Postgres now()), creates nothing,
+# never calls purge and needs no secret: only the project's public anon key, which is a repository
+# VARIABLE (the same two the Pages build uses). No checkout is needed, so permissions are empty.
+#
+# A red run means the keep-alive failed: a non-200 answer, a body that is not
+# {"ok":true,"checkedAt":"..."}, a timeout, a paused project, or the variables are not set.
+# GitHub e-mails the user who last changed the cron line (check Settings, Notifications, Actions).
+#
+# Until VITE_SUPABASE_URL is set (the Supabase project does not exist yet) the job is SKIPPED (grey),
+# not red, so there are no failure e-mails before launch (ADR 0022 section 5). Once it is set, a
+# missing key, a non-https URL or any bad answer fails the run.
+#
+# In a public repository GitHub switches scheduled workflows off after 60 days with no repository
+# activity. See docs/deployment.md, "Free tier", for how to switch it back on.
+name: Keep Supabase awake
+
+on:
+  schedule:
+    # Daily at 20:37 UTC (06:37 or 07:37 in Sydney). Off the hour: GitHub's scheduler is busiest at minute 0.
+    - cron: '37 20 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  keep-alive:
+    name: Call the keep-alive function
+    if: ${{ vars.VITE_SUPABASE_URL != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+    steps:
+      - name: Keep-alive call
+        run: |
+          set -eu
+
+          # Variables are not masked by GitHub, so mask the key before anything can print it.
+          if [ -n "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "::add-mask::${SUPABASE_ANON_KEY}"
+          fi
+
+          # The job condition guarantees the URL is set; the key is checked here.
+          if [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "::error title=Keep-alive not configured::Repository variable VITE_SUPABASE_ANON_KEY is not set. Settings, Secrets and variables, Actions, Variables. See docs/deployment.md."
+            exit 1
+          fi
+
+          base="${SUPABASE_URL%/}"
+          case "$base" in
+            https://*) ;;
+            *)
+              echo "::error title=Keep-alive not configured::VITE_SUPABASE_URL must start with https:// (the project origin, no path)."
+              exit 1
+              ;;
+          esac
+
+          # --fail-with-body: any 4xx or 5xx is a failure and the (key-free) error body is printed.
+          # The key is read from the environment, never written into this script by GitHub.
+          curl --fail-with-body --silent --show-error --max-time 30 \
+            --retry 3 --retry-delay 20 --retry-all-errors \
+            -X POST "${base}/functions/v1/keep-alive" \
+            -H "Content-Type: application/json" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -d '{}' \
+            -o keep-alive-response.json
+
+          if ! jq -e '.ok == true and (.checkedAt | type == "string")' keep-alive-response.json > /dev/null; then
+            echo "::error title=Keep-alive failed::The answer was not {\"ok\":true,\"checkedAt\":\"...\"}."
+            exit 1
+          fi
+
+          checked_at="$(jq -r '.checkedAt' keep-alive-response.json)"
+          echo "Keep-alive OK. Database time: ${checked_at}"
+          {
+            echo "### Keep-alive"
+            echo ""
+            echo "Database time (checkedAt): \`${checked_at}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,7 +1,54 @@
 # Handoff: devops-engineer
 
-## Summary
-Phase 7 (Delivery): wrote the CI workflow, a manual-only GitHub Pages deploy, a manual-only Supabase deploy, and a manual Linux visual-baseline recorder, plus `docs/deployment.md`. Nothing was pushed, deployed, enabled or created, and no secret or variable was set. Pushing these files triggers CI only; no workflow deploys automatically.
+Iteration: 4 (free-tier hosting, 7-day retention). Phase: 6 Release. Updated 23/11/2026.
+
+## Summary (iteration 4, phase 6)
+Prepared the release; deployed nothing. Nothing was pushed, committed, run on GitHub, enabled or created, and no secret or variable was set (user: "No deploy yet", 23/11/2026). Added the format check to CI, the daily `keep-alive.yml`, migrations-first `deploy-supabase.yml`, the Firefox job limits, the free-tier section and full manual steps in `docs/deployment.md` (US-70 AC-1 to AC-6), REV-6 and REV-11 fixes, and `CHANGELOG.md`.
+
+## Files changed (iteration 4)
+- `.prettierignore`: `src/styles/tokens.css` with a one-line reason
+- `.github/workflows/ci.yml`: `Format check` step in `checks`; Deno job label and comment no longer say UNVERIFIED or "four"; Firefox job: `timeout-minutes: 30`, Playwright step limit 25, uploads `if: always()`
+- `.github/workflows/keep-alive.yml`: new (daily `37 20 * * *`, `workflow_dispatch`, `permissions: {}`, no checkout, reads `vars.VITE_SUPABASE_URL` and `vars.VITE_SUPABASE_ANON_KEY`, `apikey` header only, `jq -e` body check, key masked, step summary shows `checkedAt`)
+- `.github/workflows/deploy-supabase.yml`: `migrations` default on and run before functions; "five" wording; migrations input read through `env` instead of `${{ }}` in the script (matches the ADR rule; tech lead accepted); no `UNVERIFIED` label; reminder to run the keep-alive once
+- `docs/deployment.md` v1.2: five functions, five workflows, format check, free-tier section, rewritten manual steps (1 to 10), known gaps, troubleshooting rows for keep-alive
+- `CHANGELOG.md`: new
+- `docs/handoffs/devops-engineer.md`: this note
+
+## Verification (iteration 4)
+| Check | Result | Label |
+|---|---|---|
+| `npm run format:check` | passed (tokens.css ignored) | Verified |
+| `npm run lint`, `npm run typecheck` | passed | Verified |
+| `npx vitest run` | 72 files, 1084 tests passed | Verified |
+| `PW_REUSE_SERVER=1 npx playwright test keep-alive-static --project=desktop-chromium` (preview already on 4173) | 8 passed, 0 skipped | Verified |
+| All 5 workflow files parse as YAML (system Ruby Psych) and pass Prettier | passed | Verified |
+| keep-alive script: extracted and run with a local stand-in server | success exits 0 and writes the summary; wrong body exits 1; HTTP 500 retries 3 times then fails; unset variables and a non-https URL fail with a clear error | Verified (locally, not on GitHub) |
+| `actionlint`, `deno` | not installed here, so not run | Not verified |
+| Secret grep over `.github`, `docs/deployment.md`, `CHANGELOG.md`, `.prettierignore`, this note (JWT, `sb_*`, `ghp_`, `github_pat_`, `sbp_` patterns) | no hits | Verified |
+| Any workflow on GitHub (keep-alive, deploy-supabase, Firefox job change, format step) | never run | **Not verified** |
+| Whether the Supabase gateway needs `apikey` with `verify_jwt = false`; whether Supabase counts the call as activity; GitHub failure e-mails | needs a deployed project and 7+ days | Not verified |
+
+First run to check after pushing: CI `checks` shows the "Format check" step green; the Firefox job ends as pass, fail or timeout (not cancelled) and its two artefacts exist; "Keep Supabase awake" is skipped (grey) until `VITE_SUPABASE_URL` is set (expected).
+
+## Decisions (iteration 4)
+- keep-alive follows ADR 0022 section 5 (tech lead ruling, 23/11/2026): `if: vars.VITE_SUPABASE_URL != ''`, so it is skipped (grey) until the URL is set. After that a missing anon key, non-https URL, non-200, wrong body or timeout fails red. The first draft failed on a missing URL (task wording); changed.
+- `apikey` header only, no `Authorization: Bearer`: neither ADR 0022 nor `docs/api.md` 10a asks for it, `supabase/scripts/smoke-test.mjs` sends `apikey` only, and a publishable key is not a JWT.
+- No checkout in keep-alive: it uses no repository file.
+- Firefox: cause of the cancellations is unknown (no log kept). Gave it limits and an always-upload; did not investigate further (as instructed). Step limit 25 minutes is under the job limit so uploads still run.
+
+## Not done
+- Deploy, push, enabling Pages, secrets and variables, creating the Supabase project, running any workflow (all the user's, by instruction).
+- `actionlint` and Deno not available locally.
+
+## Open questions
+- Resolved: follows ADR 0022 (tech lead). The Sydney and limit-behaviour questions go to the user as Q-34 checks.
+- Is Sydney offered on the Supabase Free plan, and what exactly happens at each free limit and how long a paused project can be restored? Third-party figures, all marked "confirm" in the guide (user, on supabase.com).
+
+## Requests for other agents
+- [done] architect ADR amendment: no longer needed, the workflow matches the ADR.
+- [open] tech lead: commit these files.
+
+## Earlier history (iterations 1 to 3, phase 7 Delivery, kept for context)
 
 ## Update 02/11/2026: Node 26 from .nvmrc
 - `.nvmrc` (value `26`) added at the repo root; tech lead authorised it on the architect's behalf. ci.yml (3 jobs), deploy-pages.yml and visual-baselines-linux.yml now use `node-version-file: .nvmrc`. The `NODE_VERSION` envs are removed. deploy-supabase.yml does not use Node.
