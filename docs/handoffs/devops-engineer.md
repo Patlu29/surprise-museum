@@ -30,6 +30,9 @@ Prepared the release; deployed nothing. Nothing was pushed, committed, run on Gi
 
 First run to check after pushing: CI `checks` shows the "Format check" step green; the Firefox job ends as pass, fail or timeout (not cancelled) and its two artefacts exist; "Keep Supabase awake" is skipped (grey) until `VITE_SUPABASE_URL` is set (expected).
 
+## QA doc fix (DOC-1, 23/11/2026)
+- `docs/deployment.md`: the keep-alive section now says the workflow prints curl's HTTP error and the response body on failure (not only the status). No other place said the same.
+
 ## Decisions (iteration 4)
 - keep-alive follows ADR 0022 section 5 (tech lead ruling, 23/11/2026): `if: vars.VITE_SUPABASE_URL != ''`, so it is skipped (grey) until the URL is set. After that a missing anon key, non-https URL, non-200, wrong body or timeout fails red. The first draft failed on a missing URL (task wording); changed.
 - `apikey` header only, no `Authorization: Bearer`: neither ADR 0022 nor `docs/api.md` 10a asks for it, `supabase/scripts/smoke-test.mjs` sends `apikey` only, and a publishable key is not a JWT.

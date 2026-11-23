@@ -46,7 +46,7 @@ Projects: `desktop-chromium`, `desktop-firefox`, `mobile-webkit` (iPhone 13), `m
 | `ceiling.spec.ts` | FR-95 (US-62): the ceiling never blocks a high camera, the 2 m height cap (about 5.25 m boom at 55 degrees), every room type, smooth fade, reduced-motion hysteresis, Preview |
 | `visual.spec.ts` | Stable screenshots (desktop Chromium only): the original six, gender previews and entrances, the brow close-up, and (round 6) the five face shapes, new styles with patterns, More options open and the ceiling cutaway |
 | `retention.spec.ts` | Iteration 4: US-71 (availability notice on the published screen and edit page, `<time>`, fallback, 320 and 360 px at 200% text), US-68 (7-day life, no extension, draft expiry, not-found after 7 days plus 1 s), Q-33 (a) not-found body, privacy sentence. `Date` is pinned with `page.clock.setFixedTime` and the zone with `timezoneId` |
-| `keep-alive-static.spec.ts` | US-69: static checks of the contract, SQL, `config.toml`, handler source and `docs/api.md` against ADR 0022; the workflow checks run when `.github/workflows/keep-alive.yml` exists. Runs once, on desktop-chromium |
+| `keep-alive-static.spec.ts` | US-69: static checks of the contract, SQL, `config.toml`, handler source and `docs/api.md` against ADR 0022; the workflow tests read `.github/workflows/keep-alive.yml` (schedule, job condition, permissions, `env:` and no `${{ }}` in `run:`, key mask, failure handling, read-only call). A missing workflow file fails (REV-8 (b)); nothing skips. Runs once, on desktop-chromium |
 | `support/` | Image generator and PNG diff, builder and visit helpers, camera and card helpers (`presentation.ts`), fixtures |
 
 ## Conventions

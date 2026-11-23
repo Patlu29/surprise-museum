@@ -1,5 +1,43 @@
 # QA report: Surprise Museum
 
+## Round 8b (phase 6 release artefacts), 23/11/2026
+
+Scope: US-69 against `.github/workflows/keep-alive.yml` and US-70 against `docs/deployment.md` v1.2, commit cbbd7e4. Nothing was run in GitHub or Supabase: no workflow was triggered and there was no cloud access.
+
+**Result:** `keep-alive-static.spec.ts` on desktop-chromium: **13 passed, 0 failed, 0 skipped** (`PW_REUSE_SERVER=1`; the test-mode `dist/` has `__APP_TEST__`; the spec uses no browser). `npx tsc -p tsconfig.e2e.json --noEmit`, `npx eslint tests/e2e` and `npm run format:check` pass. The spec skips on the other projects by design (it runs once).
+
+**REV-8 (b) closed.** A missing `keep-alive.yml` now fails: a new test, "US-69 AC-2: .github/workflows/keep-alive.yml exists", and the workflow describe block no longer skips. Proof, in a scratch copy of the repository (the real file was not touched): without the file, 7 workflow tests fail and none skip. Each of these one-line mutations of the scratch copy was caught by the test named for it, and a restored copy passed 13 of 13: cron every 3 days, `--fail-with-body` removed, `jq -e` without `-e`, `permissions: write-all`, the key interpolated with `${{ }}` into `run:`, the URL changed to `purge-expired`, the job condition removed, and the `add-mask` line removed.
+
+**What the static read proves about the workflow:** one cron `37 20 * * *` (daily) and `workflow_dispatch`; job condition `vars.VITE_SUPABASE_URL != ''`; `permissions: {}`, no write permission, no `uses:`; the only `${{ }}` expressions are the two `env:` lines and the job condition; none is inside `run:`; the key is masked before the one `curl`, is echoed only by the mask line, and there is no secret reference or key literal; `set -eu`, `--fail-with-body`, `--max-time 30`, `jq -e` inside an `if !` that exits 1, no `continue-on-error`, `|| true` or `set +e`; one `POST` to `/functions/v1/keep-alive` with body `{}`; no `purge`, `/rest/v1`, `/storage/v1` or `git push`. It does not prove what GitHub or Supabase do with the file.
+
+### US-69 (free tiers and keep-alive)
+
+| Criterion | Result | How and limits |
+|---|---|---|
+| AC-1 Repo public, plan Free, no paid add-on | **Not verified** | Needs the GitHub settings and the Supabase dashboard (manual check by the tech lead or the user) |
+| AC-2 Schedule at least every 72 h | **Verified** (static) | Cron `37 20 * * *` is every 24 h; `workflow_dispatch` present; the job is skipped until the variable is set. Whether GitHub fires it on time is AC-3 |
+| AC-3 At least 1 successful run in any 72 h window | **Not verified** | Needs the run history of a deployed repository over 7 days |
+| AC-4 0 rows, 0 objects, no purge call, no secret in the log (workflow part) | **Verified** (static) | See the list above. The function side is covered by the contract, SQL, handler and `docs/api.md` tests in the same spec and the backend's Deno tests (35 pass, backend handoff). The log itself is **Not verified**: it needs a real run (the mask is placed before the call, and the only echo of the key is the mask line) |
+| AC-5 A failed run is red | **Partly verified** | Static evidence: `set -eu`, `--fail-with-body`, a timeout, `jq -e` with `exit 1`, a missing key or non-https URL exits 1, nothing swallows a failure. The real red run is **Not verified** until deploy |
+
+### US-70 (deployment guide, free-tier section): a document read, not run
+
+Read lines 112 to 177 of `docs/deployment.md` against the ADR and `keep-alive.yml`. No command in the guide was executed (the SQL queries and the dashboard steps need a Supabase project).
+
+| Criterion | Result | Evidence |
+|---|---|---|
+| AC-1 Storage 1 GB, database 500 MB, egress about 5 GB a month, each "confirm on supabase.com/pricing" | **Verified** (read) | Table, lines 120 to 122; the mark is on each row. It also lists invocations (about 500,000, REV-11), idle pause and backups, each marked the same |
+| AC-2 20 x (about 600 KB + about 200 KB) = about 16 MB; about 60 full museums in 1 GB | **Verified** (read) | Lines 131 to 135. 20 x 800 KB = 16 MB; 1,000 / 16 = 62.5, stated as about 60. The egress line (5,000 / 16, about 300 visits) also checks out |
+| AC-3 Usage steps for storage, database, egress; date and result of the last keep-alive run | **Verified** (read) | Lines 139 to 149: dashboard Usage page (storage, database, egress, invocations), two read-only SQL queries, and step 3 "Actions, Keep Supabase awake" with date, result, a 24-hour freshness test, and `checkedAt` in the run summary. The dashboard menu names and the SQL were not run |
+| AC-4 60 days, public repository, how to switch back on | **Verified** (read) | Lines 171 to 177: 60 days with no repository activity, a workflow run does not count, Enable workflow, then Run workflow, restore the project first if it paused, a 50-day reminder |
+| AC-5 What happens at each limit, what to do, no in-app handling (FR-104 deferred) | **Verified** (read) | Line 114 and the table at lines 153 to 160: storage, database, egress, plus invocations and idle. Each row has a "what happens" and a "what to do". The behaviours are marked "confirm in the Supabase docs" (third-party, not checked) |
+| AC-6 No backups; no price; paid plans say contact sales | **Verified** (read) | Line 125 and line 161 (no backups); line 163 "contact Supabase sales; this guide quotes no price". A search of the whole file for currency symbols, USD, AUD, "per month", "price" and "cost" found no price (only the supabase.com/pricing URL and "no price") |
+
+**One finding, minor (DOC-1), owner devops-engineer:** `docs/deployment.md` line 167 says the workflow "prints only the HTTP status on failure". `keep-alive.yml` runs `curl --fail-with-body --show-error`, so it also prints curl's error line and the response body (the workflow comment says "the (key-free) error body is printed"). Suggested wording: "prints the HTTP error and the response body on failure". No criterion fails, and the key is masked either way.
+
+### Not covered in round 8b
+The real workflow run, the run history, the GitHub and Supabase settings (US-69 AC-1, AC-3, the real red run), the dashboard steps and SQL in the guide, Firefox and every other project (this spec is browser-free), and Linux CI (the spec was run on macOS only).
+
 ## Round 8 (iteration 4: 7-day retention, availability notice, free-tier hosting), HEAD 33c2af8 plus uncommitted test changes, 19/11/2026
 
 Build tested: `VITE_API_MODE=mock npm run build -- --mode test` (hook `__APP_TEST__` confirmed in `dist/assets/index-*.js` before every run), served by the preview on port 4173 (left running), `PW_REUSE_SERVER=1`. Engines: Chromium (desktop and Pixel 7 emulation) and WebKit (iPhone 13 emulation) from the installed Playwright. Firefox cannot launch here and was not run. Real phones, VoiceOver and TalkBack were not covered.

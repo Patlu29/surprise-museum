@@ -1,5 +1,18 @@
 # Handoff: qa-engineer
 
+Iteration: 4. Phase: 6 Release (QA check of the release artefacts).
+
+## Round 8b, release artefacts (23/11/2026)
+
+- `tests/e2e/keep-alive-static.spec.ts`: REV-8 (b) done. A missing `keep-alive.yml` now fails (new existence test; the describe block no longer skips). Seven workflow tests cover US-69 AC-2, AC-4 and AC-5 as far as a static read can. **Verified**: 13 passed, 0 skipped on desktop-chromium; in a scratch copy a missing file fails 7 tests and eight one-line mutations each fail the matching test. `tsc -p tsconfig.e2e.json`, eslint and `format:check` pass.
+- US-70 read against `docs/deployment.md`: AC-1 to AC-6 all met as a document read (nothing executed). One minor finding, DOC-1 (line 167 says only the HTTP status is printed; the workflow also prints the body).
+- `docs/qa-report.md` has a new "Round 8b" section at the top; `tests/README.md` updated.
+- Not verified: US-69 AC-1, AC-3, the real red run and the log content (need the deployed repository and project).
+
+### Requests for other agents
+- [open] devops-engineer: DOC-1, `docs/deployment.md` line 167, say the workflow prints the HTTP error and the response body on failure, not only the status.
+- [done] REV-8 (b) from the architect: fail instead of skip when `keep-alive.yml` is missing.
+
 ## Linux CI follow-up, run 44676952911 (20/11/2026)
 
 - Failure: mobile-webkit `gender.spec.ts` US-47 AC-1 (failed 3 tries) and `more-options.spec.ts` FR-100 / US-66 AC-3 and AC-6 (flaky). Message: WebKit "was preloaded using link preload but not used within a few seconds" for `three-<hash>.js`.
