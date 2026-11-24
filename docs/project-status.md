@@ -24,6 +24,7 @@ No iteration is open. Iteration 4's phase log is in docs/lifecycle/retrospective
 |---|---|---|---|---|---|
 | A2 design | 4 | Approved | User | 19/11/2026 | ADR 0010 amendment, ADR 0022 (keep-alive), architecture v1.6, design spec v2.1; Q-33 (a) shared not-found screen; Q-35 (a) FR-105 stays Must |
 | A3 release | 4 | Approved (release with known issues) | User | 23/11/2026 | docs/lifecycle/release-readiness.md of 20/11/2026: known issues X-1 to X-5 (accepted earlier), BUG-15, N-11 to N-13, and the Not verified items that need a deploy. Separately: no deploy in this iteration ("No deploy yet") |
+| Deploy (GitHub side) | after 4 | Approved ("okay do") | User | 24/11/2026 | The tech lead may enable Pages, set the public variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, and run the deploy and keep-alive workflows, once the user has created the Supabase project. Not covered: creating the Supabase project, the secrets `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD` (the user sets these). Done 24/11/2026: Pages enabled (Source: GitHub Actions, https://patlu29.github.io/surprise-museum/). Waiting on the user: Supabase project (docs/deployment.md step 3) |
 | A1 scope | 4 | Approved (the user's own answers set the scope) | User | 18/11/2026 | Supabase Free plus a scheduled keep-alive; GitHub Pages with the existing Actions pipeline; museums promised for 7 days, then the whole museum and photos are deleted; free-limit guardrail is docs plus a usage check, no new in-app handling |
 
 ## Decisions and answers
