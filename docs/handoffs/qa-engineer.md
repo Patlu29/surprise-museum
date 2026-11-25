@@ -1,6 +1,34 @@
 # Handoff: qa-engineer
 
-Iteration: 4. Phase: 6 Release (QA check of the release artefacts).
+Iteration: none open (post-release). Latest: Round 9 diagnosis. Before that: iteration 4, phase 6 Release.
+
+## Round 9, WebKit blank canvas diagnosis (25/11/2026)
+
+Iteration: none open, post-release Operate. Task: diagnose `ceiling.spec.ts:178` on mobile-webkit (Deploy run 45385807054 attempt 1).
+
+### Verification
+| Check | Result | Label |
+|---|---|---|
+| `ceiling.spec.ts:178` mobile-webkit `--repeat-each=12`, 2 workers (PW_REUSE_SERVER=1) | 12 passed, 0 failed | Verified |
+| Context loss events and `isContextLost()` across entrance, gallery 10 m, gallery 6 m, finale (temporary spec, 5 runs) | 0 lost, 0 restored, never lost; 1 canvas in the DOM throughout | Verified |
+| WebGL context count per room switch | none created per switch (2 after Start, constant) | Verified |
+| 150 rapid screenshots x 2 | 0 of 300 flat | Verified |
+| CI trace: console, screenshot, screencast | no context loss or WebGL error; blank only in the capture; scene drawn in the next frame 0.4 s later | Verified (read of the trace) |
+| Cause of the CI blank capture | WebKit software-GL screenshot reading a cleared buffer | Partly verified (not reproduced; CI image not available) |
+| Real iPhone behaviour, iOS background context loss | not run | Not verified |
+
+### Not done
+- Reproduction on the CI image (ubuntu, software GL): not available here.
+- The recommended `flatShare` re-capture was not applied or mutation-checked; it is a recommendation (diagnosis task only).
+- Temporary spec `tests/e2e/zz-diag-webkit.spec.ts` was deleted; no lasting test is recommended from it.
+
+### Open questions
+- If the failure recurs after the re-capture fix, does the CI trace show a context loss? If yes, it is a product fault (scene-developer, `src/scene/SceneRoot.tsx` restore handling). Answer from the next CI run.
+- Should the builder's second preview Canvas be counted against the context limit on iOS? Not tested (architect, scene-developer).
+
+### Requests for other agents
+- [open] qa-engineer (next task): apply the re-capture in `flatShare` and mutation-check it (see qa-report Round 9).
+- [open] devops-engineer (optional): record the context-loss count on a CI WebKit failure.
 
 ## Round 8b, release artefacts (23/11/2026)
 

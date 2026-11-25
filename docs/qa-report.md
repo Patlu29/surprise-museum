@@ -1,5 +1,33 @@
 # QA report: Surprise Museum
 
+## Round 9: WebKit blank canvas diagnosis, ceiling FR-95 AC-1 (25/11/2026)
+
+Scope: why `tests/e2e/ceiling.spec.ts:178` failed all 3 tries on mobile-webkit in Deploy run 45385807054 attempt 1. Diagnosis only; no app code or test was changed. A temporary diagnostic spec was used and deleted (not recommended as a lasting test).
+
+**Verdict: test environment (CI software-GL WebKit screenshot capture), not a product fault on the evidence available. Partly verified: the failure was not reproduced locally, so the mechanism below is the best-supported reading, not a proof.**
+
+| Item | Result |
+|---|---|
+| Reproduction, mobile-webkit, this test, `--repeat-each=12`, 2 workers, macOS, hardware GL, local `dist/` test build | 12 passed, 0 failed |
+| Same flow with instrumentation, 5 runs (3 in parallel, then 2) | 0 context-loss events, 0 restores, `gl.isContextLost()` false after each room |
+| Rapid `page.screenshot` x150 on the settled scene, 2 runs | 0 of 300 frames flat (> 0.7) |
+| WebGL contexts per test | 2 `getContext('webgl*')` calls after Start, then none: no context is created per room switch (my own read-outs added +1 each and are excluded). One `<canvas>` in the DOM throughout (entrance, gallery 10 m, gallery 6 m, finale) |
+| Code | One `<Canvas>` in `src/scene/Experience.tsx`; the renderer is not recreated on room change (rooms are in one scene); `webglcontextlost` is handled in `src/scene/SceneRoot.tsx` (shows the reload dialog); `preserveDrawingBuffer` is the default (false) |
+
+**Evidence from the CI trace (retry 1, `trace.zip`):**
+- Console: only the `interactive-widget` viewport message, the `THREE.Clock` deprecation warning and the unused-preload warning. No `webglcontextlost`, no WebGL error, no failed request.
+- The failure screenshot has no context-lost dialog, and the HUD and the projected "Alex" label are in place, so the app's frame loop and UI were running.
+- The screencast shows the scene drawing normally in the same test, then one blank frame at the moment of `page.screenshot` (flatShare, gallery 6 m, a 22 KB frame against 40 to 50 KB for a drawn scene), and **the very next screencast frame (about 0.4 s later) shows the full scene again** (the Visitor in the gallery, the wall and floor). The canvas was not lost; it was blank in the capture only.
+- The earlier room checks in the same run (entrance, gallery 10 m) passed with the same screenshot call, so this is intermittent per capture, which matches pass on attempt 2, flaky in run 44696065214 and 336 other mobile-webkit tests passing.
+
+**Reading:** with the default non-preserved drawing buffer, WebKit's screenshot capture on CI's software GL intermittently reads the WebGL layer after it was cleared and before the next frame is presented, so the capture shows the clear colour. Three captures in one try (and retries 1 and 2) landed on it. Not proven: I could not run the CI image. The failing captures are pixel reads, not what a person sees.
+
+**Why it is not likely to hit a real iPhone through contexts:** the app holds one live context (plus one short probe), far under Safari's limit of about 16, and nothing is created per room. What is not covered: a real iPhone, a background-tab context loss on iOS (the handler exists but was not exercised on a device), and the builder's second preview `<Canvas>` in the same page (not part of this test).
+
+**Recommended fix (owner qa-engineer, `tests/e2e/ceiling.spec.ts`, `flatShare` only):** when the first capture reads flat (>= 0.7), wait for a fresh frame (`page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))))`) and capture again, up to 3 captures, and fail only if every capture is flat. The threshold stays 0.7. A real ceiling fault (BUG-12) is flat in every capture, so the test can still fail; confirm by running it against a build with the ceiling forced opaque before merging. Not applied here: the task was diagnosis, and the change must be checked against that mutation first.
+
+**Optional, owner devops-engineer:** in the WebKit CI job keep `trace: on-first-retry` and add the `webglcontextlost` count to the failure annotation if the failure recurs after the fix; that would settle the open point on CI directly. **Not recommended:** `preserveDrawingBuffer: true` (scene-developer): it costs frame time on phones to fix a capture artefact. **Scene-developer action: none**, unless the CI failure recurs with a context-loss event, in which case reopen as a product fault.
+
 ## Round 8b (phase 6 release artefacts), 23/11/2026
 
 Scope: US-69 against `.github/workflows/keep-alive.yml` and US-70 against `docs/deployment.md` v1.2, commit cbbd7e4. Nothing was run in GitHub or Supabase: no workflow was triggered and there was no cloud access.
