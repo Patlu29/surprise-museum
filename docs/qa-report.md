@@ -1,5 +1,34 @@
 # QA report: Surprise Museum
 
+## Round 9b: flatShare re-capture fix (25/11/2026)
+
+Scope: the test-only fix recommended in round 9, approved by the user on 25/11/2026. Changed `tests/e2e/ceiling.spec.ts` only. No app code is left changed.
+
+**Change.** `flatShare` is now `captureFlatShare` (one capture, same pixel measure) plus a new helper `expectNotFlat(page, message)`. If a capture reads >= 0.7 flat it waits two `requestAnimationFrame`s (`page.evaluate`) and captures again, up to 3 captures; it fails only if every capture is flat, with the message `<message> (every capture was flat: a, b, c)`. The 0.7 limit is unchanged (`FLAT_LIMIT`). Every call site in the spec asserted the same flat-colour share, so all 7 now use `expectNotFlat`: FR-95 AC-1 default pose, AC-2, AC-3, AC-4 (the first describe block), "AC-1 and the cap" (the per-room check, line ~293, the round 9 failure), AC-1 under reduced motion, and AC-4 builder Preview. No other spec used `flatShare`. No other assertion was touched.
+
+**Results (macOS, test-mode build on 4173, `PW_REUSE_SERVER=1`).**
+
+| Run | Result |
+|---|---|
+| `ceiling.spec.ts`, mobile-webkit + desktop-chromium | 18 passed, 0 failed, 2 skipped (AC-3 and AC-4 are desktop only, on mobile-webkit by design) |
+| "AC-1 and the cap" (FR-95 AC-1), mobile-webkit, `--repeat-each=5` | 5 passed, 0 failed |
+| `npm run lint`, `npm run format:check`, `npm run typecheck`, `tsc -p tsconfig.e2e.json --noEmit` | pass |
+
+**Mutation check (proves the test can still fail).** Temporary local edit of `src/scene/objects/CeilingFade.tsx`: ceiling mesh always visible, `DoubleSide`, opacity 1, not transparent (the snapshot `ceilingOpacity` stayed honest, so the failure comes from the pixel check). Built with `--outDir` in a scratch folder outside `dist/`, served on port 4174, run through a temporary config (deleted). Result: all flat checks FAILED with every capture flat, on both projects.
+
+| Test | desktop-chromium (3 captures) | mobile-webkit (3 captures) |
+|---|---|---|
+| AC-2 dragging | 0.970, 0.970, 0.970 | 0.808, 0.808, 0.808 |
+| AC-3 keyboard | 0.970, 0.970, 0.970 | skipped (desktop only) |
+| AC-4 zoomed out | 0.973, 0.973, 0.973 | skipped (desktop only) |
+| AC-1 under reduced motion | 0.970, 0.970, 0.970 | 0.808, 0.808, 0.808 |
+| AC-4 builder Preview | 0.956, 0.956, 0.956 | 0.783, 0.783, 0.783 |
+| AC-1 and the cap, entrance 7.5 m | 0.970, 0.970, 0.970 | 0.808, 0.808, 0.808 |
+
+(8 failed in the first run, 2 more in the second; the two default-pose tests passed under the mutation, as expected, because the camera is under the ceiling there.) The mutation was reverted with `git checkout`, the temporary config and scratch build were removed, port 4174 was stopped (4173 untouched), and `git status` shows only `tests/e2e/ceiling.spec.ts` (plus this report and the handoff note).
+
+**Limits.** The fix is Partly verified against the original fault: the CI WebKit software-GL capture artefact was never reproduced locally, so the re-capture is proven not to hide a real fault, but not proven to cure the CI flake. Linux CI is Not verified until the next run. Firefox was not run (cannot launch). A mutation where the first capture is flat and the second is not could not be forced locally.
+
 ## Round 9: WebKit blank canvas diagnosis, ceiling FR-95 AC-1 (25/11/2026)
 
 Scope: why `tests/e2e/ceiling.spec.ts:178` failed all 3 tries on mobile-webkit in Deploy run 45385807054 attempt 1. Diagnosis only; no app code or test was changed. A temporary diagnostic spec was used and deleted (not recommended as a lasting test).

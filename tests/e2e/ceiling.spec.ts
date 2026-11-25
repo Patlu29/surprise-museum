@@ -26,8 +26,11 @@ import { expect, test } from './support/fixtures';
  */
 const CEILING_TOP = 3.3; // metres: the ceiling slab spans 3.2 to 3.3 (layout wallHeight 3.2, slab 0.1 thick)
 
+const FLAT_LIMIT = 0.7;
+const MAX_CAPTURES = 3;
+
 /** Share of the frame taken by the most common colour (each channel quantised to 8 levels), over the canvas area below the HUD row. */
-async function flatShare(page: Parameters<typeof snap>[0]): Promise<number> {
+async function captureFlatShare(page: Parameters<typeof snap>[0]): Promise<number> {
   const { width, height, data } = decodePng(await page.screenshot({ animations: 'allow' }));
   const counts = new Map<number, number>();
   let total = 0;
@@ -40,6 +43,30 @@ async function flatShare(page: Parameters<typeof snap>[0]): Promise<number> {
     }
   }
   return Math.max(...counts.values()) / total;
+}
+
+/**
+ * Fails only if every capture is flat. WebKit's screenshot on a software-GL CI machine can read the WebGL layer between a clear and the next
+ * present (qa-report round 9), so a flat capture is repeated after two animation frames, up to MAX_CAPTURES in all. A real ceiling fault
+ * (BUG-12) is flat in every capture and still fails.
+ */
+async function expectNotFlat(page: Parameters<typeof snap>[0], message: string): Promise<void> {
+  const shares: number[] = [];
+  for (let n = 0; n < MAX_CAPTURES; n++) {
+    if (n > 0)
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+    shares.push(await captureFlatShare(page));
+    if (shares[n]! < FLAT_LIMIT) return;
+  }
+  expect(
+    Math.min(...shares),
+    `${message} (every capture was flat: ${shares.map((v) => v.toFixed(3)).join(', ')})`,
+  ).toBeLessThan(FLAT_LIMIT);
 }
 
 const cameraY = async (page: Parameters<typeof snap>[0]) =>
@@ -59,7 +86,7 @@ test.describe('FR-95 the ceiling never blocks a high camera', () => {
     page,
   }) => {
     expect(await cameraY(page)).toBeLessThan(CEILING_TOP - 0.6);
-    expect(await flatShare(page)).toBeLessThan(0.7);
+    await expectNotFlat(page, 'one flat colour must not fill the frame');
   });
 
   test('FR-95 AC-2: pitched up by dragging to the highest angle, the room is still visible', async ({
@@ -84,7 +111,7 @@ test.describe('FR-95 the ceiling never blocks a high camera', () => {
       'the camera is above the ceiling',
     ).toBeGreaterThan(CEILING_TOP);
     await page.waitForTimeout(500);
-    expect(await flatShare(page), 'one flat colour must not fill the frame').toBeLessThan(0.7);
+    await expectNotFlat(page, 'one flat colour must not fill the frame');
   });
 
   test('FR-95 AC-3: pitched up with the keyboard (Shift and Down arrow), the room is still visible', async ({
@@ -104,7 +131,7 @@ test.describe('FR-95 the ceiling never blocks a high camera', () => {
     await page.keyboard.up('ArrowDown');
     await page.keyboard.up('Shift');
     await page.waitForTimeout(500);
-    expect(await flatShare(page), 'one flat colour must not fill the frame').toBeLessThan(0.7);
+    await expectNotFlat(page, 'one flat colour must not fill the frame');
   });
 
   test('FR-95 AC-4: zoomed out and pitched up (desktop), the room is still visible', async ({
@@ -128,7 +155,7 @@ test.describe('FR-95 the ceiling never blocks a high camera', () => {
     await page.keyboard.up('Shift');
     await page.waitForTimeout(500);
     expect(await cameraY(page)).toBeGreaterThan(CEILING_TOP + 1);
-    expect(await flatShare(page), 'one flat colour must not fill the frame').toBeLessThan(0.7);
+    await expectNotFlat(page, 'one flat colour must not fill the frame');
   });
 });
 
@@ -263,10 +290,7 @@ test.describe('FR-95 as built: the 2 m height cap, every room type, smooth fade,
       expect(Math.abs(c.x), `${where}: camera inside the side walls`).toBeLessThanOrEqual(4.3);
       // Both characters are in view and not hidden.
       expect(s.labels.visitor, `${where}: the Visitor is visible`).toBe(true);
-      expect(
-        await flatShare(page),
-        `${where}: one flat colour must not fill the frame`,
-      ).toBeLessThan(0.7);
+      await expectNotFlat(page, `${where}: one flat colour must not fill the frame`);
       for (const role of ['visitor', 'guide'] as const) {
         const label = await page.evaluate((r) => {
           const e = document.querySelector(`[data-testid="name-label-${r}"]`) as HTMLElement | null;
@@ -529,7 +553,7 @@ test.describe('FR-95 as built: the 2 m height cap, every room type, smooth fade,
       const { c, opacity } = await cam(page);
       expect(c.y).toBeGreaterThan(CEILING);
       expect(opacity).toBe(0);
-      expect(await flatShare(page)).toBeLessThan(0.7);
+      await expectNotFlat(page, 'one flat colour must not fill the frame');
     });
   });
 
@@ -552,6 +576,6 @@ test.describe('FR-95 as built: the 2 m height cap, every room type, smooth fade,
     expect(c.y, 'capped').toBeLessThanOrEqual(CAP_Y + 0.05);
     expect(boom).toBeLessThanOrEqual(6.01);
     expect(opacity, 'ceiling not drawn').toBe(0);
-    expect(await flatShare(page), 'one flat colour must not fill the frame').toBeLessThan(0.7);
+    await expectNotFlat(page, 'one flat colour must not fill the frame');
   });
 });

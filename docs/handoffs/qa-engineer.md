@@ -1,6 +1,31 @@
 # Handoff: qa-engineer
 
-Iteration: none open (post-release). Latest: Round 9 diagnosis. Before that: iteration 4, phase 6 Release.
+Iteration: none open (post-release). Latest: Round 9b flatShare re-capture fix (after the round 9 diagnosis). Before that: iteration 4, phase 6 Release.
+
+## Round 9b, flatShare re-capture fix (25/11/2026)
+
+Task: apply the round 9 recommendation (user approved 25/11/2026). Files changed: `tests/e2e/ceiling.spec.ts`, `docs/qa-report.md`, this note. `expectNotFlat` re-captures after two animation frames, up to 3 captures, fails only if all are >= 0.7, and lists the three values; all 7 flat-share assertions in the spec use it (only that spec used `flatShare`).
+
+### Verification
+| Check | Result | Label |
+|---|---|---|
+| `ceiling.spec.ts` mobile-webkit + desktop-chromium | 18 passed, 0 failed, 2 skipped (desktop-only tests on mobile) | Verified |
+| FR-95 AC-1 "and the cap" mobile-webkit `--repeat-each=5` | 5 passed | Verified |
+| `npm run lint`, `format:check`, `typecheck`, `tsc -p tsconfig.e2e.json` | pass | Verified |
+| Mutation (ceiling forced opaque, double-sided; scratch build on 4174), both projects | 10 flat checks failed, each with three equal flat values (0.78 to 0.97); reverted, `git status` clean apart from my files | Verified |
+| Cure of the CI WebKit blank capture | cannot reproduce locally; Linux CI not run | Not verified |
+
+### Not done
+- Linux CI re-run (needs the next pipeline run); Firefox (cannot launch); real iPhone.
+- No lasting mutation test: the mutation needs a temporary `src/` edit, so it was done by hand and reverted.
+
+### Open questions
+- If the CI failure recurs with all three captures flat, is it a context loss? Check the trace for `webglcontextlost`; if present, reopen as a product fault (scene-developer, `src/scene/SceneRoot.tsx`).
+
+### Requests for other agents
+- [done] qa-engineer: apply the re-capture in `flatShare` and mutation-check it (round 9 request).
+- [open] Coordinator: commit `tests/e2e/ceiling.spec.ts`, `docs/qa-report.md` and this note (I did not commit).
+- [open] devops-engineer (optional, unchanged): record the context-loss count on a CI WebKit failure.
 
 ## Round 9, WebKit blank canvas diagnosis (25/11/2026)
 
