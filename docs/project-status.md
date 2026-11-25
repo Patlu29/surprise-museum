@@ -4,7 +4,8 @@ Application: Surprise Museum. A creator builds a small 3D museum of up to 20 pho
 Approval mode: Key gates
 Current iteration: none open (iteration 4 closed 23/11/2026)
 Current phase: none (iteration 4 closed)
-Last updated: 23/11/2026
+Last updated: 25/11/2026
+Deployed: 24/11/2026, live at https://patlu29.github.io/surprise-museum/ (GitHub Pages) with Supabase Free project `lklbpilfkxlegdrrohst` (see the Deploy row under Approvals and "Deploy record" below)
 
 ## Iterations
 | # | Type | Scope | Started | Closed | Outcome |
@@ -24,7 +25,7 @@ No iteration is open. Iteration 4's phase log is in docs/lifecycle/retrospective
 |---|---|---|---|---|---|
 | A2 design | 4 | Approved | User | 19/11/2026 | ADR 0010 amendment, ADR 0022 (keep-alive), architecture v1.6, design spec v2.1; Q-33 (a) shared not-found screen; Q-35 (a) FR-105 stays Must |
 | A3 release | 4 | Approved (release with known issues) | User | 23/11/2026 | docs/lifecycle/release-readiness.md of 20/11/2026: known issues X-1 to X-5 (accepted earlier), BUG-15, N-11 to N-13, and the Not verified items that need a deploy. Separately: no deploy in this iteration ("No deploy yet") |
-| Deploy (GitHub side) | after 4 | Approved ("okay do") | User | 24/11/2026 | The tech lead may enable Pages, set the public variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, and run the deploy and keep-alive workflows, once the user has created the Supabase project. Not covered: creating the Supabase project, the secrets `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD` (the user sets these). Done 24/11/2026: Pages enabled (Source: GitHub Actions, https://patlu29.github.io/surprise-museum/). Waiting on the user: Supabase project (docs/deployment.md step 3) |
+| Deploy (GitHub side) | after 4 | Approved ("okay do") | User | 24/11/2026 | The tech lead may enable Pages, set the public variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, and run the deploy and keep-alive workflows, once the user has created the Supabase project. Not covered: creating the Supabase project, the secrets `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD` (the user sets these). Done 24/11/2026: Pages enabled (Source: GitHub Actions, https://patlu29.github.io/surprise-museum/). Then done 24/11/2026: variables set, Deploy Supabase run 45385362605 green, Deploy to GitHub Pages run 45385807054 green (attempt 2), keep-alive manual run 45385818352 green |
 | A1 scope | 4 | Approved (the user's own answers set the scope) | User | 18/11/2026 | Supabase Free plus a scheduled keep-alive; GitHub Pages with the existing Actions pipeline; museums promised for 7 days, then the whole museum and photos are deleted; free-limit guardrail is docs plus a usage check, no new in-app handling |
 
 ## Decisions and answers
@@ -42,7 +43,11 @@ No iteration is open. Iteration 4's phase log is in docs/lifecycle/retrospective
 - Q-34 (user, before launch; backlog V-7): confirm on supabase.com/pricing the 1 GB storage, 500 MB database, about 5 GB egress and about 500,000 Edge Function invocations a month, whether a Sydney region is offered on Free, what happens at each limit, and how long a paused project can be restored.
 
 ## Open requests (owner)
-None open. Every iteration 4 request was done or moved to the backlog (V-6, V-7, V-8, DEBT-2, OPS-1, CR-12 to CR-14, DEBT-3, DEBT-4); review routing is recorded in docs/review.md and docs/lifecycle/retrospective.md.
+- qa-engineer, then scene-developer if it is a product fault: diagnose the mobile-webkit failure of `tests/e2e/ceiling.spec.ts:178` (FR-95 AC-1). Deploy run 45385807054 attempt 1 failed all 3 tries with "one flat colour must not fill the frame" (0.85 and 0.90, limit 0.7); the screenshot shows the HUD over a blank canvas, so the 3D scene did not draw. Passed on the re-run (attempt 2) and in run 45164004755 on the same code; flaky in 44696065214. Not yet known whether a real iPhone can lose the scene the same way. Not a backlog item yet.
+- user: turn on failed-workflow e-mails (GitHub, Settings, Notifications, Actions) and set a 50-day reminder for the scheduled keep-alive (docs/deployment.md step 8). Watch 7 days of keep-alive runs (step 10).
+- user (optional): run the purge check SQL in supabase/README.md step 8.
+
+Every iteration 4 request was done or moved to the backlog (V-6, V-7, V-8, DEBT-2, OPS-1, CR-12 to CR-14, DEBT-3, DEBT-4); review routing is recorded in docs/review.md and docs/lifecycle/retrospective.md.
 
 ## Environment notes
 - Node v26.7.0, npm 11.19.0, public npm registry reachable (18/11/2026).
@@ -51,6 +56,12 @@ None open. Every iteration 4 request was done or moved to the backlog (V-6, V-7,
 - Isolated verification: the tech lead's verify.sh runs tsc, eslint, vitest, build and the bundle check in a clean worktree.
 - Agents do not commit. The tech lead commits and pushes to main. No deploy, no Pages enablement, no secrets and no cloud resources without the user's explicit approval for that action.
 - Free-tier facts used (third-party sources, checked 18/11/2026; confirm on supabase.com/pricing): Supabase Free has 500 MB database, 1 GB file storage, about 5 GB egress a month, 2 active projects, and pauses after 7 days idle. GitHub Actions is free for public repos on standard runners. Scheduled workflows in public repos are switched off after 60 days with no repo activity.
+
+## Deploy record (24/11/2026)
+- Done by the user: Supabase Free project created (repo not connected in Supabase; deploys go through deploy-supabase.yml), sign-ups and anonymous sign-ins off (confirmed `disable_signup: true` via /auth/v1/settings), function secrets ALLOWED_ORIGINS, CRON_SECRET, RATE_LIMIT_SALT, Vault secrets project_url and cron_secret, GitHub secrets SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD, SUPABASE_PROJECT_REF.
+- Done by the tech lead (approved): Pages enabled; variables VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (publishable key) set; Deploy Supabase run 45385362605 (migrations and five functions) green; Deploy to GitHub Pages run 45385807054 green on attempt 2 (attempt 1: mobile-webkit ceiling failure, see Open requests); keep-alive manual run 45385818352 green (checkedAt 2026-11-24T11:37:10Z).
+- Verified: smoke-test.mjs 16 of 16 PASS; anon key refused on the museums table (42501) and gets an empty photos listing; CORS preflight allows https://patlu29.github.io (204) and refuses another origin (403); live bundle points at the project and holds no service-role or sb_secret_ key; live site loads in Chromium and WebKit (iPhone 13 emulation) with no console errors (one WebKit unused-preload warning, as in CI); a bad share link shows the not-found screen from a live 404 (7.8 s cold, first call).
+- Not done: creating a museum through the live UI and opening it in a second browser (docs/deployment.md step 6); Linux visual baselines (step 9).
 
 ## Not verified
 - CI on GitHub: green on Linux since run 44686612364 (20/11/2026); run 45156570793 (23/11/2026) concluded success overall, with format:check enforced. desktop-firefox (non-blocking) fails: 4 accessibility tests time out at Start/focus, then the 25-minute step limit (V-8). visual.spec.ts is left out on Linux until Linux baselines are recorded (V-4/V-8). Keep-alive workflow has not run with a real project (skipped until VITE_SUPABASE_URL is set).
