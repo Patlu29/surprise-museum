@@ -1,8 +1,10 @@
 # User stories: Virtual 3D Photo Museum
 
-Version 0.8 | 26/11/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.8)
+Version 0.8.1 | 26/11/2026 | Owner: product-manager | Source: `docs/requirements/requirements.md` (v0.8.1)
 
-Change in v0.8 (iteration 5, user decisions of 26/11/2026; no Must added): new US-72 and US-73 (purge health flag and the red keep-alive run, NFR-33, NFR-34), US-74 to US-76 (space full: refuse new photos and publishes, the Creator's message, the message's accessibility; FR-104 raised to Should, FR-106), US-77 (Visitors, delete and edit pages unaffected, FR-107), US-78 (test stability, NFR-35), US-79 (finale dock, FR-108), US-80 (name labels, FR-109 and FR-111) and US-81 (HUD pills, FR-110). US-69 AC-3 is clarified (a run red only for purge health still counts when its summary shows the keep-alive succeeded) and US-70 AC-5 is reworded (the app now handles a full storage or database; egress may not be detectable). No other ID or criterion number changed. Several figures wait for the user's answers (Q-36 to Q-45 in the requirements); each story names the default it uses.
+Change in v0.8.1 (iteration 5, phase 1 Plan, "approve with changes" at A1, user, 26/11/2026; no ID or criterion number changed): Q-36 answered 80%, so the space-full figures are recomputed. US-74 AC-1 now refuses at 800 MB of storage or 400 MB of database size (was 900 and 450), AC-2 tests 799 MB and 399 MB (was 899 and 449), AC-4 reserves at 799 MB and crosses 800 MB, and AC-6 repeats AC-1 to AC-5 for 4 GB of 5 GB egress (was 4.5 GB). US-70 AC-5 says 80%. US-77's test backend stays at 95%, which is above the 80% line. The intros of US-72 and US-74, the note on US-79 and the story map now say that Q-36 to Q-45 are answered (Q-38 (a), Q-39 (a), Q-40 (a), Q-37 and Q-41 to Q-45 the recommended defaults).
+
+Change in v0.8 (iteration 5, user decisions of 26/11/2026; no Must added): new US-72 and US-73 (purge health flag and the red keep-alive run, NFR-33, NFR-34), US-74 to US-76 (space full: refuse new photos and publishes, the Creator's message, the message's accessibility; FR-104 raised to Should, FR-106), US-77 (Visitors, delete and edit pages unaffected, FR-107), US-78 (test stability, NFR-35), US-79 (finale dock, FR-108), US-80 (name labels, FR-109 and FR-111) and US-81 (HUD pills, FR-110). US-69 AC-3 is clarified (a run red only for purge health still counts when its summary shows the keep-alive succeeded) and US-70 AC-5 is reworded (the app now handles a full storage or database; egress may not be detectable). No other ID or criterion number changed. Several figures waited for the user's answers (Q-36 to Q-45 in the requirements); all are answered as of v0.8.1.
 
 Change in v0.7.1 (iteration 4, phase 7; no ID or criterion number changed): US-27 AC-1 and US-68 AC-2 name the shared not-found screen instead of an "expired" screen (Q-33 (a), review REV-2). US-27 AC-5, US-68 AC-3 and US-71 AC-3 say "re-publish" instead of "re-publish or edit", because the MVP can only re-publish; editing a published museum is Release 2 and the same rule applies then (answer to QA's question, round 8b).
 
@@ -376,7 +378,7 @@ As the owner of the service, I want the free limits and the steps to check them 
 - Given the section, when I read the capacity arithmetic, then it shows 20 photos x (about 600 KB + about 200 KB) = about 16 MB per full museum and about 60 full museums live at once in 1 GB
 - Given the section, when I follow its usage-check steps, then I can read current storage, database and egress use in the Supabase dashboard, and I can confirm the date and result of the last keep-alive run
 - Given the section, when I read it, then it states that GitHub switches off scheduled workflows in a public repository after 60 days with no repository activity, and how to switch them back on
-- Given the section, when I read it, then it states what happens when each of the three free limits is reached and what to do, that the app stops new drafts, photos and publishes at 90% of file storage and of database size (FR-104; changed in v0.8, was "no in-app handling"), and whether the app can detect the egress limit (FR-104 (e); if not, that the dashboard check is the only control)
+- Given the section, when I read it, then it states what happens when each of the three free limits is reached and what to do, that the app stops new drafts, photos and publishes at 80% of file storage and of database size, 800 MB and 400 MB (FR-104; changed in v0.8, was "no in-app handling"; threshold set to 80% in v0.8.1, Q-36), and whether the app can detect the egress limit (FR-104 (e); if not, that the dashboard check is the only control)
 - Given the section, when I read it, then it states that the Free plan has no backups, and contains no price (for any paid plan it says to contact Supabase sales)
 
 ### US-71: The publish screen states the 7 days (FR-105, Must)
@@ -390,7 +392,7 @@ As a Creator, I want to see when the museum will stop working, so that I can sen
 - Given the notice, when I read it, then it says that deleting through the edit link ends the museum sooner
 
 ### US-72: The keep-alive reports whether the purge is healthy (NFR-33, Should)
-As the owner of the service, I want the keep-alive to say whether the purge is keeping up, so that I find out when the 24-hour promise to delete photos is at risk. Figures use the defaults of Q-40.
+As the owner of the service, I want the keep-alive to say whether the purge is keeping up, so that I find out when the 24-hour promise to delete photos is at risk. Figures use the answer to Q-40 (a), 3 hours (user, 26/11/2026).
 
 **Acceptance criteria** (tests use a fake clock and a test backend; the keep-alive is called with the public key)
 - Given the last successful purge run finished 59 minutes ago, the oldest storage-delete queue entry is 2 hours 59 minutes old and the newest expired museum or draft ended 2 hours 59 minutes ago and is still stored, when the keep-alive is called, then `purgeHealthy` is `true`
@@ -412,15 +414,15 @@ As the owner of the service, I want the daily keep-alive run to turn red and Git
 - Given Actions failure e-mails are on in the owner's GitHub settings, when a scheduled run turns red for an unhealthy purge, then GitHub sends the owner its failed-workflow e-mail (manual check on the first real red run; Not verifiable before one happens, A-40)
 
 ### US-74: The app stops taking new photos and publishes when space is nearly full (FR-104, Should)
-As the owner of the service, I want new photos and publishes refused before the free storage or database is full, so that a Creator never meets a raw error or a half-published museum and existing museums keep working. Figures use the defaults of Q-36, Q-37 and Q-39.
+As the owner of the service, I want new photos and publishes refused before the free storage or database is full, so that a Creator never meets a raw error or a half-published museum and existing museums keep working. Figures use the answers to Q-36 (80%, user, 26/11/2026) and Q-39 (a), and the default of Q-37 (the architect still confirms it in phase 2).
 
 **Acceptance criteria** (tests set the measured figures in a test backend; MB means 1,000,000 bytes; limits as in Q-34)
-- Given file storage in use is 900 MB or more, or database size is 450 MB or more (either one), when a Creator adds a photo (including the first photo, which starts a draft), then the app refuses it with the "space full" outcome, which is told apart from every other error, stores nothing and carries no figures
-- Given file storage in use is 899 MB and database size is 449 MB, when a Creator adds a photo and publishes, then both are accepted as when space is free
+- Given file storage in use is 800 MB or more, or database size is 400 MB or more (either one; exactly 800 MB or exactly 400 MB counts), when a Creator adds a photo (including the first photo, which starts a draft), then the app refuses it with the "space full" outcome, which is told apart from every other error, stores nothing and carries no figures
+- Given file storage in use is 799 MB and database size is 399 MB, when a Creator adds a photo and publishes, then both are accepted as when space is free
 - Given the app has been refusing and both figures are then below their thresholds, when the Creator next tries (at most 5 minutes later), then the action is accepted with no manual step
-- Given a photo was reserved when storage in use was 899 MB, when storage in use passes 900 MB before its upload ends, then that upload still completes
+- Given a photo was reserved when storage in use was 799 MB, when storage in use passes 800 MB before its upload ends, then that upload still completes
 - Given a museum has a photo not yet stored and the app is refusing, when the Creator chooses Publish, then the publish is refused and the share link shows no museum (no partly published museum)
-- Given FR-104 (e) and the deployment guide, when I read them after the architect's phase 2 decision, then both say whether the app detects the egress limit, and if it does not, both say "a limit the app cannot detect" and name the dashboard usage check as its control (if the architect finds a safe way to read egress, AC-1 to AC-5 are repeated for 4.5 GB of 5 GB)
+- Given FR-104 (e) and the deployment guide, when I read them after the architect's phase 2 decision, then both say whether the app detects the egress limit, and if it does not, both say "a limit the app cannot detect" and name the dashboard usage check as its control (if the architect finds a safe way to read egress, AC-1 to AC-5 are repeated for 4 GB of 5 GB)
 
 ### US-75: The Creator sees a kind message and keeps their work (FR-106, Should)
 As a Creator, I want a clear, friendly message when the app cannot take my museum right now, and my work left as it was, so that I know what happened and can try again.
@@ -431,7 +433,7 @@ As a Creator, I want a clear, friendly message when the app cannot take my museu
 - Given I had added 12 photos with captions, entered both names and a closing message and set both characters, when the message appears and I choose Back to my museum, then the photo count, their order, every caption, both names, the message and both characters are exactly as before
 - Given the message, when I choose Try again and space is free, then the refused action completes, photos already stored are not sent again and I do not choose any file again
 - Given the message, when I choose Try again and space is still full, then the same message returns within 10 seconds, with nothing lost
-- Given I close the page with the message showing, when I reopen the builder on the same device, then my text and character choices are restored and the "photos were not kept" notice appears (A-39, Q-38 (a); if Q-38 (b) is chosen this criterion changes to "my photos are restored too")
+- Given I close the page with the message showing, when I reopen the builder on the same device, then my text and character choices are restored and the "photos were not kept" notice appears (A-39, Q-38 (a), answered by the user on 26/11/2026; if Q-38 (b) were chosen this criterion changes to "my photos are restored too")
 
 Proposed wording (the ux-ui-designer owns the final copy; it must still meet AC-1 and AC-2): heading "We're full for now". "Surprise Museum can't take another museum right now. Space opens up again as older museums reach the end of their week. Everything you added is still here, so keep this page open and try again later. If you close it, you will need to add your photos again."
 
@@ -800,10 +802,10 @@ As the owner of the service, I want a red CI run to mean something is wrong, so 
 - Given the same tests and projects, when they are run locally with `--repeat-each=30 --workers=2` (the loaded case), then 30 of 30 repeats pass
 - Given 10 consecutive completed full e2e runs on `main` (runs cancelled by a newer push are not counted), when I read each run's report, then every named test passed on its first attempt, with no retry and no "flaky" label (run 45585670566 counts as run 1 for the ceiling test only)
 - Given each fixed test, when I compare its diff with the original, then no assertion or threshold is looser, no test is skipped or deleted and no retry is added, and the test still fails against a deliberately broken build (a mutation check, as in QA round 9b)
-- Given a Verify phase, when QA runs the strict timing limits locally (FR-15 1,000 ms, caption-card U1 1,100 ms), then the measured values and the date are recorded in `docs/qa-report.md`, and the CI allowances are still 4,000 ms and 1,500 ms (Q-42 default (a))
+- Given a Verify phase, when QA runs the strict timing limits locally (FR-15 1,000 ms, caption-card U1 1,100 ms), then the measured values and the date are recorded in `docs/qa-report.md`, and the CI allowances are still 4,000 ms and 1,500 ms (Q-42 (a), answered 26/11/2026)
 
 ### US-79: The finale card always docks in the same place (FR-108, Could)
-As a Visitor, I want the closing message to appear in the same place every time, so that the surprise moment looks finished. If the user answers Q-43 (b), this story is withdrawn.
+As a Visitor, I want the closing message to appear in the same place every time, so that the surprise moment looks finished. Q-43 was answered (a) on 26/11/2026, so this story stands (it would have been withdrawn under (b)).
 
 **Acceptance criteria**
 - Given a 1280 by 720 viewport, when I enter the finale 30 times in a row with the host under load (`--workers=2`), then the card docks on the right every time
@@ -840,7 +842,7 @@ As a Visitor who uses large text on a small phone, I want the HUD pills kept apa
 | MVP (all Must) | US-1, US-2, US-3, US-4, US-5, US-6, US-7, US-8, US-9, US-10, US-11, US-12, US-13, US-14, US-15, US-16, US-17, US-22, US-23, US-24, US-30, US-31 (message only), US-32, US-33, US-42, US-45 (NFR-25 part), US-46, US-47, US-48 (added in v0.3) |
 | Iteration 4 (7-day retention and free-tier hosting), Must (v0.7) | US-68, US-69, US-70, US-71 (US-24 criterion 3 changed) |
 | Iteration 5 (v0.8), Should: purge health, space full, test stability | US-72, US-73 (NFR-33, NFR-34), US-74, US-75, US-76, US-77 (FR-104, FR-106, FR-107), US-78 (NFR-35) |
-| Iteration 5 (v0.8), Could: small visual fixes (US-79 is withdrawn if Q-43 is answered (b)) | US-79 (N-11), US-80 (BUG-15, N-13), US-81 (N-12) |
+| Iteration 5 (v0.8), Could: small visual fixes (US-79 stands: Q-43 answered (a) on 26/11/2026) | US-79 (N-11), US-80 (BUG-15, N-13), US-81 (N-12) |
 | CR-4 Improved UI, Must (build now, v0.4; US-53 removed in v0.5) | US-49, US-52, US-54, US-55, US-57, US-59, US-61 |
 | CR-4 user feedback, Must (build now, v0.5) | US-62 (ceiling bug, first), US-63, US-64, US-65, US-66, US-67 |
 | CR-4 Improved UI, Should and Could (build now if time allows, in this order: US-50, US-51, US-56, US-58, US-60, then US-53) | US-50, US-51, US-56 (FR-88 deferred in v0.6), US-58, US-60, US-53 (FR-84 Should, FR-82 Could) |

@@ -23,7 +23,7 @@ Iteration 4's phase log is in docs/lifecycle/retrospective.md.
 
 | Phase | Status | Evidence | Date |
 |---|---|---|---|
-| 1 Plan | Done (A1 approved with changes 26/11/2026; 80% threshold edit pending) | requirements, user stories and backlog v0.8: FR-104 rewritten (Could to Should), FR-106 to FR-111, NFR-33 to NFR-35, US-72 to US-81, 8 backlog rows In progress; prettier passes; IDs cross-checked; Must count unchanged at 90; Q-36 to Q-45 raised | 26/11/2026 |
+| 1 Plan | Done (A1 approved with changes 26/11/2026; 80% threshold applied, requirements v0.8.1, 14 places) | requirements, user stories and backlog v0.8: FR-104 rewritten (Could to Should), FR-106 to FR-111, NFR-33 to NFR-35, US-72 to US-81, 8 backlog rows In progress; prettier passes; IDs cross-checked; Must count unchanged at 90; Q-36 to Q-45 raised | 26/11/2026 |
 | 2 Design | In progress | Expected: architect (keep-alive contract, how limits are measured), ux-ui-designer (space-full states, N-11 dock, N-12, N-13) | |
 | 3 Build | Not started | | |
 | 4 Verify | Not started | | |
@@ -57,6 +57,7 @@ Iteration 4's phase log is in docs/lifecycle/retrospective.md.
 - Q-34 (user, before launch; backlog V-7): confirm on supabase.com/pricing the 1 GB storage, 500 MB database, about 5 GB egress and about 500,000 Edge Function invocations a month, whether a Sydney region is offered on Free, what happens at each limit, and how long a paused project can be restored.
 
 ## Open requests (owner)
+- devops-engineer (phase 6, from product-manager 26/11/2026): docs/deployment.md "act now" usage line and the app's new refusal line are both 80%, so the owner could be told to act only after uploads stop; set the guide's warning line below 80% and remove "no in-app handling (FR-104 deferred)" (line 114 and the "When a limit is reached" table).
 - qa-engineer, fix applied 25/11/2026 (user: "do the fix"; qa-report round 9b, mutation check failed as expected on both projects); CI run 45585670566 (2e5f396) green, mobile-webkit 337 passed, 0 flaky; one green run does not prove the flake is cured, so keep watching: mobile-webkit failure of `tests/e2e/ceiling.spec.ts:178` (FR-95 AC-1) in deploy run 45385807054 attempt 1. Diagnosed 25/11/2026 (docs/qa-report.md round 9): test-environment fault (Partly verified). The CI trace shows no context loss and the scene drawn in the frames before and after; only the `page.screenshot` capture was blank (non-preserved drawing buffer on CI software GL). Locally 12 of 12 pass; 0 context-loss events; one WebGL context, none created per room switch. Proposed fix (test only): `flatShare` re-captures up to 3 times, two animation frames apart, and fails only if every capture is flat; check it still fails against a build with the ceiling forced opaque. Reopen as a scene-developer product fault if it recurs with a context-loss event in the trace.
 - user: turn on failed-workflow e-mails (GitHub, Settings, Notifications, Actions) and set a 50-day reminder for the scheduled keep-alive (docs/deployment.md step 8). Watch 7 days of keep-alive runs (step 10).
 - user (optional): run the purge check SQL in supabase/README.md step 8.

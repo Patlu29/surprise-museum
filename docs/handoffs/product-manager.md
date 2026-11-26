@@ -1,8 +1,37 @@
 # Handoff: product-manager
 
-Iteration: 5 (Feature and fixes: OPS-1 + CR-13, CR-9, DEBT-2 including N-11, BUG-15, N-12, N-13). Phase: 1 Plan. Awaiting the user's approval of scope (A1) and answers to Q-36 to Q-45. Nothing deployed by this phase.
+Iteration: 5 (Feature and fixes: OPS-1 + CR-13, CR-9, DEBT-2 including N-11, BUG-15, N-12, N-13). Phase: 1 Plan. The user approved the scope at A1 on 26/11/2026 with one change (Q-36 = 80%) and answered Q-36 to Q-45. Nothing deployed by this phase.
 
-## Summary
+## A1 update (v0.8.1, 26/11/2026)
+Requirements, user stories and backlog are now v0.8.1, each with a change-log line. No ID changed, no Must added or removed (still 90).
+
+User answers recorded at A1:
+| Question | Answer |
+|---|---|
+| Q-36 | (b) "80%" (user; I had recommended 90%) |
+| Q-38, Q-39 | (a) "Stop uploads, keep work" |
+| Q-40 | (a) 3 hours |
+| Q-37, Q-41 to Q-45 | The recommended defaults. Q-37 still needs the architect's confirmation in phase 2; Q-45 the scene-developer's measurement |
+
+Recomputed figures at 80%:
+| Figure | Was (90%) | Now (80%) |
+|---|---|---|
+| Refuse at, file storage (of 1,000 MB) | 900 MB | 800 MB |
+| Refuse at, database size (of 500 MB) | 450 MB | 400 MB |
+| Headroom | about 100 MB, about 6 museums | about 200 MB, about 12 museums (200 / 16 = 12.5, rounded down) |
+| Full museums that fit before refusing | about 56 | about 50 (800 / 16) |
+| Egress line, only if the app can read it | 4.5 GB | 4 GB |
+| Test boundaries, just below / at | 899 MB and 449 MB / 900 MB and 450 MB | 799 MB and 399 MB / 800 MB and 400 MB |
+
+Places changed (counting each separate edit; pure change-log, handoff and Q-row status text counted separately):
+- Figures that depend on the threshold, 14 places. requirements.md: FR-104 (b), FR-104 (c), FR-104 (e), NFR-32 (f), A-13, A-38 (6). user-stories.md: US-70 AC-5, US-74 AC-1, AC-2, AC-4, AC-6 (5). Q-36 and Q-37 answer cells in requirements.md section 10 (2). Backlog CR-9 row (1).
+- Status and answer text (Q-36 to Q-45 now answered, defaults replaced by answers): requirements.md 10 Q rows, the section 10 intro, the Must-count note (Q-44), NFR-33 (a) lead-in; user-stories.md intros of US-72 and US-74, US-75 AC-6, US-78 AC-4 note, US-79 note, story map row, and the v0.8 change note; backlog iteration 5 table (heading, intro, CR-9 row).
+- Version and change-log lines: requirements.md header and change-log row 0.8.1; user-stories.md version line and v0.8.1 note; backlog version line and change-log text.
+- Left alone on purpose, as history: the v0.8 change-log row ("thresholds at 90%"), the Q-36 and Q-37 option text (the options the user chose between), "was 90%" notes, and the v0.8.1 change-log rows. US-77 uses 95% storage as its test figure, which is still above the 80% line, so it did not change. US-70 AC-2 and A-35 keep "about 60 museums in 1 GB" because that is plan capacity, not the refusal line.
+
+Search result after editing: the strings "900 MB", "450 MB", "899", "449", "4.5 GB", "about 6 museums" and "90%" now appear only in change-log rows, "was" notes and the Q-36 and Q-37 option text.
+
+## Summary (v0.8, still true except where the A1 update above changes it)
 Requirements are v0.8, user stories v0.8 and the backlog v0.8, each with a change-log line. Every in-scope item has a requirement and at least one story with numbered Given/When/Then criteria and figures. The Must count is unchanged at 90, because everything new is Should or Could. Where the user gave no figure, I chose a default, marked it as mine and put it in an open question with a recommendation.
 
 ## New and changed IDs
@@ -29,7 +58,7 @@ Requirements are v0.8, user stories v0.8 and the backlog v0.8, each with a chang
 - **Purge "unhealthy" (NFR-33):** no successful purge run in 3 hours (or none ever), oldest storage-delete queue entry older than 3 hours, or an expired museum or draft still stored 3 hours after its end. I did not use the user's example of 23 hours as the default, because the keep-alive runs once a day: a 23-hour threshold would be seen in time for only about 1 failure in 24, while 3 hours is seen in time for about 21 in 24 (A-42). The alert detects trouble; it cannot prevent it.
 - **The flag is the only new thing the public learns:** exactly three keys (`ok`, `checkedAt`, `purgeHealthy`). If the health check itself fails, the answer is still 200 with `purgeHealthy: false`, so the keep-alive's job of touching the database never depends on the health check.
 - **Red run:** red when the flag is false, missing or not a boolean. A run red only for purge health still counts as keep-alive activity (US-69 AC-3 clarified), otherwise a failing purge would also make the "successful run in 72 hours" check fail even though the project stayed awake.
-- **Space full:** stop at 90% of file storage (900 MB of 1,000 MB) or 90% of database size (450 MB of 500 MB), about 6 museums of headroom. Refuse new drafts, new photos and publishes with a photo not yet stored. Allow Visitors, edit page, delete, re-publish with no new file, keep-alive and purge. Resumes by itself. No figures and no limit name are shown to the Creator.
+- **Space full (changed at A1 to the user's 80%):** stop at 80% of file storage (800 MB of 1,000 MB) or 80% of database size (400 MB of 500 MB), about 12 museums of headroom. (v0.8 draft had 90%, 900 MB and 450 MB, about 6 museums.) Refuse new drafts, new photos and publishes with a photo not yet stored. Allow Visitors, edit page, delete, re-publish with no new file, keep-alive and purge. Resumes by itself. No figures and no limit name are shown to the Creator.
 - **Early refusal:** `src/lib/apiPort.ts` says `createMuseum` "starts a draft when the first photo is added", so the Creator normally meets the refusal at the first photo, not after building everything (FR-104 (h)). This is why I recommend stopping uploads as well as publishes (Q-39).
 - **What the Creator keeps:** the open page keeps everything. Text and characters are saved on the device; photos are not (CR-3 notice, BUG-1 scope), so the message tells the Creator to keep the page open (A-39, Q-38).
 - **Label rules (FR-111):** two label rules conflict at 360 by 640 picture 1 (the accepted N-10 residual). I set an order (picture, caption strip, 8 px margin, head cover) so that no two criteria contradict each other, and carried the N-10 exception into FR-109 and US-80 AC-4.
@@ -64,26 +93,35 @@ A-38 to A-43 in the requirements. In short: usage can be read from inside the da
 - No numbers for N-13 were measured: the 25% head-cover figure is mine (Q-45).
 
 ## Open questions
-Each has a default that design and build can start on. Q-36 to Q-40 and Q-43 change what is built, so answer them before design if you can. Full options are in the requirements, section 10.
-- Q-36 (user): space-full threshold. Options: (a) 90% (900 MB of 1,000 MB storage, 450 MB of 500 MB database), (b) 80%, (c) 95%. Recommendation: (a). Default: (a).
-- Q-37 (user, architect confirms in phase 2): egress detectability. Options: (a) if the app cannot read it, document it as "a limit the app cannot detect" and keep the dashboard check, (b) read it with a management-API secret in the Edge Function, (c) cap it indirectly. Recommendation: (a). Default: (a).
-- Q-38 (user): what the Creator sees and keeps. Options: (a) one plain message, work kept in the open page, text and characters saved on the device, "keep this page open" for photos, (b) also save photos on the device (US-29), (c) also warn at builder start (CR-15). Recommendation: (a) now. Default: (a).
-- Q-39 (user): do uploads stop as well as publishes. Options: (a) refuse new drafts, photos and publishes with an unstored photo, allow re-publish with no new file, edit and delete, (b) publishes only. Recommendation: (a). Default: (a).
-- Q-40 (user): purge-unhealthy definition. Options: (a) 3 hours (no successful run, oldest queue entry, expired item still stored), (b) your example of 23 hours. Recommendation: (a), because a daily check makes 23 hours too late (A-42). Default: (a).
-- Q-41 (user): how often to check. Options: (a) daily as built, (b) every 6 hours. Recommendation: (a). Default: (a).
-- Q-42 (user): REV-10 CI-only allowances (FR-15 4,000 ms, caption-card U1 1,500 ms). Options: (a) keep them, never raise them, QA runs the strict limits locally every Verify phase, (b) remove them, (c) keep them plus a non-blocking report job. Recommendation: (a). Default: (a).
-- Q-43 (user, designer confirms the side per viewport): sticky finale dock. Options: (a) dock depends only on viewport (right at 1280 by 720), (b) leave as is and keep the test's retry. Recommendation: (a). Default: (a).
-- Q-44 (user): FR-104 priority. Options: (a) Should, (b) Must. Recommendation: (a). Default: (a).
-- Q-45 (scene-developer, then user): N-13 target. Options: (a) 25% head cover, (b) 10%, (c) scene-developer proposes after measuring. Recommendation: (c) with (a) as the working target. Default: (a).
+None need the user's answer before design. Q-36 to Q-45 are all answered (table in the A1 update above). Two confirmations remain with other agents, neither blocking:
+- Q-37 (architect, phase 2): confirm the app cannot read egress without a secret in the browser or GitHub. If it can, FR-104 (e) applies at 80% (4 GB of 5 GB) and US-74 AC-6 repeats AC-1 to AC-5 at that figure.
+- Q-45 (scene-developer): measure what head-cover figure is possible for the stacked label; 25% is the working target. If the figure should differ, tell the product-manager to update FR-111 and US-80 AC-5.
+- Q-34 (user, from iteration 4) is still open: confirm the 1 GB, 500 MB and 5 GB figures on supabase.com/pricing. The 80% line is applied to whatever is confirmed.
 
 ## Requests for other agents
 - [open] architect: ADR 0022 section 2 says the keep-alive "reveals nothing"; NFR-33 (c) changes that to exactly one boolean. Update ADR 0022, the `KeepAliveResponse` contract and the success signal for "a purge run completed" (A-41). Decide in phase 2 how storage and database size are read and cached (A-38) and whether egress can be read (Q-37). Confirm where the "space full" refusal is enforced (`create-museum`, `reserve-photo`, `publish`) and its error outcome.
 - [open] backend-developer: after the architect's decision, `docs/api.md` section 10a (response gains `purgeHealthy`), section 4 (a distinct "space full" error) and section 11 (REV-5 wording).
-- [open] devops-engineer: `docs/deployment.md` line 114 and the "When a limit is reached" table still say "no in-app handling (FR-104 deferred)"; update them with FR-104, and add what a red "purge: unhealthy" run means (US-73 AC-5). The workflow's check must fail on a missing or non-boolean `purgeHealthy`, and the release deploys the function before the workflow.
+- [open] devops-engineer: the guide's "act now" line is 80%, the same as the app's new refusal line (Q-36). Reword it so the owner is not told to act only after the app has already stopped uploads, for example act at 70% or explain that at 80% the app refuses. Also: `docs/deployment.md` line 114 and the "When a limit is reached" table still say "no in-app handling (FR-104 deferred)"; update them with FR-104, and add what a red "purge: unhealthy" run means (US-73 AC-5). The workflow's check must fail on a missing or non-boolean `purgeHealthy`, and the release deploys the function before the workflow.
 - [open] ux-ui-designer: space-full message screen (final copy that meets US-75 AC-1 and AC-2, layout for US-76), the finale dock for each reference viewport (Q-43), HUD pill layout at 200% on 320 px (FR-110), stacked label placement (FR-111).
 - [open] frontend-developer: check A-39 (photos held in the open page only) and the exact "photos were not kept" notice.
 - [open] qa-engineer: map the named DEBT-2 tests to files and projects (US-78); remove the 1 px tolerance and the expected-failure markers for BUG-15 once fixed (US-80); record the strict FR-15 and caption-card U1 timings locally in each Verify phase.
 - [open] tech lead: update `docs/project-status.md` (iteration 5 scope and the new IDs); run `npm run format:check` over `docs/requirements/`.
 
+## Verification of the A1 update
+| Check | Result | Label |
+|---|---|---|
+| Searched all three files for "900", "450", "90%", "about 6", "899", "449", "4.5 GB", "100 MB" after editing | Remaining hits are only change-log rows, "was" notes and the Q-36 and Q-37 option text (history) | Verified |
+| Every threshold-dependent figure uses 80% (800 MB, 400 MB, 799 and 399 below, about 12 museums, 4 GB) | Read each edited line back through the search | Verified (by reading) |
+| Q-36 to Q-45 all marked answered, with who and the date | Edited all ten rows | Verified (by reading) |
+| No ID changed or removed | Only text inside existing rows edited | Verified (by reading) |
+| Test boundaries consistent: US-74 AC-1 (800 or more, exactly counts) against AC-2 (799 and 399) and AC-4 (799 to 800) | No overlap or gap | Verified (by reading) |
+| The "deployment guide's act now line is 80%" claim comes from my own Q-36 text of 26/11/2026; I did not open `docs/deployment.md` | Not checked in the guide | Not verified (devops-engineer to confirm) |
+| `npm run format:check` on `docs/requirements/` | No command-line tool | Not verified (tech lead to run) |
+
+## Not done (A1 update)
+- `docs/project-status.md` not touched (tech lead owns it); `docs/deployment.md`, `docs/api.md` and ADRs not touched.
+- Q-37 and Q-45 confirmations and Q-34 are still with the architect, scene-developer and user.
+
 ## Requests received
+- [done] from tech lead (26/11/2026, A1): apply Q-36 = 80% across requirements, stories and backlog; record Q-37 to Q-45 answers; bump to v0.8.1 with a change-log line; keep IDs.
 - [done] from tech lead: update requirements, stories and backlog for iteration 5, keeping every ID; bump versions to v0.8 with a change-log line each; move the eight items to In progress; handoff note with Verification, Not done and Open questions.

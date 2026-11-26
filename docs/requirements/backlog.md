@@ -1,20 +1,20 @@
 # Backlog: Surprise Museum
 
-Version 0.8 | 26/11/2026 | Owner: product-manager | Created in iteration 4, phase 1 Plan; updated in iteration 4 phase 7 (v0.7.1); updated in iteration 5 phase 1 Plan (v0.8)
+Version 0.8.1 | 26/11/2026 | Owner: product-manager | Created in iteration 4, phase 1 Plan; updated in iteration 4 phase 7 (v0.7.1); updated in iteration 5 phase 1 Plan (v0.8 and v0.8.1)
 
-Change log: v0.8 (26/11/2026, iteration 5, phase 1 Plan): CR-9, BUG-15, N-11, N-12, N-13, DEBT-2, OPS-1 and CR-13 move to In progress (iteration 5) and link to the new requirements and stories (see the iteration 5 table below). CR-9 rises from Could to Should, because the user asked for it on 26/11/2026, which reverses their 18/11/2026 decision. New rows CR-15 and CR-16 record two ideas deferred from the space-full work. No other row changed.
+Change log: v0.8.1 (26/11/2026, iteration 5, phase 1 Plan, A1 "approve with changes"): the user approved the iteration 5 scope and answered Q-36 to Q-45. CR-9's space-full threshold is 80% (Q-36 (b), user, 26/11/2026; 800 MB of 1,000 MB storage, 400 MB of 500 MB database, about 12 museums of headroom), not the 90% default. Other answers: Q-38 (a) and Q-39 (a) "Stop uploads, keep work"; Q-40 (a) 3 hours; Q-37 and Q-41 to Q-45 the recommended defaults (Q-37 still needs the architect's confirmation; Q-45 the scene-developer's measurement). The iteration 5 table below and the CR-9 row record this. No other row changed. v0.8 (26/11/2026, iteration 5, phase 1 Plan): CR-9, BUG-15, N-11, N-12, N-13, DEBT-2, OPS-1 and CR-13 move to In progress (iteration 5) and link to the new requirements and stories (see the iteration 5 table below). CR-9 rises from Could to Should, because the user asked for it on 26/11/2026, which reverses their 18/11/2026 decision. New rows CR-15 and CR-16 record two ideas deferred from the space-full work. No other row changed.
 
 Everything known and not yet done. Rows are never deleted. Types: Feature, Bug, Performance, Verification, Debt, Operations. Status: Open, In progress (iteration), Done (iteration) or Declined (reason). A row links to the requirements or stories; the detail lives there. Sources are `docs/project-status.md` and `docs/qa-report.md` (round 7, HEAD 44a8a77, 11/11/2026).
 
 ## Iteration 5 (in progress, started 26/11/2026): where each item is specified
 
-The user chose this scope on 26/11/2026 ("okay do them"). The rows themselves stay in the tables further down, with their status changed in place; this table shows where each item is specified. "Takes on" means the item is in this iteration; "completes" is filled in when QA and the user close it.
+The user chose this scope on 26/11/2026 ("okay do them") and approved it at A1 on 26/11/2026 with one change (space-full threshold 80%, Q-36); Q-36 to Q-45 are all answered (see requirements section 10). The "Open questions" column below lists the questions that shaped each item, now answered. The rows themselves stay in the tables further down, with their status changed in place; this table shows where each item is specified. "Takes on" means the item is in this iteration; "completes" is filled in when QA and the user close it.
 
-| ID | Takes on | Requirements | Stories | Open questions that change it |
+| ID | Takes on | Requirements | Stories | Questions that shaped it (all answered at A1, 26/11/2026) |
 |---|---|---|---|---|
 | OPS-1 | Yes | NFR-33, NFR-34 | US-72, US-73 | Q-40, Q-41 |
 | CR-13 | Yes | NFR-33 (the flag), NFR-34 | US-72, US-73 | Q-40 |
-| CR-9 | Yes | FR-104, FR-106, FR-107, NFR-32 (f) | US-74, US-75, US-76, US-77, US-70 AC-5 | Q-36, Q-37, Q-38, Q-39, Q-44 |
+| CR-9 | Yes | FR-104, FR-106, FR-107, NFR-32 (f) | US-74, US-75, US-76, US-77, US-70 AC-5 | Q-36 (80%), Q-37 (default; architect confirms), Q-38 (a), Q-39 (a), Q-44 (a) |
 | DEBT-2 | Yes | NFR-35 | US-78 | Q-42 |
 | N-11 | Yes (through DEBT-2) | FR-108, NFR-35 | US-79, US-78 | Q-43 |
 | BUG-15 | Yes | FR-109 | US-80 | none |
@@ -35,7 +35,7 @@ The user chose this scope on 26/11/2026 ("okay do them"). The rows themselves st
 
 | ID | Type | Summary | Source | Priority | Status | Links |
 |---|---|---|---|---|---|---|
-| CR-9 | Feature | In-app "space full" handling: a clear message to the Creator when a free storage, database or egress limit is reached, and no new publishes until space is free | User, 18/11/2026: guardrail is docs plus a usage check, with no new in-app handling. **Reversed by the user on 26/11/2026** ("okay do them"): in-app handling is now wanted | Should (was Could) | In progress (iteration 5) | FR-104, FR-106, FR-107, NFR-32 (f); US-74 to US-77; Q-36 to Q-39, Q-44 |
+| CR-9 | Feature | In-app "space full" handling: a clear message to the Creator when a free storage, database or egress limit is reached, and no new publishes until space is free | User, 18/11/2026: guardrail is docs plus a usage check, with no new in-app handling. **Reversed by the user on 26/11/2026** ("okay do them"): in-app handling is now wanted | Should (was Could) | In progress (iteration 5) | FR-104, FR-106, FR-107, NFR-32 (f); US-74 to US-77; Q-36 to Q-39, Q-44 answered at A1, 26/11/2026 (threshold 80%, 800 MB of storage and 400 MB of database size) |
 | BUG-15 | Bug | Name label up to 1 px inside the 8 px viewport margin (390x844 picture 2, 320x568 picture 3). Cosmetic residual; the test has a 1 px tolerance | QA round 7, 11/11/2026 | Could (minor) | In progress (iteration 5) | FR-17, US-10; FR-109, US-80 |
 | N-11 | Bug | The finale card dock flips to the left on about 1 run in 10 on a loaded host (1280x720). Both placements are valid; QA's test retries up to 4 times. Needs a decision on whether the dock should be sticky | QA round 7 observation N-11; owner frontend-developer, ux-ui-designer | Could (minor) | In progress (iteration 5, through DEBT-2) | FR-29, US-14; FR-108, US-79; Q-43 |
 | N-12 | Bug | HUD pills touch (about 4 px overlap) at 200% text on 320 px | QA round 7 observation N-12; owner frontend-developer | Could (minor) | In progress (iteration 5) | FR-83, FR-81, US-52; FR-110, US-81 |
