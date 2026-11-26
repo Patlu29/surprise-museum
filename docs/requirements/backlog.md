@@ -1,8 +1,25 @@
 # Backlog: Surprise Museum
 
-Version 0.7.1 | 23/11/2026 | Owner: product-manager | Created in iteration 4, phase 1 Plan; updated in phase 7 Operate and learn (iteration 4 items Done; new items V-6 to V-8, OPS-1, CR-12 to CR-14, DEBT-2 to DEBT-4)
+Version 0.8 | 26/11/2026 | Owner: product-manager | Created in iteration 4, phase 1 Plan; updated in iteration 4 phase 7 (v0.7.1); updated in iteration 5 phase 1 Plan (v0.8)
+
+Change log: v0.8 (26/11/2026, iteration 5, phase 1 Plan): CR-9, BUG-15, N-11, N-12, N-13, DEBT-2, OPS-1 and CR-13 move to In progress (iteration 5) and link to the new requirements and stories (see the iteration 5 table below). CR-9 rises from Could to Should, because the user asked for it on 26/11/2026, which reverses their 18/11/2026 decision. New rows CR-15 and CR-16 record two ideas deferred from the space-full work. No other row changed.
 
 Everything known and not yet done. Rows are never deleted. Types: Feature, Bug, Performance, Verification, Debt, Operations. Status: Open, In progress (iteration), Done (iteration) or Declined (reason). A row links to the requirements or stories; the detail lives there. Sources are `docs/project-status.md` and `docs/qa-report.md` (round 7, HEAD 44a8a77, 11/11/2026).
+
+## Iteration 5 (in progress, started 26/11/2026): where each item is specified
+
+The user chose this scope on 26/11/2026 ("okay do them"). The rows themselves stay in the tables further down, with their status changed in place; this table shows where each item is specified. "Takes on" means the item is in this iteration; "completes" is filled in when QA and the user close it.
+
+| ID | Takes on | Requirements | Stories | Open questions that change it |
+|---|---|---|---|---|
+| OPS-1 | Yes | NFR-33, NFR-34 | US-72, US-73 | Q-40, Q-41 |
+| CR-13 | Yes | NFR-33 (the flag), NFR-34 | US-72, US-73 | Q-40 |
+| CR-9 | Yes | FR-104, FR-106, FR-107, NFR-32 (f) | US-74, US-75, US-76, US-77, US-70 AC-5 | Q-36, Q-37, Q-38, Q-39, Q-44 |
+| DEBT-2 | Yes | NFR-35 | US-78 | Q-42 |
+| N-11 | Yes (through DEBT-2) | FR-108, NFR-35 | US-79, US-78 | Q-43 |
+| BUG-15 | Yes | FR-109 | US-80 | none |
+| N-12 | Yes | FR-110 | US-81 | none |
+| N-13 | Yes | FR-111 | US-80 | Q-45 |
 
 ## Iteration 4 (done; released with known issues, not deployed)
 
@@ -18,11 +35,11 @@ Everything known and not yet done. Rows are never deleted. Types: Feature, Bug, 
 
 | ID | Type | Summary | Source | Priority | Status | Links |
 |---|---|---|---|---|---|---|
-| CR-9 | Feature | In-app "space full" handling: a clear message to the Creator when a free storage, database or egress limit is reached, and no new publishes until space is free | User, 18/11/2026: guardrail is docs plus a usage check, with no new in-app handling | Could | Open | FR-104, NFR-32 (f) |
-| BUG-15 | Bug | Name label up to 1 px inside the 8 px viewport margin (390x844 picture 2, 320x568 picture 3). Cosmetic residual; the test has a 1 px tolerance | QA round 7, 11/11/2026 | Could (minor) | Open | FR-17, US-10 |
-| N-11 | Bug | The finale card dock flips to the left on about 1 run in 10 on a loaded host (1280x720). Both placements are valid; QA's test retries up to 4 times. Needs a decision on whether the dock should be sticky | QA round 7 observation N-11; owner frontend-developer, ux-ui-designer | Could (minor) | Open | FR-29, US-14 |
-| N-12 | Bug | HUD pills touch (about 4 px overlap) at 200% text on 320 px | QA round 7 observation N-12; owner frontend-developer | Could (minor) | Open | FR-83, FR-81, US-52 |
-| N-13 | Bug | Stacked name label covers most of the Guide's head with 24-character names | QA round 7 observation N-13; owner scene-developer | Could (minor) | Open | FR-17, FR-7, US-10 |
+| CR-9 | Feature | In-app "space full" handling: a clear message to the Creator when a free storage, database or egress limit is reached, and no new publishes until space is free | User, 18/11/2026: guardrail is docs plus a usage check, with no new in-app handling. **Reversed by the user on 26/11/2026** ("okay do them"): in-app handling is now wanted | Should (was Could) | In progress (iteration 5) | FR-104, FR-106, FR-107, NFR-32 (f); US-74 to US-77; Q-36 to Q-39, Q-44 |
+| BUG-15 | Bug | Name label up to 1 px inside the 8 px viewport margin (390x844 picture 2, 320x568 picture 3). Cosmetic residual; the test has a 1 px tolerance | QA round 7, 11/11/2026 | Could (minor) | In progress (iteration 5) | FR-17, US-10; FR-109, US-80 |
+| N-11 | Bug | The finale card dock flips to the left on about 1 run in 10 on a loaded host (1280x720). Both placements are valid; QA's test retries up to 4 times. Needs a decision on whether the dock should be sticky | QA round 7 observation N-11; owner frontend-developer, ux-ui-designer | Could (minor) | In progress (iteration 5, through DEBT-2) | FR-29, US-14; FR-108, US-79; Q-43 |
+| N-12 | Bug | HUD pills touch (about 4 px overlap) at 200% text on 320 px | QA round 7 observation N-12; owner frontend-developer | Could (minor) | In progress (iteration 5) | FR-83, FR-81, US-52; FR-110, US-81 |
+| N-13 | Bug | Stacked name label covers most of the Guide's head with 24-character names | QA round 7 observation N-13; owner scene-developer | Could (minor) | In progress (iteration 5) | FR-17, FR-7, US-10; FR-111, US-80; Q-45 |
 | V-1 | Verification | Real phones and laptops: frame rate, memory and tier thresholds, touch and safe areas were never measured on a real device | Project status, Not verified; `docs/performance.md` section 7 | Must | Open | NFR-1, NFR-6, NFR-10, NFR-28 |
 | V-2 | Verification | Frame rate on Safari and Firefox was not measured; Firefox cannot launch in the build sandbox | Project status, Not verified | Must | Open | NFR-1, NFR-8 |
 | V-3 | Verification | Screen readers (VoiceOver, TalkBack, NVDA) were not tried; checks so far are automated | Project status, Not verified | Should | Open | NFR-12, FR-63 |
@@ -42,10 +59,19 @@ Existing items V-1 to V-5 stay open. V-8 below narrows what is still unchecked; 
 | V-6 | Verification | **Post-deploy verification** (needs the deployed project; all Not verified today). (a) US-68 AC-5: 0 rows and 0 objects 24 h after the end. (b) US-68 AC-6: 23 hourly purge runs in 24 h. (c) US-24 AC-3: 0 rows 24 h after a delete. (d) NFR-16 (e) and (f). (e) US-69 AC-1: repo public, Free plan, no paid add-on. (f) US-69 AC-3: a keep-alive run in every 72 h. (g) US-69 AC-5: a real failed run shows red. (h) NFR-32 (b): whether Supabase counts the keep-alive as activity (watch 7 or more days). (i) Whether the Supabase gateway needs `apikey` when verify_jwt is off. (j) The real `rpc('keep_alive')` reply shape. (k) The pgTAP lockdown tests and the migration against real Postgres | Tech lead, 23/11/2026 (project status, Not verified; QA round 8b; review) | Must (before launch) | Open | US-68, US-24, US-69, NFR-16, NFR-32 |
 | V-7 | Verification | **Q-34 user checks on supabase.com:** 1 GB storage, 500 MB database, about 5 GB egress, about 500,000 Edge Function invocations a month; whether an Australian (Sydney) region is offered on Free; what happens at each limit; how long a paused project can be restored | Tech lead, 23/11/2026; Q-34 (open) | Must (before launch) | Open | Q-34, NFR-32, US-70, A-13, A-35 |
 | V-8 | Verification | **Browsers and devices still unchecked:** the Firefox CI job has never finished (now has a 30-minute limit and keeps its report); real phones; screen readers; the browser's own 200% text setting; Linux visual baselines not recorded (`visual.spec.ts` is left out on Linux until they are; use `visual-baselines-linux.yml`). Overlaps V-1 to V-4 | Tech lead, 23/11/2026 | Should (Firefox job and Linux baselines Must before CI is trusted) | Open | NFR-8, NFR-12, V-1 to V-4 |
-| DEBT-2 | Debt | **Test stability.** Flaky on Linux CI: gender US-46 AC-2 (mobile-chromium); presentation-camera CR-2 veil at 1280x720 (mobile-chromium); ceiling FR-95 AC-1 (mobile-webkit). Flaky on macOS under load: builder US-8, label-strip; finale-card visual (observation N-11). CI-only timing allowances (FR-15 4,000 ms; caption-card U1 1,500 ms) mean the strict local limits are not checked in CI (review REV-10) | Tech lead, 23/11/2026; review REV-10; QA round 8b | Should | Open | US-46, FR-95, FR-15, N-11 |
-| OPS-1 | Operations | Nothing alerts if the purge's storage deletes keep failing for more than 23 hours, so the 24-hour promise could break unseen | ADR 0010 amendment; review REV-5 | Should | Open | NFR-16 (e), US-68 AC-5 |
+| DEBT-2 | Debt | **Test stability.** Flaky on Linux CI: gender US-46 AC-2 (mobile-chromium); presentation-camera CR-2 veil at 1280x720 (mobile-chromium); ceiling FR-95 AC-1 (mobile-webkit). Flaky on macOS under load: builder US-8, label-strip; finale-card visual (observation N-11). CI-only timing allowances (FR-15 4,000 ms; caption-card U1 1,500 ms) mean the strict local limits are not checked in CI (review REV-10) | Tech lead, 23/11/2026; review REV-10; QA round 8b | Should | In progress (iteration 5) | US-46, FR-95, FR-15, N-11; NFR-35, US-78; Q-42 |
+| OPS-1 | Operations | Nothing alerts if the purge's storage deletes keep failing for more than 23 hours, so the 24-hour promise could break unseen | ADR 0010 amendment; review REV-5 | Should | In progress (iteration 5) | NFR-16 (e), US-68 AC-5; NFR-33, NFR-34, US-72, US-73; Q-40, Q-41 |
 | CR-12 | Feature | Cap signed photo URLs at the museum's `expires_at`, so a URL cannot outlive the museum | Architect's backlog candidate, 23/11/2026 | Could | Open | NFR-16, NFR-15 |
-| CR-13 | Feature | A `purgeHealthy` flag in the keep-alive response, so the keep-alive run can show red when the purge is unhealthy | Architect's backlog candidate, 23/11/2026 | Could | Open | NFR-32 (b), US-69, OPS-1 |
+| CR-13 | Feature | A `purgeHealthy` flag in the keep-alive response, so the keep-alive run can show red when the purge is unhealthy | Architect's backlog candidate, 23/11/2026 | Could | In progress (iteration 5, with OPS-1) | NFR-32 (b), US-69, OPS-1; NFR-33, NFR-34, US-72, US-73 |
 | CR-14 | Feature | Show a draft's end date on the edit page | Architect's backlog candidate, 23/11/2026 | Could | Open | NFR-16 (c), FR-105 |
 | DEBT-3 | Debt | Per-function `deno.lock` files are inconsistent: 3 of 5 functions have one; CI uses the root lock | Review REV-13 (Note) | Could | Open | ADR 0022 |
 | DEBT-4 | Debt | Traceability for iterations 1 to 3 was never compiled (they ran before the ADLC); `docs/lifecycle/traceability.md` covers iteration 4 only | Tech lead, 23/11/2026 | Could | Open | `docs/lifecycle/traceability.md` |
+
+## Added in iteration 5, phase 1 Plan (26/11/2026, by the product-manager)
+
+Ideas set aside while writing the space-full handling (CR-9). Neither is in iteration 5. Saving photos on the device (so that closing the page loses nothing) already exists as US-29 (Should, Release 2); see Q-38 option (b).
+
+| ID | Type | Summary | Source | Priority | Status | Links |
+|---|---|---|---|---|---|---|
+| CR-15 | Feature | A notice when the Creator opens the builder, before any photo is added, saying the service is full for now, so that nobody builds a museum first. Needs a public true or false flag the page can read, with the same privacy care as NFR-33 (c) | Product-manager, from Q-38 option (c), 26/11/2026 | Could | Open | FR-104, FR-106, Q-38 |
+| CR-16 | Feature | Handle the Edge Function invocation limit (about 500,000 a month, third-party figure, Q-34) in the app. Not covered by FR-104 because the user named storage, database and egress only; the app probably cannot read it either | Product-manager, 26/11/2026 (FR-104 (f)) | Could | Open | FR-104 (f), NFR-32 (d), Q-34 |

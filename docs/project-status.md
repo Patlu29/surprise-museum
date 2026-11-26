@@ -2,9 +2,9 @@
 
 Application: Surprise Museum. A creator builds a small 3D museum of up to 20 photos with captions and a closing message, picks two stylised characters (the Visitor and the Guide), and shares an unlisted link. The recipient walks the Visitor through the museum while the Guide presents each photo. React Three Fiber on GitHub Pages, Supabase backend.
 Approval mode: Key gates
-Current iteration: none open (iteration 4 closed 23/11/2026)
-Current phase: none (iteration 4 closed)
-Last updated: 25/11/2026
+Current iteration: 5 (Feature and fixes: OPS-1 + CR-13 purge health, CR-9 space full, DEBT-2 test stability, BUG-15, N-12, N-13)
+Current phase: 2 Design
+Last updated: 26/11/2026
 Deployed: 24/11/2026, live at https://patlu29.github.io/surprise-museum/ (GitHub Pages) with Supabase Free project `lklbpilfkxlegdrrohst` (see the Deploy row under Approvals and "Deploy record" below)
 
 ## Iterations
@@ -13,22 +13,35 @@ Deployed: 24/11/2026, live at https://patlu29.github.io/surprise-museum/ (GitHub
 | 1 | New application | MVP (requirements v0.2) | 27/10/2026 | 29/10/2026 | Built and QA'd; not deployed |
 | 2 | Feature | CR-1 to CR-3 (gender, presentation camera, photo notice, caption card) | 29/10/2026 | 02/11/2026 | QA round 5 Go; pipeline written; not deployed |
 | 3 | Feature | CR-4 Improved UI | 02/11/2026 | 11/11/2026 | QA round 7 Go; FR-89 linen exceptions X-1 to X-5 accepted by the user; not deployed |
+| 5 | Feature and fixes | OPS-1 + CR-13 (purge health in the keep-alive), CR-9 (in-app space-full handling), DEBT-2 (test stability, includes N-11), BUG-15, N-12, N-13 | 26/11/2026 | | |
 | 4 | Feature and hosting | Free-tier hosting on GitHub Pages and Supabase Free with keep-alive; retention 90 to 7 days | 18/11/2026 | 23/11/2026 | Released (prepared) with known issues; not deployed (user decision). Carried forward: V-6, V-7, V-8, DEBT-2, OPS-1, CR-12 to CR-14, DEBT-3, DEBT-4 (see docs/lifecycle/retrospective.md) |
 
 Iterations 1 to 3 ran under the earlier builder process; their record is under "History before ADLC" below. No retrospective was written for them.
 
 ## Phase log (current iteration)
-No iteration is open. Iteration 4's phase log is in docs/lifecycle/retrospective.md. The next request starts iteration 5 (`/adlc-3d:change`).
+Iteration 4's phase log is in docs/lifecycle/retrospective.md.
+
+| Phase | Status | Evidence | Date |
+|---|---|---|---|
+| 1 Plan | Done (A1 approved with changes 26/11/2026; 80% threshold edit pending) | requirements, user stories and backlog v0.8: FR-104 rewritten (Could to Should), FR-106 to FR-111, NFR-33 to NFR-35, US-72 to US-81, 8 backlog rows In progress; prettier passes; IDs cross-checked; Must count unchanged at 90; Q-36 to Q-45 raised | 26/11/2026 |
+| 2 Design | In progress | Expected: architect (keep-alive contract, how limits are measured), ux-ui-designer (space-full states, N-11 dock, N-12, N-13) | |
+| 3 Build | Not started | | |
+| 4 Verify | Not started | | |
+| 5 Review | Not started | | |
+| 6 Release | Not started | Deploying the change to the live site needs the user's separate approval | |
+| 7 Operate and learn | Not started | | |
 
 ## Approvals
 | Gate | Iteration | Decision | Given by | Date | Covers |
 |---|---|---|---|---|---|
+| A1 scope | 5 | Approved with changes | User | 26/11/2026 | Requirements, stories and backlog v0.8 (OPS-1 + CR-13, CR-9, DEBT-2, BUG-15, N-11, N-12, N-13). Change: Q-36 space-full threshold 80% (800 MB storage, 400 MB database), not the 90% default. Q-38/Q-39 default (stop new drafts, photos and publishes with an unstored photo; keep work; viewers, edit, delete unaffected). Q-40 default (3 hours on each of three conditions). Q-37, Q-41 to Q-45 take their recommended defaults |
 | A2 design | 4 | Approved | User | 19/11/2026 | ADR 0010 amendment, ADR 0022 (keep-alive), architecture v1.6, design spec v2.1; Q-33 (a) shared not-found screen; Q-35 (a) FR-105 stays Must |
 | A3 release | 4 | Approved (release with known issues) | User | 23/11/2026 | docs/lifecycle/release-readiness.md of 20/11/2026: known issues X-1 to X-5 (accepted earlier), BUG-15, N-11 to N-13, and the Not verified items that need a deploy. Separately: no deploy in this iteration ("No deploy yet") |
 | Deploy (GitHub side) | after 4 | Approved ("okay do") | User | 24/11/2026 | The tech lead may enable Pages, set the public variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, and run the deploy and keep-alive workflows, once the user has created the Supabase project. Not covered: creating the Supabase project, the secrets `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD` (the user sets these). Done 24/11/2026: Pages enabled (Source: GitHub Actions, https://patlu29.github.io/surprise-museum/). Then done 24/11/2026: variables set, Deploy Supabase run 45385362605 green, Deploy to GitHub Pages run 45385807054 green (attempt 2), keep-alive manual run 45385818352 green |
 | A1 scope | 4 | Approved (the user's own answers set the scope) | User | 18/11/2026 | Supabase Free plus a scheduled keep-alive; GitHub Pages with the existing Actions pipeline; museums promised for 7 days, then the whole museum and photos are deleted; free-limit guardrail is docs plus a usage check, no new in-app handling |
 
 ## Decisions and answers
+- 26/11/2026 (user, "okay do them"): iteration 5 takes OPS-1 + CR-13, CR-9, DEBT-2, BUG-15, N-12 and N-13. CR-9 reverses the 18/11/2026 decision "guardrail is docs plus a usage check, no new in-app handling": in-app space-full handling is now wanted (scope and priority confirmed at A1).
 - 18/11/2026 (user): the internal npm-mirror hostname found in three deno.lock files (no credentials) is removed from current files; git history is left as it is (user chose "Leave history").
 - 18/11/2026 (user): add a project .npmrc.
 - 18/11/2026 (user): host on free tiers only. Backend: Supabase Free with a keep-alive workflow so the project never reaches the 7-day idle pause.
@@ -40,6 +53,7 @@ No iteration is open. Iteration 4's phase log is in docs/lifecycle/retrospective
 - 18/11/2026 (tech lead): this is a Feature iteration, because a Must requirement and user-facing wording change, combined with hosting work. Route: 1, 2 (architect only), 3, 4, 5, 6, 7.
 
 ## Open questions (owner)
+- Q-36 to Q-45: answered at A1 on 26/11/2026 (see Approvals). Q-37 (egress) still needs the architect's confirmation in phase 2; Q-45 (N-13 target) the scene-developer's measurement.
 - Q-34 (user, before launch; backlog V-7): confirm on supabase.com/pricing the 1 GB storage, 500 MB database, about 5 GB egress and about 500,000 Edge Function invocations a month, whether a Sydney region is offered on Free, what happens at each limit, and how long a paused project can be restored.
 
 ## Open requests (owner)
