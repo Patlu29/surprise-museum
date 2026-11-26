@@ -1,5 +1,84 @@
 # Handoff: ux-ui-designer
 
+## Update v2.2: iteration 5, space full and visual fixes (26/11/2026)
+
+Iteration: 5 (Feature and fixes; space full FR-104, FR-106, FR-107 and the visual fixes FR-108 to FR-111). Phase: 2 Design, experience-design step (approval A2 follows). Nothing committed.
+
+### Summary
+Design spec is now v2.2. All new design is in a new section 13; sections 2.1, 2.3, 3.5, 5.4, 5.5, 5.7, 5.14, 6.9, 7.10, 8.3, 8.4, 10, 11, 12.1, 12.4.3, 12.5.4, 12.6.1, 12.6.5 and 12.6.8 were edited only where a statement became wrong, each with a pointer to 13. No token was added, so `src/styles/tokens.css` is untouched. Purge health (US-72, US-73) has no UI and the spec does not mention the keep-alive.
+
+### Files changed
+- `docs/design-spec.md`: version, change note, contents, the edits above, and new section 13 (13.1 who sees what, 13.2 the message, 13.3 waiting row and Publish, 13.4 states, 13.5 copy, 13.6 US-77, 13.7 finale dock, 13.8 labels, 13.9 HUD pills, 13.10 tokens and contrast, 13.11 contract needs, 13.12 tasks, 13.13 coverage and open questions, 13.14 decisions). I also removed a stray backtick at the very end of the old file.
+- `docs/handoffs/ux-ui-designer.md`: this section.
+
+### Verification
+| Check | Result | Label |
+|---|---|---|
+| Copy of 13.5 against US-75 AC-1 and AC-2: four sentences of 8, 13, 15 and 17 words; no digit; none of "storage", "database", "egress", "quota", "limit", "error"; no gendered pronoun | Counted and read by hand; a unit test should repeat it (13.12) | Partly verified |
+| Search of the spec for each value I changed ("gaps may fall", "Bottom-docked", "placement function in 3.5", the 4 px drop, "If you close it") | Remaining hits are the intended pointers or the conflict log in 13.13 | Verified (Grep) |
+| Every token used in section 13 exists in `tokens.css`; no token added, none removed, so the 4.1 table and the file still match | Read against `tokens.css` | Verified |
+| Layout sums for the message at 360 by 640, 320 by 568, 640 by 360, 844 by 390, 390 by 844, 768 by 1024 and 1280 by 720 at 100% and at 200% | Arithmetic in 13.2 from estimated text widths | Partly verified (text widths are estimates; QA measures) |
+| HUD two-row arithmetic at 320 by 568, 200% text (13.9), and that 360 by 640 and 390 by 844 stay one row | Arithmetic from estimated glyph widths | Partly verified |
+| Contrast pairs for the message, the waiting row and the chip | Ratios taken from 4.2 and 12.9; no new pair | Partly verified (no tool run; QA re-verifies) |
+| Cause of BUG-15's 1 px residual (integer `offsetWidth`, `Math.round` on the offset) | Read in `src/scene/controllers/labelLayout.ts`; not run | Partly verified |
+| Finale dock per viewport, and that today's code picks the dock from obstacles (`chooseCaptionDock` with `tall`) | Read in `src/ui/overlays/chooseCaptionDock.ts`, `src/lib/layout.ts`; not run | Partly verified |
+| How any of it looks, feels or reads on a screen, a phone, a screen reader or with a keyboard | Nothing rendered | **Not verified** |
+
+### What QA should check on screen (Not verified)
+- The message: focus lands on the heading, VoiceOver and TalkBack read the heading and both paragraphs within 1 s, Tab order, Escape, no horizontal scroll at 320 px and 200%, the layer scrolls rather than clips, reduced motion shows no animation.
+- The waiting row looks calm (not like a failure) and stays within 300 px tall at 360 px.
+- Finale dock at every viewport in 13.7, 30 repeats at 1280 by 720 under load, a rotation while the card is open.
+- Stacked labels at 360 by 640, 390 by 844 and 1280 by 720 with two 24-character names; head cover from `headBoxes()`.
+- HUD pills at 320 by 568 and 200% text; also 480 to 600 px, and the 360 px Reset view with 20 pictures.
+
+### Decisions
+All in 13.14. The main ones: the message is a modal `alertdialog` with exactly two controls and no close icon; Publish with a waiting photo opens it (C-10); the finale dock is top on phone portrait and right elsewhere and changes only when the layout kind changes (C-9); stacked labels widen and rise before the lower one drops; the HUD uses two rows below 20 rem of content width.
+
+### Assumptions
+- Preview uses the photos held on the device, so it works with waiting photos (frontend to confirm).
+- `validateDraft`'s step-1 Next gate either cannot report `photos-space-full` or can use the same handler as Publish.
+- A Try again from a Publish press does not publish by itself.
+- The "waiting" row uses the existing `failed` status with `errorKind: 'space-full'` (architecture 8.2), so no new row state exists in the store.
+
+### Not done
+- No token, no `base.css` change: none was needed.
+- Not designed: any space-full element for Visitors, the edit page or delete (FR-107 requires none); any display of space used (out of scope).
+- The 480 to 600 px HUD band at 100% text, the 360 px Reset sum and the label strip floor under a two-row bar are recorded as open questions, not solved.
+
+### Open questions
+Full list with recommendations is in the spec, 13.13. Short form:
+1. Should Try again from a Publish press then publish by itself? Recommend no (product-manager).
+2. Does Preview work with waiting photos? Recommend yes (frontend-developer).
+3. 360 px, Reset view, 20 pictures: HUD sum has no spare. Recommend QA measures first (qa-engineer, then product-manager).
+4. The portrait label floor (68 px + strip) assumes a one-row bar. Recommend the measured strip edge (scene-developer).
+5. 25% head cover may be out of reach for the tallest Visitor at 360 by 640 (scene-developer measures; tech lead accepts per FR-111's order).
+6. HUD at 480 to 600 px, 100% text, has not been checked (qa-engineer).
+
+### Conflicts with requirements and architecture (none blocking)
+- **C-9, FR-108:** two sentences pull apart. Spec decision: the dock changes only when the layout kind changes. Product-manager aligns the second sentence. The architecture 8.2 wording already matches.
+- **C-10:** resolved in the design (13.3); no requirement change.
+- **US-75 proposed wording** differs in its last sentence (13.5). The criteria still pass. Product-manager may update the story's line.
+- **US-76 AC-2 against spec 5.14 (initial focus on the safest control):** heading focus wins for this message; 5.14 edited.
+- No contradiction with architecture v1.7 was found. Two asks are below.
+
+### Requests for other agents
+- [open] frontend-developer: the task list in 13.12 (`SpaceFullMessage`, waiting row, chip and Publish handler, `describeApiError` text, `finaleDockFor`, HUD two-row layout, copy unit test).
+- [open] scene-developer: label solver changes in 13.8 and 13.12 (measured width, inward rounding, stack order, head-cover report); open question 4.
+- [open] qa-engineer: the checks in 13.12 and the "what QA should check" list above.
+- [open] architect: (a) `finaleDockFor` returns `'top' | 'right'` through `detectLayout`; (b) shared issue-list text "Photos are waiting for space" for `photos-space-full`; (c) the Next gate on step 1 and `photos-space-full`. No new store field or test-hook entry is requested.
+- [open] product-manager: align FR-108's second sentence (C-9); optionally update US-75's proposed-wording line; answer open question 1.
+
+### Requests received
+- [done] from architect, 1 (the FR-106 message): 13.2, 13.5.
+- [done] from architect, 2 (row wording for `space-full`): 13.3.
+- [done] from architect, 3 (does Publish open the message): yes, `action: 'photo'`, 13.3.
+- [done] from architect, 4 (`describeApiError` heading): "We're full for now"; one-string form "We're full for now. Please try again later." (13.11).
+- [done] from architect, 5 (finale dock per A-23 viewport, rotation): 13.7 (C-9 decided there).
+- [done] from architect, 6 (N-12 pills, N-13 labels): 13.9, 13.8.
+- [done] from architect, C-9 and C-10: decided in 13.7 and 13.3; the product-manager aligns FR-108.
+
+---
+
 ## Update v2.1.1: REV-4 wording fix (23/11/2026)
 
 Iteration 4, phase 7. Removed "provisional" from the Q-33 (a) statements in `docs/design-spec.md` (change note v2.1 and 7.5); they now state the decision (approved at A2, 19/11/2026). Added a v2.1.1 change note and bumped the header version. No behaviour, copy or token changed; `tokens.css` untouched. Nothing committed. Check by search: "provisional" no longer appears next to Q-33 (**Verified**, Grep). Other "provisional" hits (outfit ids, lines about 1295 to 2226) are unrelated and unchanged.

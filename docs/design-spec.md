@@ -1,6 +1,8 @@
 # Design spec: Surprise Museum
 
-Version 2.1.1 | 23/11/2026 | Owner: ux-ui-designer | Based on requirements v0.7 (iteration 4), user stories v0.7 and architecture v1.6
+Version 2.2 | 26/11/2026 | Owner: ux-ui-designer | Based on requirements v0.8.1 (iteration 5), user stories v0.8.1 and architecture v1.7
+
+**Change note, v2.2 (iteration 5: space full and visual fixes, 26/11/2026).** Everything new is in **section 13**, which wins over sections 1 to 12 where they disagree; the older sections were edited only where a statement became wrong, each with a pointer to 13. No token added, changed or removed; `src/styles/tokens.css` is untouched. (1) **Space full (FR-104, FR-106, FR-107, US-74 to US-77):** one modal message "We're full for now" with exactly two controls, **Try again** and **Back to my museum** (13.2, 13.5); a photo refused for space shows a calm "waiting" row, not a failure (13.3); choosing Publish with such a photo opens the same message (C-10, 13.3); Visitors, the edit page and delete show nothing new (13.6). (2) **Finale dock (FR-108, US-79, N-11, C-9):** the dock is a function of the layout kind only, top on phone portrait and right everywhere else, and changes only if the viewport crosses a layout kind (13.7). (3) **Name labels (FR-109, FR-111, US-80, BUG-15, N-13):** a rounding rule for the 8 px margin, and a new stacking order (lower label stays, upper label rises, then both widen, drop only as a last resort) that replaces the as-built "lower drops 4 px" rule (13.8). (4) **HUD pills (FR-110, US-81, N-12):** the progress pill drops to a second row when the three pills do not fit; the gap between pills is 8 px at every width (13.9). (5) Edited for consistency: 2.1, 2.3, 3.5, 5.4, 5.5, 5.7, 5.14, 6.9, 7.10, 8.3, 8.4, 10, 11, 12.1, 12.4.3, 12.5.4, 12.6.1, 12.6.5, 12.6.8.
 
 **Change note, v2.1.1 (review fix REV-4, 23/11/2026).** Wording only. The word "provisional" is removed from the Q-33 (a) statements in this note and in 7.5, which now record the decision: one shared not-found screen for a wrong link and an ended or deleted museum, approved at A2 on 19/11/2026. No behaviour, copy or token changed.
 
@@ -76,6 +78,7 @@ Tokens live in `src/styles/tokens.css` (values) and `src/styles/base.css` (share
 10. Appendix B: Copy deck
 11. Appendix C: Requirement coverage
 12. CR-4 polish (v2.0): scales, landing, builder, visit, mobile ergonomics, art direction, tokens, task list
+13. Iteration 5 (v2.2): space full, finale dock, name labels, HUD pills
 
 ---
 
@@ -209,6 +212,8 @@ Preview is available from every step once there is at least 1 photo and both nam
 
 Leaving protection: until published, the browser shows its native "leave site?" prompt on close or reload if the draft has content. After a reload the builder restores names, text, characters and the step from `localStorage`, but **not the photos** (photo restore is Release 2, needs IndexedDB). When that happens the builder shows the "Photos weren't kept" notice (5.17), so the Creator is told why the photo list is empty.
 
+**Space full (iteration 5).** When the service has no room for another museum, a photo added on step 1 waits in its row and one message explains it (13.1 to 13.5). Nothing else in this flow changes, and no Visitor, edit page or delete screen shows anything new (13.6).
+
 ### 2.2 Visitor (Epic E3, E4, E7)
 
 ```mermaid
@@ -249,6 +254,7 @@ flowchart LR
 | A photo fails to load | In-frame placeholder with a retry affordance, plus a DOM "Retry" chip near the picture, plus a Retry in the full-screen viewer (7.9) | "Retry"; the Guide still presents the caption and the Visitor keeps roaming (FR-58) |
 | In-app browser likely to struggle (NFR-9) | Dismissible info card on the welcome screen: "Open in your browser" | Copy link, or the browser's menu |
 | Builder: rejected file, failed upload, publish failure, rate limit | Inline messages next to the cause (7.10) | Retry per item; work is never lost |
+| Builder: the service is full for now (FR-104, FR-106) | Modal message "We're full for now" over the builder (13.2); the refused photos wait in their rows (13.3) | **Try again**, or **Back to my museum**; nothing is lost while the page stays open |
 
 ---
 
@@ -411,7 +417,7 @@ QA check: in Playwright at 360 by 640, 390 by 844, 844 by 390 and 1280 by 720, w
 
 **With the presentation camera (v1.2).** The card appears only after the framing has settled or the Guide has arrived, whichever is later (6.12.3), so the dock function always measures the framed pose. The card's rectangle must also not intersect the Visitor's or the Guide's rectangle (labels included) at the framed pose. The framing reserves the card's default dock (top in portrait, right in landscape and wide) in its safe rectangle (6.12.2), so the first candidate placement normally wins. Repeat the QA check above with the framed pose.
 
-**Finale card exception (as built, v2.0.2).** The finale card may grow past its placement height, up to 90% of the screen, so its footer and message never clip. This is the only card allowed to exceed its placement size; see 12.6.5.
+**Finale card exception (as built, v2.0.2; dock changed in v2.2).** The finale card does not use the candidate order above. Its dock comes from the viewport alone (13.7, FR-108), and it may grow past its placement height, up to 90% of the screen, so its footer and message never clip. This is the only card allowed to exceed its placement size; see 12.6.5.
 
 ### 3.6 Builder layouts
 
@@ -544,7 +550,7 @@ Prefer enabled buttons that explain what is missing on press (inline error plus 
 
 > **v2.0:** the row's layout and density are superseded by 12.5.1 (compact row, 8 px between actions). Every state, label and keyboard rule below is unchanged.
 
-States: **uploading** (progress bar plus "Uploading 62%"), **processing** ("Preparing photo..."), **ready** (check plus "Ready"), **failed** (alert icon, reason, **Retry**), **removed** (row leaves; announced "Photo removed").
+States: **uploading** (progress bar plus "Uploading 62%"), **processing** ("Preparing photo..."), **ready** (check plus "Ready"), **failed** (alert icon, reason, **Retry**), **waiting for space** (info icon, "Not added yet. We're full for now.", **Try again**; v2.2, 13.3), **removed** (row leaves; announced "Photo removed").
 
 ```text
 +-----------------------------------------------------+
@@ -581,7 +587,7 @@ States: **uploading** (progress bar plus "Uploading 62%"), **processing** ("Prep
 | Marker | A 10 px CSS shape before the name: heart (rose) for the Visitor, diamond (brass) for the Guide. Decorative, `aria-hidden`. Not relied upon |
 | Position | Centred 0.35 m above the head (scaled with height). `pointer-events: none`, `user-select: none`, `aria-hidden="true"` (ADR 0011) |
 | Visibility | Always shown while the character is on screen (FR-17). Hidden, with a `--duration-fast` fade, when the wall line-of-sight test fails or the character is off-screen; instant under reduced motion |
-| Collision | If the two labels overlap on screen, raise the label of the character farther from the camera by its own height plus 4 px (once) |
+| Collision | If the two labels overlap on screen, raise the label of the character farther from the camera by its own height plus 4 px (once). Labels that still overlap after every other rule are stacked by the order in 13.8 (v2.2); the 8 px viewport margin is rounded as 13.8 says |
 | Framed view (v1.2) | While the presentation camera is active (6.12), a label must not cover the picture. The framing solver counts each label's rectangle as part of its character (6.12.4). If a label still intersects the picture rectangle grown by 8 px, shift that label sideways, away from the picture's centre, by up to half its own width (eased over `--duration-fast`, instant under reduced motion). The label is never hidden and never scaled (FR-17). The 5.5 label-collision rule still applies after the shift |
 | Framed view, portrait: below the caption strip (v1.5, BUG-10) | On portrait screens during a photo presentation the caption strip (3.5, 5.6) is a reserved band at the top of the screen. A label never sits above the strip's bottom edge: if its top would be higher, it slides down until its top is on that edge. The edge is **68 px plus the strip height** from the top of the viewport (68 px is the top bar and its margin), and the strip height follows the caption size setting:<br>Caption scale 1: 68 + 104 = **172 px**<br>Caption scale 1.25: 68 + 112 = **180 px**<br>Caption scale 1.5: 68 + 124 = **192 px**<br>Rules: (a) this shift is applied **last**, after the sideways shift away from the picture and after the label-collision rule above, so it always wins. (b) It applies to both labels, including the Guide's at her presentation spot. (c) The label may overlap the Guide's head (or the Visitor's) by a few pixels. It must **never** overlap the picture: the framing's safe rectangle already keeps the picture clear of the strip, and the label only moves down to the strip edge, not over the picture. (d) Label size, text and wrapping do not change (FR-17). (e) Eased over `--duration-fast`, instant under reduced motion, like the other shifts. (f) The rule applies only on portrait screens; landscape and wide layouts are unaffected. The framing solver itself is unchanged. QA check: at 360x640 with caption size 1.5 and a 24-character Guide name, the label's top is at least 192 px and the label does not intersect the picture |
 | Layer | `--z-labels`, below the HUD and every panel |
@@ -626,6 +632,7 @@ Same shell as the caption card with these differences.
 | Long message | Up to 1,000 characters. In a compact dock the body shows about 5 lines with **Read the whole note**, which opens a full-height reading sheet (modal, focus trapped, Escape closes) that has the same footer buttons |
 | Entering | Appears within 1.5 s of stepping on the podium (as the caption card). Reduced motion: appears instantly with no celebratory effect |
 | Re-entry | Stepping off the podium (beyond r + 1 m) and back on shows it again (US-14) |
+| Dock (v2.2, FR-108) | Top on phone portrait, right on every other layout, chosen from the viewport alone and never from the camera, the characters or timing. Table, rotation and edges: 13.7 |
 
 ### 5.8 Full-screen photo viewer (MVP)
 
@@ -693,7 +700,7 @@ Changes apply immediately and persist in `localStorage` (`settingsStore`). Same 
 
 | Component | Spec |
 |---|---|
-| Dialog | `role="dialog"` (or `alertdialog` for destructive and context-lost), `aria-modal`, labelled and described, focus trapped, Escape closes unless it is blocking, initial focus on the safest control (Cancel for delete), focus returns to the trigger, `--z-modal`, `--color-scrim` |
+| Dialog | `role="dialog"` (or `alertdialog` for destructive, context-lost and the space-full message of 13.2), `aria-modal`, labelled and described, focus trapped, Escape closes unless it is blocking, initial focus on the safest control (Cancel for delete; the space-full message focuses its heading, 13.2), focus returns to the trigger, `--z-modal`, `--color-scrim` |
 | Alert (inline) | Icon plus bold lead-in plus message, tinted background (`--color-danger-tint`, `--color-warning-tint`, `--color-success-tint`, `--color-info-tint`), border `--hairline` in the state colour; errors use `role="alert"`, progress and success use `role="status"` |
 | Toast | Night glass pill at the bottom-centre above the safe area (`--z-toast`), 4 s, then gone; pauses while hovered or focused; every toast outcome is also reflected in the UI (for example the Copy button reads "Copied") so a missed toast loses nothing |
 
@@ -888,6 +895,7 @@ Every interaction is specified as Trigger, Feedback, Camera, Exit, Touch, Keyboa
 - **Trigger:** the Visitor steps into the podium zone (radius 1.8 m, FR-29). Per the assumed default (Q-21), this triggers the closing message whatever has been viewed. In R2 (FR-70), if pictures are unviewed, the Guide first asks "You haven't seen everything yet. Show the note now?" with **Show the note** and **Keep exploring**.
 - **Feedback:** the podium ring brightens (300 ms). The Guide walks (or fades in) beside the Visitor on the podium. The finale card appears within 1.5 s.
 - **Camera:** does not move.
+- **Dock:** 13.7 (top on phone portrait, right elsewhere; the same every time).
 - **Exit:** **Keep exploring** closes the card and suppresses it until the Visitor leaves the zone plus 1 m. **Replay from the start** returns the Visitor and Guide to the entrance (a `--duration-fade-through` veil with a hard cut under reduced motion), clears the viewed count, resets the camera behind the Visitor, and announces "Back at the entrance. Viewed pictures have been cleared."
 - **Touch and keyboard:** the two footer buttons; Escape equals Keep exploring.
 - **Reduced motion:** no dust motes, no pulse, no confetti.
@@ -1117,6 +1125,8 @@ Three places, as 6.10: the in-scene glyph, the DOM Retry chip, and the viewer's 
 | Over 20 photos | "You can add up to 20 photos. Remove one to add another." |
 | Missing required fields | Inline error under the field plus a summary alert at the top of the step with links to each field; focus moves to the summary on a failed Next |
 | Publish failure | `role="alert"`: "We couldn't publish your museum. Your photos and words are safe." plus **Try again** |
+| Service full: a photo or a publish is refused (v2.2) | Not an alert and not a failure. The modal message of 13.2 opens once, and each refused photo shows the "waiting for space" row of 13.3. The generic "Upload failed" wording is never used for a space refusal |
+| Publish pressed with a photo waiting for space (v2.2, C-10) | The same modal message opens and nothing is sent (13.3). The generic publish-failure alert above is not shown |
 | Rate limit | "That's a lot of tries in a short time. Please wait a few minutes and try again." |
 | Offline | Persistent bar "You're offline. We'll carry on when you're back." Uploads resume |
 | Edit link not found or deleted | The not-found screen (7.5) |
@@ -1176,6 +1186,7 @@ Focus is never moved automatically onto the caption card (the Visitor may be wal
 | Failed photo | "Photo 3 did not load. A Retry button is available." |
 | Builder, restored draft (v1.2) | Once, about 600 ms after the step announcement: "Photos aren't kept after a reload. Please add them again. Your names, words and characters are still here." Polite, never takes focus, removal and dismissal are silent (5.17) |
 | Published screen and edit page (v2.1, 5.18) | Static text in reading order, not announced on arrival: "Available for 7 days, until 25/11/2026 14:30. Deleting it with your edit link ends it sooner." (edit page: "...You can end it sooner by deleting it below.") |
+| Builder, service full (v2.2, 13.2) | The message is an `alertdialog` named by its heading and described by its two paragraphs, so a screen reader reads "We're full for now" and the body within 1 second of it opening. No separate live region. A waiting photo row is plain text in reading order, not announced on its own (13.3) |
 | Builder | Upload progress per photo is `role="progressbar"` with text; reorder, remove and replace outcomes are announced politely; step changes are announced; copy success is announced |
 
 The picture's alternative text is its caption, or "Photo n of N" if there is none (FR-63). Name labels are `aria-hidden`; names are announced through the above regions.
@@ -1201,6 +1212,8 @@ Effective setting: Settings (R2) over the operating system's `prefers-reduced-mo
 | Hint glow | Pulses 3 times | Steady |
 | Joystick knob return | Eased | Instant |
 | Customiser gender change (9.5) | 250 ms shape morph | Instant, same end state |
+| Space-full message (13.2) | Scrim fades in and the card fades and rises `--rise-distance` over `--duration-overlay`; leaves in `--duration-fast` | Appears and leaves at once (the three tokens are 0) |
+| Finale card changing dock on a rotation (13.7) | Cross-fades in `--duration-fast` | Moves at once |
 
 Reduced motion never removes information: every effect above has a still equivalent.
 
@@ -1470,6 +1483,11 @@ The Visitor-facing experience never shows a gender label (A-20). Name labels, th
 | Retry chip | "Photo 3 did not load." / "Retry" |
 | Restored draft notice (v1.2, 5.17) | Line 1 "Photos aren't kept after a reload. Please add them again." Line 2 "Your names, words and characters are still here." Action "Add photos" (steps 2 to 4). Dismiss button label "Dismiss notice". Announcement is the three sentences in one |
 | Camera setting (R2, v1.2, 6.12.9) | Switch "Move the camera to show each picture" / helper "When this is off, the view stays behind your character." |
+| Space-full message (v2.2, 13.5) | Heading "We're full for now". Paragraph 1: "Surprise Museum can't take another museum right now. Space opens up again as older museums reach the end of their week." Paragraph 2: "Everything you added is still here, so keep this page open and try again later. If you close this page, your words and characters stay saved, but the photos need adding again." Buttons "Try again" and "Back to my museum" |
+| Photo row waiting for space (v2.2, 13.3) | Status "Not added yet. We're full for now." Button "Try again" (accessible name "Try again, photo 3") |
+| Still to do chip for a waiting photo (v2.2, 12.4.3) | "Photos are waiting for space" |
+| Publish reason line with a waiting photo (v2.2, 12.5.4) | "Some photos are waiting for space." |
+| Fallback text for a space refusal outside the message (v2.2, 13.11) | "We're full for now. Please try again later." |
 | Not found | As 7.5 (body changed in v2.1) |
 | Privacy, how long we keep it (v2.1) | Existing paragraph unchanged ("stays available for {retentionDays} days ... straight away"), then one new sentence as its own paragraph: "Our free plan keeps no backups, and deleted or expired content is removed within 24 hours." |
 | Context lost | As 7.8 |
@@ -1529,6 +1547,10 @@ Remaining watch list for other owners (not in this document):
 | FR-39, FR-40 (layout, lighting) | 1.4 |
 | FR-47 to FR-52, FR-55, FR-56 | 2.1, 5.15, 7.5 |
 | FR-105, US-71 (7-day notice, end date, edit page), Q-33 (a) (not-found wording), NFR-16 (privacy sentence) | 5.18, 12.5.5, 7.5, 10 |
+| FR-104, FR-106, FR-107, US-74 to US-77 (space full: message, waiting rows, Visitors and edit unaffected) | 13.1 to 13.6, 13.10, 13.11; the server side is the architect's and backend's (the design needs no figure from it) |
+| FR-108, US-79, N-11 (finale dock from the viewport only) | 13.7, 5.7, 6.9, 12.6.5 |
+| FR-109, FR-111, US-80, BUG-15, N-13 (label margin and stacked labels) | 13.8, 5.5, 12.6.8 |
+| FR-110, US-81, N-12 (HUD pills at 200% text on 320 px) | 13.9, 12.6.1 |
 | FR-57 to FR-60 (loading, failures, WebGL) | 7 |
 | FR-61 to FR-65 (accessibility, reduced motion) | 8 |
 | NFR-10 (devices, 44 px) | 3.1, 3.2 |
@@ -1618,6 +1640,7 @@ Line heights: `--leading-tight` 1.2 for display and h1, `--leading-snug` 1.3 for
 | Error screens | Try again, or Go to the home page | | none |
 | Photo viewer | none (Close is the strongest control, a night icon button) | Zoom buttons | none |
 | Dialogs (missing items, context lost) | Close, Reload | | none |
+| Space-full message (13.2) | Try again | Back to my museum | none |
 
 ### 12.2 States, transitions, empty and error states (FR-79)
 
@@ -1696,7 +1719,7 @@ A region under the purpose line on every step, always visible, never behind a co
 | Part | Spec |
 |---|---|
 | Source | `validateDraft(snapshot, 'publish')`, the same function and issue ids as the Preview "what is missing" dialog (which shows its preview-level subset). One list, two views |
-| Contents | Only what is still outstanding. Chips for these issue ids, in step order. Short labels (new copy): `photos` "Add a photo"; `photos-uploading` "Wait for photos to finish"; `photos-failed` "Fix the photo that didn't upload"; `visitorName` "Add the Visitor's name"; `guideName` "Add a Guide name"; `consent` "Confirm you can share the photos". Final strings come from the shared issue list; these are the targets |
+| Contents | Only what is still outstanding. Chips for these issue ids, in step order. Short labels (new copy): `photos` "Add a photo"; `photos-uploading` "Wait for photos to finish"; `photos-failed` "Fix the photo that didn't upload"; `photos-space-full` "Photos are waiting for space" (v2.2; it takes the place of the `photos-failed` chip for those photos, and pressing it goes to step 1 and focuses the first waiting row's **Try again** button, 13.3); `visitorName` "Add the Visitor's name"; `guideName` "Add a Guide name"; `consent` "Confirm you can share the photos". Final strings come from the shared issue list; these are the targets |
 | Empty | One line with a check icon: "Ready to publish" |
 | Heading | A visible label "Still to do" (`--text-sm`, 600) |
 | Chip | A button, 44 px tall, `--radius-pill`, `--color-accent-tint` fill, accent text `--text-sm` 600, an open-circle icon (20 px) before the label, 8 px gaps, wraps. Pressing it does what the dialog links do: go to the step and focus the field (`goToIssue`) |
@@ -1855,7 +1878,7 @@ Why this split: today's controls, their order, their tiles and their accessible 
 | Purpose line | "Check everything, then publish. You can preview first." |
 | Cards | Three summary cards, each: h2 left, **Edit** tertiary (44 px) right; the card's content is one short block. Your museum (title, For, Guide, closing message), Photos (all thumbnails in a grid of `minmax(3.5rem, 1fr)`, so about five per row at 360 px, never truncated), Characters (the two descriptions) |
 | Consent | Its own card with the tag **Required**. The checkbox is 28 px inside a 48 px-tall row; the full sentence is the label; links on their own line (44 px targets). Error state: a danger bar, an icon and the message |
-| Actions | Preview (secondary; the only visible Preview on this step from 640 px, the header one is hidden, 12.4.1) and **Publish museum** (primary, 56 px) in one row from 640 px, stacked on phones with Publish last and full width. **Under 640 px the in-content Preview is `display: none`** (the bar has it, 12.4.4); Publish stays in the content, at the bottom of the page where the Creator has just ticked consent. Reason line for an unavailable Publish stays under the button |
+| Actions | Preview (secondary; the only visible Preview on this step from 640 px, the header one is hidden, 12.4.1) and **Publish museum** (primary, 56 px) in one row from 640 px, stacked on phones with Publish last and full width. **Under 640 px the in-content Preview is `display: none`** (the bar has it, 12.4.4); Publish stays in the content, at the bottom of the page where the Creator has just ticked consent. Reason line for an unavailable Publish stays under the button. With a photo waiting for space (13.3) Publish stays enabled, and its reason line reads "Some photos are waiting for space." (`--text-sm`, `--color-text-muted`, plain text, not a live region) |
 | After a failed publish | The danger alert (with the accent bar) above the actions; button reads "Try again" |
 
 #### 12.5.5 Published screen
@@ -1871,9 +1894,9 @@ Polish only. Nothing here changes a position that the caption dock, the framing 
 | Part | Spec |
 |---|---|
 | Trays | Each `.hud__cluster` becomes a **tray**: one glass pill (`--color-hud`, 14 px blur, `--shadow-glass`, 1 px ring of `--color-on-night` at 18%, `--radius-pill`) that holds its buttons. The buttons inside lose their own fill, ring, shadow and backdrop filter (one blur per tray, not per button; three blur layers instead of five). They stay 44 by 44 px, **8 px apart** (`--target-gap`) with a 1 px by 24 px `--color-divider-night` rule centred in each gap. Hover or pressed: a `--color-night-raised` disc behind the icon. Left tray: Pictures, Where next?. Right tray: Settings, Help, and Reset view when shown (it joins as the middle item, as now) |
-| Labels | "Pictures" and "Where next?" show their words from **480 px** (was 400), so the 8 px gaps hold at 360 to 479 px. At 359 px and narrower the gaps may fall to 4 px (the 320 px reflow case only) |
+| Labels | "Pictures" and "Where next?" show their words from **480 px** (was 400), so the 8 px gaps hold at 360 to 479 px. At 359 px and narrower the 8 px gap between the buttons inside one tray may fall to 4 px (the 320 px reflow case only; FR-81 is stated at 360 px). **The gap between two pills (a tray and the progress pill) is 8 px at every width, and the pills wrap onto a second row when they do not fit in one (v2.2, FR-110, 13.9)** |
 | Progress pill | 36 px tall (not interactive), `--color-hud`, `--shadow-glass`. A 16 px progress ring before the text: `conic-gradient(var(--color-brass) calc(var(--p) * 1%), var(--color-track-night) 0)` with a 5 px hole (radial mask); the frontend sets `--p` to viewed divided by total times 100. Text "5 of 12", `--text-sm`, 600. The ring is `aria-hidden`; the visually hidden "5 of 12 pictures viewed" stays |
-| Fit at 360 px | Left tray 96, right tray 96 (148 with Reset), pill up to 84, two 8 px gaps, margins 2 by 12: 96 + 84 + 148 + 16 = 344 of 336 available only if the pill is 84 px **and** Reset is showing. So the pill drops its ring below 400 px when Reset is showing (text only, 72 px) |
+| Fit at 360 px | Left tray 96, right tray 96 (148 with Reset), pill up to 84, two 8 px gaps, margins 2 by 12: 96 + 84 + 148 + 16 = 344 of 336 available only if the pill is 84 px **and** Reset is showing. So the pill drops its ring below 400 px when Reset is showing (text only, 72 px). This is the one-row layout; it is unchanged by v2.2 and applies while the HUD is 20 rem wide or more (13.9) |
 | Preview mode | The preview bar (7.11) stays at the top; its Exit button is a once-only action |
 
 #### 12.6.2 Controls and hints
@@ -1905,13 +1928,14 @@ Allowed (they change no measured box): surface and shadow tokens (`--color-surfa
 
 #### 12.6.5 Finale card
 
-Same shell as 5.7 with: a 40 px brass seal (radial brass gradient, heart icon in `--color-text`), the heading `--text-xl` Fraunces, a hairline brass rule with a small diamond ornament under the header, the message in `--caption-size` Fraunces, and footer buttons **Keep exploring** (primary, 56 px) and **Replay from the start** (secondary, 48 px, 8 px gap), stacked and full width under 480 px, side by side from 480 px. Placement, focus on Keep exploring, Escape and the reading sheet are unchanged.
+Same shell as 5.7 with: a 40 px brass seal (radial brass gradient, heart icon in `--color-text`), the heading `--text-xl` Fraunces, a hairline brass rule with a small diamond ornament under the header, the message in `--caption-size` Fraunces, and footer buttons **Keep exploring** (primary, 56 px) and **Replay from the start** (secondary, 48 px, 8 px gap), stacked and full width under 480 px, side by side from 480 px. Focus on Keep exploring, Escape and the reading sheet are unchanged; the dock is 13.7.
 
 *Decision, 02/11/2026 (tech lead): in the 136 px finale strip (`FINALE_STRIP_HEIGHT`) the footer stays on one row at every width.* **Superseded 10/11/2026 by the as-built note below (BUG-14).**
 
 **As built, v2.0.2 (tech-lead decision after QA round 6, BUG-14): the footer and the closing message never clip.**
-- **The card may grow.** It may be taller than its placement height (the strip or fitted height from 3.5), up to **90% of the screen height**; past that its body scrolls inside the card, and the header and footer stay visible. The placement function in 3.5 is unchanged: only the finale card's height is allowed to exceed it.
-- **Growth direction.** Bottom-docked cards (`bottom`, `bottom-centre`) are anchored by their bottom edge and grow upwards. Others keep their top edge and grow downwards.
+- **The card may grow.** It may be taller than its starting height (13.7: the 136 px finale strip on phone portrait, the full height of its dock elsewhere), up to **90% of the screen height**; past that its body scrolls inside the card, and the header and footer stay visible. Only the finale card's height is allowed to exceed its dock's height.
+- **Dock (v2.2, FR-108).** The finale card docks top on phone portrait and right on every other layout, chosen from the viewport alone (13.7). The "placement function in 3.5" is therefore not used for the finale's dock; this section's size and growth rules still apply to the card in that dock.
+- **Growth direction.** The finale's docks (top and right) keep their top edge and grow downwards. The bottom docks of 3.5 are no longer used by the finale.
 - **Width.** The card's minimum width is capped at its placement width, so the 16 rem floor cannot push a card past the screen edge at 200% text.
 - **Footer.** Buttons are at least 48 px tall with an 8 px gap, and labels do not wrap while side by side. **Under a 22 rem card width** (320 px, or 360 px at 200% text) the buttons stack full width, and a label may wrap there. At 360x640 and 390x844 at normal text the footer keeps the **side-by-side row**. This replaces the "stacked under 480 px, side by side from 480 px" rule in the first paragraph above: the switch is now by card width (22 rem), not viewport width.
 - **Trade-off.** A grown card covers more of the scene than the 136 px strip. This is accepted so the closing message and both buttons are always readable; the finale has no picture to protect and the Visitor can press Keep exploring to dismiss it. The 3.5 rule that a card must not cover the Visitor or the picture is not enforced for the finale's extra height.
@@ -1934,7 +1958,7 @@ Pictures, Settings and Help sheets: radius `--radius-lg`, `--shadow-panel`, bras
 
 A 24-character Guide name on a 360 px portrait screen is clipped at the left edge and the two labels overlap. Labels may not be truncated (FR-17), so the fix is placement. Add rule 7 to 5.5, applied **last**, after the BUG-10 rule:
 
-1. **Clamp into the viewport.** The label's left and right edges stay at least 8 px inside the viewport (after safe areas). A label never sits half off the screen while its character's head anchor is on screen.
+1. **Clamp into the viewport.** The label's left and right edges stay at least 8 px inside the viewport (after safe areas). A label never sits half off the screen while its character's head anchor is on screen. From v2.2 the 8 px is exact, with no tolerance: the label's real width is measured and the offset is rounded inwards (13.8, FR-109).
 2. **De-overlap sideways.** If the clamped labels still overlap, push them apart horizontally by half the overlap each (then re-clamp). The maximum label width is `min(11rem, 44vw)` (158 px at 360), so two labels plus an 8 px gap need 324 px: they always fit at 360 px and this always resolves. Never scale, never truncate, never move up (the BUG-10 strip rule forbids it).
 3. **Hidden only when the head is off-screen.** If the head anchor projects outside the viewport horizontally, the label is hidden as in 5.5 (the character is off-screen). A partly visible body keeps its label.
 4. **Precedence if rules conflict:** never over the picture, then inside the viewport, then no overlap between labels, then centred on the head. If the picture rule and the viewport rule cannot both hold, keep the picture clear and allow up to 40% of the label width to go past the edge (rare).
@@ -1942,7 +1966,7 @@ A 24-character Guide name on a 360 px portrait screen is clipped at the left edg
 
 **As built, v2.0.2 (BUG-15, scene-developer).** These override the figures above where they differ.
 - **Width.** In the scene the label's maximum width is `min(var(--label-max-width), 36vw)` (was 44vw), about 130 px at 360. It only differs under about 489 px wide, so landscape and desktop are unchanged. The narrower label leaves room beside the picture, so the 40% edge overhang in rule 4 no longer triggers for two 24-character names. The `.name-label` CSS cap in the visit stylesheet matches.
-- **Stack when still overlapping.** After rules 1 to 4, if the two visible labels still overlap, the lower one drops **4 px below** the upper one. Labels never move up, so the caption-strip rule (5.5) holds. This is a last step and does not change the picture rule. It replaces "this always resolves" in rule 2 as the fallback.
+- **Stack when still overlapping.** After rules 1 to 4, if the two visible labels still overlap, the lower one drops **4 px below** the upper one. Labels never move up, so the caption-strip rule (5.5) holds. This is a last step and does not change the picture rule. It replaces "this always resolves" in rule 2 as the fallback. **Superseded in v2.2 (FR-111, N-13): the order in 13.8 now applies, and this 4 px drop is its last resort, not its first.**
 - **Result.** The 360x640 picture 1 residual (the accepted case) no longer occurs.
 - **Builder.** In the preview fallback and the Words step sample the label keeps the **full row width** (`min(var(--label-max-width), 100%)`), so long names look as before there. The 36vw cap is for the scene only.
 
@@ -2162,7 +2186,7 @@ Not text, so not rated: the divider rule inside a tray, the faint claret wash be
 | Landing | "No account needed." Step lines: "Photos hang along the museum in the order you choose." / "Pick a look for you and for your visitor." / "They open it on their phone and wander through." |
 | Step purpose lines | 1 "You can add 1 to 20 photos. JPEG, PNG, WebP or HEIC, up to 15 MB each." 2 "Two names are all you need. The rest is optional." 3 "Both characters already have a starting look. Change as much or as little as you like." 4 "Check everything, then publish. You can preview first." |
 | Sections and tags | "Your photos" (Required, "at least 1 photo"); "The names" (Required); "How it will look"; "Make it yours" (Optional); "Optional: everything here has a starting look" (step 3); "Consent" (Required) |
-| Still to do | Heading "Still to do"; "Ready to publish"; chips "Add a photo", "Wait for photos to finish", "Fix the photo that didn't upload", "Add the Visitor's name", "Add a Guide name", "Confirm you can share the photos" |
+| Still to do | Heading "Still to do"; "Ready to publish"; chips "Add a photo", "Wait for photos to finish", "Fix the photo that didn't upload", "Photos are waiting for space", "Add the Visitor's name", "Add a Guide name", "Confirm you can share the photos" |
 | Step 3 | "The Guide is you. The Visitor is who you're making this for." Disclosure button "More options" (visible text "Reset" on the Reset button under 480 px, accessible name unchanged). Group "Face shape (optional)" (Oval, Round, Square, Heart, Long), helper "Changes the shape of the face. Your other choices stay as they are." Group "More styles (optional)" (Sweater, Overalls, Coat, Tracksuit, Cardigan, Tunic). Group "Pattern (optional)" (Plain, Stripes, Checks, Dots), helper "Adds a pattern in tints of your colour. There is no second colour to pick." |
 | Step 1 | "No photos yet", "Add more photos" |
 | Placeholders | "A museum for {name}"; "For example: Thanks for coming. I hope it made you smile." |
@@ -2233,4 +2257,336 @@ FR-76 scan: none of these contains she, her, he, him, his, girlfriend or boyfrie
 4. **Edge contrast against every backdrop cannot be guaranteed.** The arithmetic in 12.8.2 A passes on paper, but a few combinations (a pale figure through a doorway at a grazing angle, dark hair against the ceiling at low pitch, the runner's edge) may fall short in a real render. They are to be recorded (FR-89), not hidden.
 5. **Deep-skin brows.** Brows get a 3:1 floor with a warm lift; if black hair on skin-10 still looks faint, raise `--look-brow-thickness` to 1.6 before touching colour.
 6. **Time hints (FR-88).** Left for after a usability test.
-7. **Ceiling fade or pitch clamp (user preference: fade).** 6.3 specifies the fade, keeps the existing pitch range, and adds a hard step under reduced motion.`
+7. **Ceiling fade or pitch clamp (user preference: fade).** 6.3 specifies the fade, keeps the existing pitch range, and adds a hard step under reduced motion.
+
+---
+
+## 13. Iteration 5 (v2.2): space full, finale dock, name labels, HUD pills
+
+Requirement IDs are from requirements v0.8.1 (FR-104, FR-106 to FR-111) and user stories US-74 to US-77 and US-79 to US-81. Purge health (US-72, US-73) has no screen, and the keep-alive and the hourly purge show nothing in the app, so nothing about them is designed here. **This section wins over sections 1 to 12.** No token was added or changed (13.10). Visual judgements are **Not verified**: nothing was rendered, and the figures that depend on real text widths are estimates, labelled as such.
+
+### 13.1 Space full: who sees what (FR-104, FR-106, FR-107)
+
+| Person and place | What they see when the service is full |
+|---|---|
+| Creator, home page | Nothing new. **Create a museum** opens the builder as always. No request is made until the first photo (FR-104 (h)), so the refusal arrives there |
+| Creator, builder step 1 (add or replace a photo) | The photo is processed and its thumbnail shows as usual. Its row switches to "waiting for space" (13.3). The message of 13.2 opens once |
+| Creator, builder step 4 (Publish with a photo that is not stored) | The same message opens and nothing is sent (13.3, C-10) |
+| Creator, any other builder action (Next, Back, Preview, Words, Characters, Remove, reorder) | Unchanged. None of them calls the server |
+| Visitor (welcome, scene, finale) | Nothing new. No notice, banner or hint (FR-107, 13.6) |
+| Creator, edit page, delete, re-publish with no new file | Nothing new (13.6) |
+| The owner | No in-app display of how much space is used (out of scope in requirements v0.8.1) |
+
+```mermaid
+flowchart LR
+  A[Add a photo, or Publish] -- space is free --> OK[As today]
+  A -- refused for space --> W[Rows wait. The message opens once]
+  W -- Back to my museum --> B[Builder as before. Rows still wait]
+  W -- Try again --> R[Photos are sent again from this page. No file is chosen again]
+  R -- space is free --> OK
+  R -- still full, within 10 s --> W
+  B -- Publish with a waiting photo --> W
+  B -- Replace, or add more photos --> A
+```
+
+**What the Creator keeps (FR-106 (c)).** While the page stays open: every photo, its order, captions, both names, the closing message and both characters. After a reload: text and characters (US-6 AC-3), no photos, and the "Photos weren't kept" notice of 5.17 appears as today (US-75 AC-6; 5.17 needs no change). The message says both in plain words (13.5).
+
+**It resumes by itself (FR-104 (d)).** The app polls nothing and retries nothing in the background. The next action the Creator takes (Try again, Replace, adding photos, Publish) is accepted if space has freed up. Waiting rows stay waiting until one of those actions happens.
+
+### 13.2 The message (FR-106, US-75, US-76)
+
+A modal over the builder, available on every step and on the Publish screen. Component name for the build: `SpaceFullMessage`.
+
+**Interaction: the space-full message**
+- **Trigger:** `builderStore.spaceFull` goes from `null` to a value (`{ action: 'photo' }` from the upload queue, or `{ action: 'publish' }` from `publishDraft()`), or the Publish press of 13.3. One message for both actions, with the same copy.
+- **Feedback:** the scrim fades in and the card fades and rises `--rise-distance` over `--duration-overlay`, `--ease-out`. Reduced motion: it appears at once.
+- **Focus:** on open, focus moves to the heading (`tabindex="-1"`). The page behind is `inert`. Tab visits **Try again**, then **Back to my museum**, then wraps to **Try again**; Shift+Tab goes the other way. The heading is not a tab stop.
+- **Exit:** **Back to my museum**, or Escape (the same action). There is no close icon, because FR-106 allows exactly two controls. A click or tap on the scrim does nothing.
+- **Touch:** both controls are full-width buttons, 8 px or more apart.
+- **Keyboard:** Enter and Space activate the focused control. Escape runs **Back to my museum** and stops the key event (the same rule as 12.5.3), so nothing behind it also reacts.
+- **Back to my museum:** calls `setSpaceFull(null)` and nothing else (no photo, caption, name, message or character changes). Focus returns to the element that had it when the message opened. If that element has gone (for example the file picker closed and focus fell to the page) focus goes to the current step's heading, as on a step change (5.16).
+- **Try again:** calls `retrySpaceFull()`. The message closes at once and focus returns as for Back. The Creator sees the normal progress of the repeated action: photo rows show "Preparing photo..." and "Uploading n%", or the Publish button shows "Publishing..." (5.1). If space is still full the message opens again within 10 seconds (FR-106 (d)) and is announced again. Photos already stored are not sent again and no file is chosen again (US-75 AC-4).
+- **Interrupted:** a reload or leaving the page closes it without saving (the store field is memory only). A second refusal while it is open changes nothing: it does not re-announce and does not restart the animation.
+- **Repeated:** each new refused action opens it again, including after **Back to my museum**. There is no "don't show again".
+- **Loading:** none. The message has no spinner and no waiting state of its own.
+- **State:** reads `spaceFull` only. It shows no figure and never says which limit was reached.
+
+| Part | Spec |
+|---|---|
+| Semantics | `role="alertdialog"`, `aria-modal="true"`, `aria-labelledby` the heading, `aria-describedby` the two paragraphs. An `alertdialog` is announced when it opens, which meets "announced within 1 second" without a second live region (US-76 AC-1) |
+| Layer | Fixed, `inset: 0`, `--z-modal`, background `--color-scrim`, `overflow-y: auto`, `overscroll-behavior: contain`, padding `--space-4` plus the safe-area insets, flex column. The card has `margin: auto`, so it is centred when it fits and starts at the top and scrolls when it does not. The card itself never scrolls and nothing is clipped |
+| Card | `.surface-paper` (opaque, so it never depends on the scene or the builder behind it), `--radius-lg`, `--shadow-panel`, brass hairline `--shadow-inset-frame`, padding `--space-6`, width `min(var(--panel-max-width), 100%)`, stack gap `--space-3` |
+| Order | The 40 px frame mark (the one on the welcome card, 12.6.3, `aria-hidden`, decorative), the heading, paragraph 1, paragraph 2, then the actions |
+| Heading | `h2`, Fraunces 600, `--text-xl`, `--leading-snug`, `--color-text`: "We're full for now" |
+| Body | Two `p`, `--text-md`, `--leading-normal`, `--color-text`, `--measure-reading` maximum. Copy in 13.5 |
+| Actions | A column with `margin-top: var(--space-3)` on top of the stack gap and `--space-3` between the buttons. **Try again**: primary, `--touch-target-lg` (56 px), full width. **Back to my museum**: secondary, `--touch-target-md` (48 px), full width. Both labels may wrap at large text; the buttons grow, never clip |
+| Phone landscape (`(orientation: landscape) and (max-height: 500px)`) | The frame mark is hidden, layer padding `--space-2`, card padding `--space-4`, card width `min(var(--content-max-width), 100%)`, the two buttons sit in one row (each `flex: 1`, `--target-gap` between). This keeps the card inside 360 px of height (sums below) |
+| Forced colours | Follows the existing `base.css` rules. The card gets a 1 px system-colour outline there, as the other dialogs do |
+
+**Layout sums (estimates from 16 px text at about 7.7 px per character and 24 px lines; Not verified, QA measures).** Card height is padding 48 + frame mark 40 + heading 29 + paragraph 1 + paragraph 2 + the gaps (12 between each of the five blocks, plus 12 above the actions) + actions (56 + 12 + 48 = 116). Paragraph 1 is about 120 characters and paragraph 2 about 170.
+
+| Viewport and text size | Card width | Inner width | Lines (p1 + p2) | Card height | Space in the layer | Result |
+|---|---|---|---|---|---|---|
+| 360 by 640, 100% | 328 | 280 | 4 + 5 | 48 + 40 + 12 + 29 + 12 + 96 + 12 + 120 + 24 + 116 = **509** | 640 - 32 = 608 | Fits, about 99 spare |
+| 320 by 568, 100% | 288 | 240 | 4 + 6 | 48 + 40 + 12 + 29 + 12 + 96 + 12 + 144 + 24 + 116 = **533** | 568 - 32 = 536 | Fits with about 3 spare. If real text is wider the layer scrolls; nothing is clipped |
+| 390 by 844, 100% | 358 | 310 | 4 + 5 | about 509 | 812 | Fits |
+| 640 by 360, 100% (landscape, icon hidden, buttons in a row) | 624 | 592 | 2 + 3 | 16 + 29 + 12 + 48 + 12 + 72 + 24 + 56 + 16 = **285** | 360 - 16 = 344 | Fits, 59 spare |
+| 844 by 390, 100% | 704 | 672 | 2 + 2 | 16 + 29 + 12 + 48 + 12 + 48 + 24 + 56 + 16 = **261** | 390 - 16 = 374 | Fits |
+| 768 by 1024 and 1280 by 720, 100% | 416 | 368 | 3 + 4 | about **461** | 688 or more | Fits |
+| 360 by 640, 200% text | 328 | 280 | 8 + 10 | about 1,300 (heading two lines, the secondary label wraps to two lines) | 608 | The layer scrolls; Tab scrolls the focused button into view; no sticky element covers it (WCAG 2.4.11) |
+| 320 by 568, 200% text | 288 | 240 | about 10 + 13 | about 1,650 | 536 | The layer scrolls, no horizontal scroll, nothing cut off (US-76 AC-4) |
+
+Targets (US-76 AC-3): both buttons are at least 48 px tall and as wide as the 240 px or wider inner width, so 44 by 44 is met; 12 px between them (8 required). Body text is 16 px (`--text-md`), the floor in FR-83.
+
+### 13.3 A photo waiting for space, Still to do, and Publish (FR-104, C-10, US-74, US-75)
+
+**Photo row, state "waiting for space".** Shown for a photo with `status: 'failed'` and `errorKind: 'space-full'`. It is not a failure and does not look like one: no danger bar, no alert icon, and the words "failed" and "upload" are not used.
+
+| Part | Spec |
+|---|---|
+| Left bar | `--accent-bar-width` in `--color-accent` (the info colour of 12.1), instead of the 4 px danger bar of a failed row |
+| Status line | An info icon (a circled "i", `--icon-sm`, `--color-accent`, `aria-hidden`) then "Not added yet. We're full for now." in `--text-sm`, weight 500, `--color-text`. Plain text in reading order, not a live region. No progress bar |
+| Action | One **Try again** button in the slot where a failed row shows **Retry**: primary, 44 px, accessible name "Try again, photo 3" (the visible words are inside it, WCAG 2.5.3). It calls `retrySpaceFull()`, so one press sends every waiting photo, not only this one |
+| Everything else | Thumbnail, caption, Earlier, Later, Replace and Remove behave as on a ready row. Replace puts the new file back in the queue and may be refused again |
+| Count line | "5 of 20 photos" counts waiting photos, because they are in the list |
+| Height | Not more than the failed row (12.5.1, 300 px at 360 px): the status line may wrap to two lines at 360 px (about 25 characters a line at 14 px) |
+
+**Still to do.** The chip for `photos-space-full` reads "Photos are waiting for space" (12.4.3). Pressing it goes to step 1 and focuses the first waiting row's **Try again** button. If no row is waiting by then, focus goes to the **Add photos** button.
+
+**Publish with a photo waiting for space (answers C-10 and the architect's request 3: yes, open the message).**
+
+| Situation | Behaviour |
+|---|---|
+| Publish is pressed and `validateDraft(..., 'publish')` returns `photos-space-full` | The handler sets `spaceFull` to `{ action: 'photo' }` through `setSpaceFull`. The message of 13.2 opens. Nothing is sent. The inline summary for other issues (for example consent not ticked) is still drawn behind it but takes no focus. After **Back to my museum**, focus is on the Publish button |
+| Publish button state | Enabled (never `aria-disabled` for this reason: 5.1 prefers a button that explains on press). Its reason line reads "Some photos are waiting for space." |
+| After **Try again** from a Publish press | The waiting photos are sent again. The museum is not published for the Creator: they press **Publish museum** again when the rows show Ready. The Creator is never published without a press, because the consent and the preview are theirs to confirm |
+| `publishDraft()` itself refused (the safety net in architecture 8.2 item 2) | `spaceFull` is `{ action: 'publish' }`, and the same message opens. **Try again** then repeats the publish |
+| Next on step 1 | If that gate is blocked and `validateDraft` reports `photos-space-full`, the message opens as above. Otherwise Next, Back, Preview and the stepper are unchanged |
+| Preview | Works with waiting photos, because the preview uses the photos held on the device (assumption, frontend to confirm) |
+
+### 13.4 States
+
+| State | What is on screen |
+|---|---|
+| Space free (default) | As before iteration 5. No space-full element exists in the DOM |
+| First photo refused | Thumbnail visible, row "waiting for space", message open, heading focused |
+| Message open | Page behind inert; two controls; nothing else moves |
+| After **Back to my museum** | Builder as it was, waiting rows visible, Still to do chip visible on every step, Publish reason line on step 4 |
+| After **Try again**, space free | Rows move to "Preparing photo..." then "Uploading n%" then "Ready". Published only by a Publish press (13.3) |
+| After **Try again**, still full | Rows go back to waiting; the message opens again within 10 seconds, announced again |
+| Reload | Message gone, photos gone, text and characters back, "Photos weren't kept" notice (5.17) |
+| Offline during Try again | The existing offline bar (7.10) and the existing "Upload failed: check your connection" row. This is a different failure and is never shown as space full |
+| Rate limit | The existing rate-limit text (7.10). Never shown as space full |
+
+### 13.5 Exact copy (FR-106 (a), (b); US-75 AC-1, AC-2)
+
+| Element | Text |
+|---|---|
+| Heading | "We're full for now" |
+| Paragraph 1 | "Surprise Museum can't take another museum right now. Space opens up again as older museums reach the end of their week." |
+| Paragraph 2 | "Everything you added is still here, so keep this page open and try again later. If you close this page, your words and characters stay saved, but the photos need adding again." |
+| Primary button | "Try again" |
+| Secondary button | "Back to my museum" |
+
+Check against the acceptance criteria (by reading, **Partly verified**; a unit test should repeat it, 13.12):
+- Four sentences, at most 20 words each: 8, 13, 15 and 17 words. The heading is not counted.
+- No digit. None of the words "storage", "database", "egress", "quota", "limit" or "error". No gendered pronoun: "you", "your" and "their" (about museums) only.
+- It says the service is full for now, that space opens up as older museums reach the end of their week, what is kept (everything while the page is open; words and characters after closing) and what is not (the photos after closing).
+- The server's own message ("Surprise Museum is full for now. Please try again later.") is never shown in place of this copy.
+
+**US-75's proposed wording.** The proposal in the story was used as the base. The last sentence was changed from "If you close it, you will need to add your photos again." to the one above, so the Creator also learns that words and characters survive a close (FR-106 (a) asks what the work "is and is not"). The product manager may update the story's proposed-wording line; the criteria still pass.
+
+### 13.6 Visitors, the edit page and delete (FR-107, US-77)
+
+Nothing is designed, and that is the requirement. No screen for a Visitor, the edit page, Delete or a re-publish with no new file has a space-full element, notice, banner or disabled state. The re-publish with no new file shows the usual published screen and the unchanged end date (5.18). The keep-alive and the hourly purge have no screen. QA confirms in the mock build with `setMockSpaceFull(true)` that these screens look the same as with it off.
+
+### 13.7 Finale card dock (FR-108, US-79, N-11, C-9)
+
+**Rule.** The finale card's dock is a pure function of the layout kind, which comes from the viewport (`detectLayout(width, height)` in `src/lib/layout.ts`, so there is one definition of the kinds):
+
+- phone portrait (`phone-portrait`): **top**.
+- phone landscape, tablet and desktop (`phone-landscape`, `tablet`, `desktop`): **right**.
+
+It takes no rectangle, camera, character, timing or card-size input. `data-dock` on the card reads `top` or `right`. The bottom and left docks and the "fitted" size of 3.5 are never used by the finale. Caption cards keep `chooseCaptionDock` unchanged.
+
+| Viewport (A-23 and the 320 reflow check) | Layout kind | Dock | Card width | Left edge x | Starting height |
+|---|---|---|---|---|---|
+| 360 by 640 | `phone-portrait` | top | 336 (viewport 360 minus 2 x 12) | 12 | 136 (the finale strip, `FINALE_STRIP_HEIGHT`) from just below the top bar |
+| 390 by 844 | `phone-portrait` | top | 366 | 12 | 136 |
+| 320 by 568 | `phone-portrait` | top | 296 | 12 | 136, grows (12.6.5) |
+| 640 by 360 | `phone-landscape` | right | `--card-width-landscape`: clamp(16rem, 30vw = 192, 22rem) = 256 | 640 - 12 - 256 = 372 | below the top bar to the bottom margin, about 66 to 348 (282) |
+| 844 by 390 | `phone-landscape` | right | 30vw = 253, raised to 256 | 844 - 12 - 256 = 576 | below the top bar to the bottom margin, about 66 to 378 (312) |
+| 768 by 1024 | `tablet` | right | `--card-width-wide`: clamp(18rem, 28vw = 215, 26rem) = 288 | 768 - 24 - 288 = 456 | 50% of the height = 512 |
+| 1280 by 720 | `desktop` | right | 28vw = 358 | 1280 - 24 - 358 = 898 | 50% of the height = 360 |
+
+All of these keep the existing growth rule of 12.6.5: the card may grow downwards up to 90% of the screen height, then its body scrolls, and the footer never clips. On phone portrait the card starts as the 136 px strip and grows as 12.6.5 describes; on the other layouts it starts at the full height in the table. Boundary cases for the unit test of the function (they follow from `detectLayout`): 639 by 800 top; 640 by 800 right; 500 by 500 top; 400 by 500 top; 500 by 400 right; 700 by 500 right; 700 by 501 right; 1024 by 768 right.
+
+**Interaction: the finale card's dock**
+- **Trigger:** the card opens (6.9, FR-29). The dock is chosen from the viewport at that moment.
+- **Feedback:** none of its own. It opens as 5.7 says, within 1.5 s of stepping on the podium.
+- **Stability (US-79 AC-2):** the dock does not change while the card is open, whatever the camera or the characters do, at 0, 1 and 5 seconds and after.
+- **Rotation or resize while the card is open (answers C-9).** The dock is re-evaluated only when the viewport changes, and it changes only if `detectLayout` then returns a different kind. A rotation of a phone does that (portrait is top, landscape is right), so the card moves once. A resize that keeps the kind (the browser bars retracting, a window drag on a desktop) never moves it. When it does move: the same element cross-fades to the new dock in `--duration-fast` (it moves at once under reduced motion); focus stays where it was (usually **Keep exploring**); the scroll position inside the card and the open reading sheet are kept; nothing is announced; the card is not re-opened.
+- **Carry on button (12.7):** shown only on phone portrait while the card is open, so a rotation to landscape removes it and a rotation back returns it. It takes no focus, so no focus is lost.
+- **Exit:** **Keep exploring**, Escape or **Carry on**, as before. A dismissal during a cross-fade closes it as usual.
+- **Repeated:** stepping off the podium and back on opens the card in the same dock for the same viewport.
+- **Trade-off, accepted:** with the dock fixed, the card may sit over the characters or the name labels (as 12.6.5 already accepted for the finale: there is no picture to protect and **Keep exploring** is one tap). On phone portrait the 136 px strip starts about 64 px down and ends about 200 px down, so it covers the labels' top edge but not the Visitor's body (estimate; Not verified, QA looks at 360 by 640 and 390 by 844).
+
+### 13.8 Name labels: the 8 px margin and stacked labels (FR-109, FR-111, US-80, BUG-15, N-13)
+
+**FR-109, exact 8 px (BUG-15).** What I found by reading `src/scene/controllers/labelLayout.ts` (not run): the label width comes from `offsetWidth`, which is a whole number and can be up to 0.5 px narrower than the real box, and the final offset is written with `Math.round`, which can move an edge up to 0.5 px the wrong way. Together that can leave an edge about 1 px inside the 8 px margin, which matches the QA residual. The rule is:
+
+1. The margin is measured to the label's border box (the 1.5 px ring is inside it) and from the viewport edge, and also inside the safe-area inset on that edge (the inset is 0 on the reference viewports).
+2. The label's width is read with `getBoundingClientRect().width` and kept fractional. A `translate` transition does not change a width, so this cannot feed back; it is the one allowed use of the box API in the solver.
+3. The final horizontal offset is rounded **inwards**: up (`ceil`) when the label is against the left margin, down (`floor`) when against the right margin. After rounding, left is at least 8 and right is at most the viewport width minus 8.
+4. This clamp is the last horizontal step. The stacking steps below only move labels vertically, so they cannot undo it.
+5. The order of rules is FR-111's: picture, then caption strip, then this margin, then head cover. The only sanctioned breach stays the accepted N-10 case (picture 1 at 360 by 640 with two 24-character names: the Guide's label may overhang the right edge by up to 63 px).
+
+**FR-111, stacked labels over the Guide's head (N-13).** Two labels are "stacked" when they still overlap after 12.6.8 rules 1 to 4 and the BUG-10 strip floor. This replaces the as-built "the lower label drops 4 px below the upper one" (12.6.8) as the first step. The new order:
+
+| Step | Rule | Blocked by |
+|---|---|---|
+| 1 | The **lower label** is the one whose head anchor is lower on screen (larger y; on a tie, the Visitor's). It stays at its anchor, 0.35 m above its own head. | n/a |
+| 2 | The **upper label** moves up until its bottom edge is 4 px above the lower label's top edge. | The picture rectangle grown 8 px, the caption-strip floor (5.5: 172, 180 or 192 px at 360 by 640), the 8 px top margin |
+| 3 | If step 2 cannot clear the overlap, **both labels widen**, one line preferred: maximum width `min(2 x var(--label-max-width), 100vw - 16px)` (352 px at most; 344 px at 360, 304 px at 320, 352 px at 390), never over the picture grown 8 px. Their heights are re-measured and steps 1 and 2 run again. | The picture, the margin |
+| 4 | If they still overlap, the lower label drops 4 px below the upper one (the as-built rule). This is the only step that can cover a head. | n/a |
+
+Widening applies only while labels are stacked. The normal width stays `min(var(--label-max-width), 36vw)` on portrait phones (12.6.8 as built), so the room beside the picture that BUG-15 won back is not lost. When the labels stop being stacked they return to the normal width.
+
+**Target (working target 25%, Q-45).** The lower label's box covers at most 25% of the area of each character's projected head box (`headBoxes()` in the scene test hook, architecture 8.2), at 360 by 640, 390 by 844 and 1280 by 720 on pictures 1 to 3, with 24-character names. Where a higher-ranked rule leaves no room, step 4 applies and the case is recorded with its measurements (FR-111). The scene developer measures what is achievable and reports each case; the 25% is a target, not a promise.
+
+**Estimate at 360 by 640, picture 2 (Not verified; shows why the order is this one).** A label line is 15 px x 1.2 = 18 px; with 6 px padding and a 1.5 px ring, one line is 33 px, two lines 51 and three lines 69. At the normal 36vw cap (130 px) a 24-character name takes three lines (69 px), so two stacked labels need 69 + 4 + 69 = 142 px. After widening to 344 px each name takes one line (about 245 px with padding and marker), so the stack needs 33 + 4 + 33 = 70 px. The head box is only about 15 to 29 px tall (a head is about one seventh of a 115 to 218 px figure), so 25% is 4 to 7 px. The room between the strip floor (192 px) and the head tops (about 230 to 360 px) is 38 to 168 px: a 70 px stack fits for most cases, and the tallest Visitor (head top near 230 px) is the one that may still need step 4.
+
+### 13.9 HUD pills at large text (FR-110, US-81, N-12)
+
+**Rule.** The HUD has three pills: the left tray (Pictures, Where next?), the progress pill and the right tray (Settings, Reset view when shown, Help). The gap between any two neighbouring pills is **8 px at every width** (`--target-gap`), and the pills never overlap or leave the viewport.
+
+| Layout | When | What it looks like |
+|---|---|---|
+| One row (today's layout, unchanged) | The HUD's content width is **20 rem or more**. The content width is the viewport width minus 2 x (`--hud-margin` + the side safe-area inset); 20 rem is the root font size x 20, so it grows with the browser's text size | Left tray at the left, right tray at the right, progress pill centred between them, as 12.6.1 |
+| Two rows | The HUD's content width is under 20 rem | Row 1: left tray at the left edge and right tray at the right edge. Row 2: the progress pill, centred. 8 px between the rows. If the two trays do not fit in one row (large text at 480 to 560 px, where their labels show), the right tray wraps under the left tray and stays right-aligned, and the pill follows it, each with 8 px between rows |
+
+Why a width in rem: it answers the question "do three pills fit?", which depends on text size. At 100% text 20 rem is 320 px of HUD width, which is a 344 px viewport. The reference phones stay in one row: 360 by 640 has 336 px of content (21.0 rem), and 390 by 844 has 366 px (22.9 rem). A 320 px viewport has 296 px (18.5 rem), so it uses two rows even at 100% text. With 8 px between pills its one row would fit by only about 3 px with a 20-picture count (92 + 92 + 16 + 93 = 293 of 296), and not at all with Reset view showing (92 + 140 + 16 + 69 = 317 of 296), so two rows are the safe layout there (estimates from real glyph widths; Not verified). The rule can be written as a container query on the HUD, or in any equivalent way, as long as the behaviour in the table holds.
+
+**Arithmetic at 320 by 568 with the browser text at 200% (the FR-110 case; estimates from real glyph widths, Not verified).** HUD content width: 320 - 2 x 12 = 296 px (9.25 rem, so two rows). Row 1: left tray 44 + 4 + 44 = 92 px, right tray 92 px (140 px with Reset view), gap 8: 92 + 8 + 92 = 192 of 296 (240 of 296 with Reset). Row 2: the pill is padding 2 x 8 + ring 16 + gap 8 + text; "20 of 20" at 28 px is about 106 px, so the pill is about 146 px of 296. Heights: row 1 is 44 px; row 2 is the pill at its content height (about 42 px at 28 px text, never less than 36); the rows are 8 px apart, so the bar is about 44 + 8 + 42 = 94 px tall instead of 44. Pill gaps: trays to pill 8 px, tray to tray 8 px at minimum. Every control stays 44 by 44 (US-81 AC-4). The pill text does not wrap (`white-space: nowrap`) and is never cut off, because 146 px is far inside 296 px.
+
+**What the taller bar does downstream.** The caption card and finale card docks are measured against the real bar (`keepOut`, `insets.top`), so they sit lower and need no change. Two constants assume a 64 to 68 px bar: the portrait name-label floor "68 px plus the strip height" (5.5) and the framing's top 30% reserve (6.12.2). With the two-row bar (bottom edge about 106 px at 200% text) a caption strip at the top dock ends about 12 px lower than the floor assumes, so a label may touch the bottom of the strip by up to about 50 px in that one case. That case is outside the FR-109 to FR-111 viewports and is raised as a request to the scene developer (13.13, open question 4).
+
+**Interaction details.** Reading order is unchanged (left tray, progress pill, right tray). When the pill drops to row 2 it is visually after the right tray; it is not interactive, so the focus order of the buttons is unchanged (WCAG 1.3.2 holds). The pill's hidden text "5 of 12 pictures viewed" is unchanged. Nothing animates when the layout switches; it only happens when the text size or the viewport changes.
+
+**One-row sum that has no spare (existing, not changed).** At 360 px with Reset view showing and a 20-picture museum, 12.6.1's sum is 336 of 336 px. A wider real font could overlap by a few pixels there. This is outside FR-110 (which fixes 320 px at 200%) and outside US-81 AC-3 (no pill moves at normal text). QA measures it; if it overlaps, the one-line fix is a threshold of 22 rem when Reset view shows, which changes the 360 px look in that one state and needs the product manager's agreement (13.13, open question 3).
+
+### 13.10 Tokens, contrast and the scene
+
+**No token was added, changed or removed.** Values used by this section already exist: `--rise-distance`, `--duration-overlay`, `--duration-fast`, `--panel-max-width`, `--content-max-width`, `--touch-target-lg`, `--touch-target-md`, `--accent-bar-width`, `--target-gap`, `--hud-margin`, `--label-max-width`, `--color-scrim`, `--z-modal`, `--shadow-panel`, `--shadow-inset-frame`. Every ratio below is taken from 4.2 and 12.9, where it was calculated with the WCAG formula from the hex values in `tokens.css`; no new colour pair was introduced. QA re-verifies with a tool.
+
+| Foreground | Background | Ratio | Use |
+|---|---|---|---|
+| `--color-text` | `--color-surface` | 14.7 | Message heading and body; the waiting row's status line |
+| `--color-on-accent` | `--color-accent` (top of the gradient `--color-accent-top` 6.9) | 7.8 | **Try again** (primary) |
+| `--color-accent` | `--color-surface` | 7.8 | **Back to my museum** label (secondary) |
+| `--color-accent` outline | `--color-surface` | 7.8 (needs 3) | Secondary button outline; the info icon in a waiting row (graphic, needs 3) |
+| `--color-accent` | `--color-bg` | 7.1 (needs 3) | The 4 px bar on a waiting row |
+| `--color-text-muted` | `--color-surface` | 6.0 | Publish reason line "Some photos are waiting for space." |
+| `--color-accent` | `--color-accent-tint` | 6.3 | The "Photos are waiting for space" chip (12.4.3) |
+| `--color-focus-edge` (outer edge of the two-tone ring) | `--color-surface` | 14.7 (needs 3) | Focus on the message's buttons, the row's **Try again** and the chip |
+
+Over the scene: the message sits over the builder, not the scene, and its card is opaque. The finale card is the opaque paper card (14.7:1 over any scene pixel), so its dock cannot change its contrast. HUD pills are unchanged: 8.7:1 over a pure white scene pixel, which is the brightest case, and 15.3:1 on the solid fallback. Name labels are unchanged: 16.3:1 text, and an edge of at least 3.8:1 over any wall (4.2). Widening a label (13.8) changes no colour.
+
+### 13.11 Contract needs and test hooks (for the architect)
+
+**No new store field, no new test-hook entry and no new URL parameter is needed.** The design uses what architecture 8.2 already defines:
+
+| Used | How |
+|---|---|
+| `builderStore.spaceFull`, `setSpaceFull(...)` | Open and close the message. Publish with a waiting photo calls `setSpaceFull({ action: 'photo' })` (13.3) |
+| `PhotoErrorKind` `'space-full'` | Selects the "waiting for space" row |
+| `validateDraft` issue `photos-space-full` | Drives the Still to do chip and the Publish press |
+| `retrySpaceFull()` | **Try again** in the message and in every waiting row |
+| `window.__APP_TEST__.setMockSpaceFull` | QA turns the mock's space-full switch on and off |
+| `data-dock` on the finale card | Test contract for FR-108. Values: `top`, `right` |
+| `window.__surpriseMuseum.headBoxes()` | FR-111 head cover |
+
+Answers to the architect's six requests (quoted in `docs/handoffs/architect.md`):
+1. **The FR-106 message:** 13.2 (copy, states, focus, reduced motion) and 13.5.
+2. **Row wording for `errorKind: 'space-full'`:** 13.3. Status "Not added yet. We're full for now." and **Try again**.
+3. **Does Publish with such a photo open the message:** yes, with `action: 'photo'` (13.3, C-10).
+4. **The `describeApiError` heading text:** "We're full for now". Where one string is needed (an `Alert` that is not the message), `describeApiError` returns "We're full for now. Please try again later." It never returns the server's own message.
+5. **Finale dock per A-23 viewport, and rotation (C-9):** 13.7. `finaleDockFor` returns `'top'` for `phone-portrait` and `'right'` otherwise, by calling `detectLayout`. It changes only when the layout kind changes.
+6. **N-12 pills and N-13 labels:** 13.9 and 13.8.
+
+Two small requests are in 13.13 (open question 2 and request to the architect on the label text of `photos-space-full`).
+
+### 13.12 Task list by owner
+
+**frontend-developer** (`src/ui/`, `src/state/`, `src/lib/apiPort.ts`, `src/ui/styles/`)
+1. `SpaceFullMessage` (13.2) mounted once at the builder shell: `alertdialog`, `inert` background, focus to the heading, focus return, Escape, copy from 13.5, the landscape variant and the layer-scroll rule. Opens while `spaceFull` is non-null.
+2. `PhotoRow` "waiting for space" (13.3) for `errorKind: 'space-full'`: info bar, info icon, status text, **Try again** (name "Try again, photo n") wired to `retrySpaceFull()`.
+3. Still to do chip for `photos-space-full`; the Publish handler that calls `setSpaceFull({ action: 'photo' })` instead of the summary; the Publish reason line; Next on step 1 only if its gate can report `photos-space-full`.
+4. `describeApiError`: the `space_full` case returns "We're full for now. Please try again later." (13.11).
+5. `finaleDockFor(viewport)` (13.7): `detectLayout`, no other input; re-evaluated on a viewport change only; cross-fade on a change; remove the finale's use of `chooseCaptionDock` candidates; the finale's starting size per 13.7. Unit test the table and the boundary cases.
+6. HUD two-row layout (13.9) as a container query on the HUD width in rem, with 8 px between pills at every width.
+7. Unit test that scans the copy of 13.5 for digits, the six words and the gendered-pronoun list (AC-2 and the FR-76 guard).
+8. Selectors: "Try again" now also names the message's and the waiting rows' buttons; QA queries them inside the `alertdialog` or the row.
+
+**scene-developer** (`src/scene/controllers/labelLayout.ts`, `NameLabel.tsx`)
+1. Width from `getBoundingClientRect().width`, inward rounding, margin clamp last (13.8, FR-109).
+2. Stack order of 13.8: lower label stays, upper rises, both widen, drop last. Widening cap `min(2 x --label-max-width, 100vw - 16px)`, only while stacked.
+3. Measure the head cover for every FR-111 case with `headBoxes()` and report which cases need step 4 (Q-45).
+4. Replace the portrait strip floor constant (68 px + strip height) with the strip's measured bottom edge if the frontend can publish it (open question 4).
+
+**qa-engineer**
+1. Space full in the mock build (`setMockSpaceFull(true)`): first photo refused, message focus and announcement, Tab order and Escape, Back keeps everything (12 photos, captions, names, message, characters), Try again with space freed, Try again still full (message back within 10 s), Publish with a waiting photo, reload shows the 5.17 notice, Visitors, edit, delete and a re-publish unchanged.
+2. Layout checks at 360 by 640, 320 by 568, 640 by 360, 844 by 390 at 100%, and 360 by 640 and 320 by 568 at 200% text: no horizontal scroll, nothing clipped, controls 44 px and 8 px apart (13.2).
+3. Finale dock at every viewport of 13.7, 30 times at 1280 by 720 with `--workers=2`, at 0, 1 and 5 s, and a rotation while open (360 by 640 to 640 by 360 and back).
+4. Labels: 8.0 px margin with no tolerance and head cover per US-80.
+5. HUD: gaps of at least 8 px at 320 by 568 and 200% text; no pill moved by more than 2 px at 360 by 640 and 390 by 844 at normal text; also measure 480 to 600 px and the 360 px Reset case (13.9).
+
+**architect and product-manager:** see 13.13.
+
+### 13.13 Coverage, conflicts and open questions
+
+| Story and criteria | Met by |
+|---|---|
+| US-74 AC-1 to AC-6 | Server behaviour (architect, backend). The design adds nothing that reads or shows a figure; AC-5 (no partly published museum) is met because the client sends no publish with an unstored photo (13.3) |
+| US-75 AC-1 to AC-6 | 13.2 and 13.5 (one heading, four short sentences, two controls); Back keeps everything (13.2); Try again (13.2); reload (13.1) |
+| US-76 AC-1 to AC-6 | `alertdialog` announcement, heading focus, Tab, Enter, Escape (13.2); 44 px targets and 16 px text (13.2 sums); 320 px at 200% (13.2 table); contrast (13.10); reduced motion (8.4) |
+| US-77 AC-1 to AC-5 | 13.6 (nothing new on any of those screens) |
+| US-79 AC-1 to AC-4 | 13.7 (the dock per viewport, stable, no retry loop needed) |
+| US-80 AC-1 to AC-6 | 13.8 |
+| US-81 AC-1 to AC-4 | 13.9 |
+
+**Conflicts found, and who must change what.**
+1. **C-9 (FR-108).** The requirement says the dock "depends only on the viewport's size and orientation" and also "does not change while the card is open". Decision: it changes only when the viewport crosses a layout kind (a rotation of a phone does), 13.7. Product-manager: align FR-108's second sentence to "does not change while the card is open, unless the viewport changes layout kind". The architect's contract (8.2) already says this.
+2. **C-10 (US-74 AC-5, FR-106).** Resolved by 13.3: `photos-space-full` opens the message, so a refused publish and a refused photo show the same outcome. No change to a requirement.
+3. **US-76 AC-2 against 5.14.** 5.14 puts initial focus on the safest control; US-76 AC-2 asks for focus on the heading. The heading wins for this message and 5.14 was edited to say so.
+4. **US-75 AC-1 against a close icon.** Exactly two controls means no close icon; Escape is the shortcut (13.2).
+5. **12.6.1 ("gaps may fall to 4 px at 359 px and narrower") against FR-110 (8 px between pills at 320 px).** Resolved: the 4 px stays only between buttons inside one tray; between pills it is 8 px (13.9). FR-81 is stated at 360 px, so no requirement needs to change.
+6. **US-75's proposed wording** differs from 13.5 in one sentence. No requirement changes; the product-manager may update the story's line.
+7. **12.6.8 "as built" stacking** is superseded by 13.8 (the as-built text is kept and marked).
+
+**Open questions (each with a recommendation).**
+1. **After Try again from a Publish press, should the app publish by itself once the photos are stored?** Recommend no (13.3): the Creator presses Publish again, so consent and the preview stay theirs. Answer: product-manager.
+2. **Does the Preview use the photos held on the device, so it works with photos that are waiting?** Recommend yes. Answer: frontend-developer (13.3 assumes it).
+3. **The 360 px, Reset view, 20-picture HUD sum has no spare (13.9).** Recommend QA measures it first; fix only if it overlaps, with a 22 rem threshold for that state. Answer: qa-engineer, then product-manager.
+4. **The portrait label floor (68 px + strip height) and the framing's top 30% assume a one-row HUD bar.** Recommend the strip's measured bottom edge replaces the constant. Low priority; outside FR-109 to FR-111. Answer: scene-developer and frontend-developer.
+5. **The 25% head cover (FR-111) may be out of reach for the tallest Visitor at 360 by 640 (13.8 estimate).** Recommend the scene developer reports the measured cases and the tech lead accepts those that FR-111's order allows. Answer: scene-developer, then the user at the next gate if a case fails.
+6. **The 480 to 600 px HUD band at 100% text (labels shown) was not checked.** Its one-row sum looked tight by arithmetic (about 467 to 519 px against 456 to 576 px of content). Recommend QA measures it; if the pills touch, raise the two-row threshold for that band. Answer: qa-engineer.
+
+**Requests for the architect.** (a) Confirm that `finaleDockFor` returns `'top' | 'right'` through `detectLayout`. (b) Put the text "Photos are waiting for space" in the shared issue list for `photos-space-full`. (c) Confirm that the Next gate on step 1 cannot report `photos-space-full` or, if it can, that it uses the same handler as Publish.
+
+### 13.14 Decisions (26/11/2026)
+
+| Decision | Reason |
+|---|---|
+| The space-full message is a modal `alertdialog`, not an inline banner | It must be announced within 1 second, hold focus, and make the Creator choose; an inline banner on step 1 would be missed on step 4 |
+| Exactly two controls, no close icon, scrim click does nothing | FR-106 and US-75 AC-1; Escape is the shortcut for people who expect one |
+| Focus goes to the heading, Back returns it to where the Creator was | US-76 AC-2 and FR-106 (d) |
+| One message for photo and publish refusals | FR-106 asks for one message; the two actions need the same words |
+| A waiting row uses the info colour and an info icon, not the danger look | The refusal is not the Creator's fault and not a failed upload |
+| Publish stays enabled and opens the message (C-10) | 5.1 prefers a button that explains on press; it makes AC-5 of US-74 and FR-106 consistent |
+| Paragraph 2 says words and characters stay saved but photos need adding again | FR-106 (a) asks what the work is and is not; the story's proposal said only the second half |
+| No background retry or polling | It would use up the Edge Function invocation limit that CR-16 left uncovered |
+| Finale dock: top on phone portrait, right everywhere else, by layout kind | FR-108 and Q-43 (a); the same dock that the caption card prefers in each layout, and the Visitor's side of the screen is free in both |
+| The finale dock changes only on a layout-kind change (C-9) | A rotation is a real viewport change; the browser bars retracting is not |
+| Labels: widen before dropping, and keep the lower label at its anchor | The cover comes from the 4 px drop under a tall label; a shorter stack keeps heads clear, and the drop stays only as a last resort |
+| HUD: two rows below 20 rem of content width | A single rule that follows text size; keeps 360 and 390 px unchanged |
