@@ -1,6 +1,123 @@
 # Handoff: architect
 
-Iteration: 4 (Feature and hosting: free-tier hosting, 7-day retention). Phase: 7 Operate and learn (23/11/2026), documentation sync. The phase 5 Review and phase 2 Design notes follow below.
+Iteration: 5 (Feature and fixes: OPS-1 + CR-13 purge health, CR-9 space full, DEBT-2, BUG-15, N-12, N-13). Phase: 2 Design, architecture step (26/11/2026). Iteration 4's notes (phase 7 sync, phase 5 review, phase 2 design) and earlier rounds follow below, unchanged.
+
+## Iteration 5, phase 2 Design (26/11/2026)
+
+### Summary
+I designed purge health and the space-full guard, and wrote the contracts the frontend, the scene, QA and the designer build against. ADR 0023 has the purge write a one-row heartbeat at the end of each successful run. The keep-alive turns that, the purge queue's oldest entry and the oldest overdue expiry into one `purgeHealthy` boolean, and the workflow turns red on it. ADR 0024 measures storage and database size in SQL on each gated call and refuses with 409 `space_full` at 800 MB or 400 MB. ADR 0010 and ADR 0022 carry dated amendments. **Q-37: the app cannot read egress** (evidence below). `docs/architecture.md` is v1.7. All of it is Proposed until A2. No code, migration, function or workflow was written, and nothing is committed or deployed.
+
+### Files changed
+- `docs/decisions/0023-purge-health-in-the-keep-alive.md`: new (Proposed). Options for the success signal and for where the flag is computed; heartbeat table and SQL; `purge_health_inputs()`; `isPurgeHealthy` rules and boundaries; keep-alive order; contract; two-step workflow; deploy order; tests.
+- `docs/decisions/0024-space-full-guard.md`: new (Proposed). Q-37 evidence; options; `space_usage()` SQL; threshold variables; gated and ungated actions; 409 `space_full`; fail open; client handling; mock switch; deploy order; tests.
+- `docs/decisions/0010-retention-with-pg-cron.md`: status line and a 26/11/2026 amendment. The purge records its own success; the "nothing alerts" consequence is replaced.
+- `docs/decisions/0022-free-tier-hosting-and-keep-alive.md`: status line (deployed 24/11/2026, amended 26/11/2026) and an amendment table covering sections 1 to 6, the context and the consequences.
+- `docs/architecture.md` v1.6.1 to v1.7: header; 1 (keep-alive, purge health, space full, retention rows); 2 (no dependency change, checked); 3 (diagram and text); 5.2 (space checks in the flow); 7.1 (`purge_heartbeat`, three new SQL functions); 7.3 (`create-museum`, `keep-alive`, `reserve-photo`, `publish` rows; `space_full` error row); 7.4 (hourly job row; deploy-state sentence); 7.5 (reaches, never does, response, failure signal, usage check; first run 24/11/2026); new 7.7 purge health, 7.8 space full, 7.9 iteration 5 coverage; 8 (`builderStore` row); new 8.2 iteration 5 contracts; 10.2 (two rows changed, one added); 11 (Deno, pgTAP, live, e2e rows); 13 (threshold variables; release order; deploy-state sentence); 13.1 ("when a limit is reached" table, usage check, variables); 15 (two rows rewritten, four added); 16 (ADR 0022 note, 0023, 0024, amendment note); 17 (v1.7 row).
+- `docs/handoffs/architect.md`: this section.
+
+### Verification
+| Check | Result | Label |
+|---|---|---|
+| Q-37, Management API | Fetched the public OpenAPI document `https://api.supabase.com/api/v1-json` (version 1.0.0, 368,601 bytes, sha256 `9dea9aa2…c080`) into the scratch folder. "egress" and "bandwidth" occur 0 times. The usage, analytics and metrics endpoints (`usage.api-counts`, `usage.api-requests-count`, `functions.combined-stats`, `logs.all`, `metrics`) all declare `bearer` security, meaning a personal access token or OAuth | Verified |
+| Q-37, Supabase docs | "Manage your usage: Egress" (fetched 26/11/2026): "You can view Egress usage on the organization's usage page"; a Unified Egress Quota across services, per billing cycle | Verified |
+| Q-37, project metrics endpoint (service-role key) gives host network counters, not billed egress | From memory | Not verified |
+| Free-plan Edge Function limits used for the cost estimate | Supabase docs "Edge Functions limits" (fetched 26/11/2026): CPU 2 s per request excluding async I/O, memory 256 MB, wall clock 150 s on Free | Verified |
+| Design matches today's code | Read `purge-expired`, `keep-alive`, `create-museum` and `manage-museum` handlers; `_shared/http.ts` (`STATUS_BY_CODE`), `ports.ts`, `config.ts`, `boot.ts`, `supabaseBackend.ts`, `contract.ts`; all five migrations; `keep-alive.yml`; `src/lib/apiPort.ts`; `src/api/liveClient.ts` (`KNOWN_CODES`), `mockClient.ts`, `index.ts`; `src/state/uploadQueue.ts`, `publish.ts`, `draft.ts` (`validateDraft`), `builderStore.ts`; `src/main.tsx` (hook block); `playwright.config.ts` (`--mode test`, mock) | Verified (read) |
+| Client never sends a publish with an unstored photo | `validateDraft(…, 'publish')` returns `photos-failed` or `photos-uploading` when any photo is not `ready` (`src/state/draft.ts:140-155`) | Verified (read) |
+| `?e2e=1` turns on the scene hook in any build | `src/scene/controllers/testHooks.ts:104-110` | Verified (read) |
+| Installed versions equal the architecture table | `npm ls --depth=0` | Verified |
+| `.abortSignal()` exists for the health query's 5 s timeout | `@supabase/postgrest-js` 2.118.0 (the version `supabase/functions/deno.lock` pins) has `abortSignal` in its type definitions in the local Deno cache | Verified |
+| `npm run format:check` | "All matched files use Prettier code style!" Note: `.prettierignore` lists `*.md`, so Prettier does not actually check the Markdown files I changed | Verified (with that caveat) |
+| SQL in ADR 0023 and ADR 0024 runs, grants hold, `storage.objects` is readable from `space_usage()`, `metadata->>'size'` and `pg_database_size` match the dashboard | No Postgres, Docker or Supabase CLI here, and the live project was not touched | Not verified (backend-developer: pgTAP and a local `supabase start`) |
+| Cost of `space_usage()` per call | Reasoned from the index and object count | Not verified (estimate) |
+| Lint, typecheck, unit tests, build | Not run: no code changed | Not verified (not applicable) |
+
+### Decisions
+- **The success signal is a heartbeat written by the purge as its last step** (ADR 0023). pg_cron status was rejected (A-41), as were `net._http_response` (kept about 6 hours, not ours) and a run log (grows). A run with `failed > 0` still counts as successful, because the queue-age condition watches failed deletes.
+- **SQL returns timestamps and a pure TypeScript function decides**, so US-72's boundaries are tested in Deno with a fake clock. Only the boolean leaves the function.
+- **The keep-alive calls `keep_alive()` first, then the health query** with a 5 s timeout. A failing check gives `false`, never a 500 (NFR-33 (d)).
+- **The workflow has two steps**, so a purge-only red run shows the keep-alive step green and `keep-alive: ok` (US-69 AC-3). The summary line is exactly `purge: unhealthy`. The `::error` annotation names the cause (flag missing, or purge behind) without a count, age or key.
+- **No seed row for the heartbeat**: a seed would claim a run that never happened. The flag is `false` for up to about 60 minutes after the first deploy.
+- **Space is measured on every gated call with no cache** (0 minutes old). A snapshot job, an in-memory cache, Storage API listing and SQL-embedded checks were rejected (ADR 0024).
+- **409 `space_full`**, consistent with `photo_limit` and `upload_quota`. 503 and 507 were rejected.
+- **Gated actions: `create-museum`, `reserve-photo`, and `publish` only when a listed photo is not ready.** `renew-upload` and `confirm-photo` are not gated (FR-104 (c)).
+- **Fail open** when the measurement errors (ADR 0024 section 5). Recorded as a risk.
+- **Thresholds are optional function variables with defaults**, so a Q-34 change needs no code.
+- **Mock switch through `__APP_TEST__.setMockSpaceFull`**, in memory and per page; no URL parameter (code-rules section 5).
+- **Stale deploy statements in `architecture.md` updated** (7.4, 7.5, 13): the app has been live since 24/11/2026. The build legitimately moved on.
+
+### Assumptions
+- `space_usage()` as `security definer` (migration role) can read `storage.objects`, as the owner's dashboard query does (ADR 0022 section 3). If Supabase has restricted that, the guard fails open and the backend-developer reports it.
+- Supabase counts storage close to `sum(metadata->>'size')` and database size as `pg_database_size`. The 80% line in decimal bytes is conservative if Supabase uses binary units.
+- The designer's FR-106 copy stays within FR-106 (b). The server's `message` is never shown in place of it.
+
+### Not done
+- Code, migrations, functions, tests, `docs/api.md`, the workflow and the guide: owned by others, listed below.
+- Live checks of the SQL: not possible here without touching the live project, which the task forbids.
+
+### Contradictions found (requirements v0.8.1, ADRs, architecture, code)
+| # | Where | Conflict | Winner (precedence) | Who changes what |
+|---|---|---|---|---|
+| C-1 | ADR 0022 section 2 "Reveals nothing… only `ok` and the database time"; architecture 7.3, 7.5, 8.1, 10.2 | NFR-33 (c) adds `purgeHealthy` | Requirements | **Done** (me): ADR 0022 amendment, architecture v1.7. 8.1 is left as the iteration 4 record; 8.2 supersedes it |
+| C-2 | ADR 0022 context and consequences, architecture 10.2, 13.1 and 15: "no in-app handling (FR-104 deferred)" | FR-104, FR-106, FR-107 v0.8 | User decision 26/11/2026 | **Done** (me): ADR 0022 amendment, ADR 0024, architecture v1.7 |
+| C-3 | ADR 0010 consequence "Nothing alerts on it today" | NFR-33, NFR-34 | Requirements | **Done** (me): ADR 0010 amendment |
+| C-4 | Architecture 7.4, 7.5, 13: "nothing is deployed", "not yet run on GitHub" | Deployed 24/11/2026 (`docs/project-status.md`) | Project status | **Done** (me) |
+| C-5 | `docs/api.md` 10a ("reveals nothing but the database clock", 200 body), section 4 errors (no `space_full`), section 12 mock (no switch); `keep-alive/handler.ts` header comment | ADR 0023, ADR 0024 | Requirements, then architecture | backend-developer (phase 3) |
+| C-6 | `tests/e2e/keep-alive-static.spec.ts` asserts the old exact `KeepAliveResponse` and the one-step workflow | NFR-33 (c), NFR-34 | Requirements | qa-engineer: update with the backend and workflow changes |
+| C-7 | `docs/deployment.md` "act now" at 80% and "no in-app handling" | FR-104 at 80% | User decision | devops-engineer (already requested by the product-manager, `docs/project-status.md`) |
+| C-8 | NFR-33 (e) "calls nothing" | The keep-alive makes two read-only database calls (`keep_alive()`, `purge_health_inputs()`). I read "calls nothing" as no HTTP call, no purge, no write | Requirements (intent) | product-manager: optional wording, "calls no other function and no purge" |
+| C-9 | FR-108 says the dock "depends only on the viewport's size and orientation" and also "does not change while the card is open" | Unclear when the phone rotates while the card is open | Requirements; detail is the designer's | ux-ui-designer to decide; product-manager to align FR-108 if needed. My contract: it changes only on a viewport change |
+| C-10 | US-74 AC-5 and FR-106 expect a refused publish to show the space-full outcome | In the built client, `validateDraft` stops a publish with an unstored photo before any request, so the server's publish refusal is reached only at the API (Deno and mock tests) | Requirements | ux-ui-designer: the new `photos-space-full` issue should open the FR-106 message (recommended). product-manager: optionally note that AC-5 is checked at the API |
+| C-11 | Code-rules section 5 ("never enable [the test hook] from a URL parameter alone") and architecture 11 ("scene hooks with `__SURPRISE_E2E__`") | `testHooksEnabled()` also accepts `?e2e=1` in production builds (`src/scene/controllers/testHooks.ts:107`), so anyone can install `window.__surpriseMuseum` on the live site. Effect is limited to the user's own tab (teleport, snapshot, fail a photo); no data or secret | Code rules (security) | scene-developer: gate it on `import.meta.env.DEV \|\| import.meta.env.MODE === 'test'` and keep the opt-ins inside that. QA's `?e2e=1` uses run on the test build and keep working. Tech lead: decide whether it joins iteration 5. Earlier releases did not catch it |
+
+### Open questions
+1. **Fail open or fail closed when the space measurement errors?** (a) Fail open: Creators carry on and the guard is off until someone reads the logs. (b) Fail closed with the generic 500: every new photo fails while the fault lasts. **Recommend (a)**, because creating a museum is Must and the guard is Should (ADR 0024 section 5). Owner: user at A2, or the tech lead.
+2. **C-11 `?e2e=1` in production**: fix it in this iteration? **Recommend yes.** It is a one-line gate and a code-rules security breach, even though the impact is small. Owner: tech lead.
+3. **NFR-34 (b) annotation text**: the `::error` annotation names the cause ("flag missing" or "purge behind") and holds no count, age or key; the summary line stays exactly `purge: unhealthy`. Acceptable, or must the annotation also be only "purge: unhealthy"? **Recommend acceptable.** Owner: product-manager.
+
+### Requests for other agents
+- [open] **backend-developer** (phase 3; ADR 0023, ADR 0024, architecture 7.7, 7.8, 8.2):
+  1. Migrations: `purge_heartbeat` with `record_purge_success()` and `purge_health_inputs()`; `space_usage()`. Use the grants, RLS and `revoke … from public, anon, authenticated` exactly as in the ADRs. Do not seed the heartbeat.
+  2. `_shared/purgeHealth.ts` (`PURGE_HEALTH_MAX_AGE_MS`, `PurgeHealthInputs`, `isPurgeHealthy`) and `_shared/space.ts` (`isSpaceFull`), both pure.
+  3. `ports.ts`: `recordPurgeSuccess`, `purgeHealthInputs`, `spaceUsage`. Implement them in `supabaseBackend.ts` (health query with `.abortSignal()` and a 5 s timeout) and in both in-memory backends.
+  4. Handlers: `purge-expired` (heartbeat as the last step); `keep-alive` (order and exact three keys; `false` on error or timeout; log the error name only; update the header comment); `create-museum` and `manage-museum` (`reserve-photo`; `publish` only when a listed photo is not ready; fail open with `space check unavailable (<name>)`).
+  5. `config.ts`: optional `SPACE_FULL_STORAGE_BYTES` and `SPACE_FULL_DATABASE_BYTES` (whole numbers, 1 to 10^12; invalid is a `ConfigError`).
+  6. `contract.ts`: `KeepAliveResponse.purgeHealthy: boolean`; `ApiErrorCode` `'space_full'` (409). `http.ts` `STATUS_BY_CODE`. `CONTRACT_VERSION` stays 1.
+  7. `src/api/liveClient.ts`: `KNOWN_CODES` adds `space_full`. `src/api/mockClient.ts`: `STATUS`, `MockApiOptions.spaceFull`, `setSpaceFull`, and the same three checks as the server. `src/api/index.ts`: `setDemoSpaceFull`.
+  8. Tests as listed in ADR 0023 and ADR 0024 (Deno, pgTAP, mock unit tests). Run `space_usage()` once against a local `supabase start` and report whether `storage.objects` was readable.
+  9. `supabase/scripts/smoke-test.mjs`: assert the keep-alive body has exactly three keys and a boolean `purgeHealthy`, and print only `purge: healthy` or `purge: unhealthy`.
+  10. `docs/api.md`: sections 1, 4 (`space_full` row), 5, 7, 9 (`reserve-photo`, `publish`), 10 (heartbeat), 10a (new body, what it reveals), 12 (mock switch), change log. `supabase/README.md`: the optional variables and what a "purge unhealthy" run means for the checks.
+- [open] **frontend-developer** (phase 3; architecture 8.2):
+  1. `builderStore`: `spaceFull`, `setSpaceFull`, cleared by `reset()`, never persisted.
+  2. `draft.ts`: `PhotoErrorKind` `'space-full'`; `validateDraft` issue `photos-space-full`.
+  3. `uploadQueue.ts`: first-refusal behaviour (mark the waiting photos too) and `retrySpaceFull()`. `publish.ts`: the `space_full` path (phase back to `'idle'`, no generic error).
+  4. `src/lib/apiPort.ts`: `isSpaceFull` and the `describeApiError` case.
+  5. `src/main.tsx`: `setMockSpaceFull` in the existing hook block only.
+  6. The FR-106 message per the design spec; the finale dock from a pure viewport function (`data-dock` kept); FR-110 per the design spec. Unit tests for the store, the queue and the dock function.
+- [open] **scene-developer** (phase 3): `headBoxes()` on `window.__surpriseMuseum` (architecture 8.2); FR-109 and FR-111 in the label solver; C-11 gate if the tech lead agrees.
+- [open] **devops-engineer** (phase 3 or 6):
+  1. `keep-alive.yml` exactly as ADR 0023 section 4: two steps, `jq -e '.purgeHealthy == true'`, the exact summary lines, no body printed, `permissions: {}` unchanged. **Do not let it reach `main` before the function deploy and one purge run** (architecture 13, release order).
+  2. `docs/deployment.md`: what a red "purge: unhealthy" run means and the checks to make (NFR-34 (f)); the in-app refusal at 80%; egress is a limit the app cannot detect; the optional threshold variables; the iteration 5 release order; the "act now" line below 80% (C-7). `CHANGELOG.md`.
+- [open] **ux-ui-designer** (this phase, after me):
+  1. The FR-106 message (copy within FR-106 (b), states, focus, reduced motion).
+  2. Row wording for a photo with `errorKind: 'space-full'`.
+  3. Whether choosing Publish with such a photo opens the message (recommended, C-10).
+  4. The heading text that `describeApiError` falls back to.
+  5. The finale dock for each A-23 viewport, and what happens on rotation while the card is open (C-9).
+  6. N-12 pills and N-13 labels.
+- [open] **qa-engineer** (phase 3 smoke, phase 4):
+  1. Update `keep-alive-static.spec.ts` (C-6) and test the workflow's step 2 on saved responses (US-73 AC-1 to AC-3: `false`, missing, `null`, `"true"`, `true`).
+  2. Add `setMockSpaceFull?: (full: boolean) => void` to the shared hook type. Use it for US-74 to US-77, setting it after every navigation that reloads the page.
+  3. Release check: search `dist/` for `__APP_TEST__` and `setMockSpaceFull`.
+  4. Use `headBoxes()` for US-80 AC-5.
+- [open] **product-manager**: C-8 (optional wording), C-9, C-10 (optional AC-5 note), open question 3. Record Q-37 as answered: egress is a limit the app cannot detect (FR-104 (e), NFR-32 (f), US-70 AC-5, US-74 AC-6).
+- [open] **tech lead**: hold the `keep-alive.yml` change out of `main` until the release order allows it; decide open questions 1 and 2.
+
+### Requests received
+- [done] from tech lead (iteration 5, phase 2): purge health design, space-full design, client contracts, Q-37 with evidence, contract notes for the visual fixes, contradictions list. See above.
+
+---
+
 
 ## Phase 7 documentation sync (23/11/2026)
 

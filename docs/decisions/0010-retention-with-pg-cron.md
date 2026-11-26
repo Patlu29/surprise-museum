@@ -1,7 +1,7 @@
 # 0010: Retention with pg_cron, pg_net and a purge function
 
 ## Status
-Accepted (27/10/2026). Amended 18/11/2026 for NFR-16 v0.7 (published museums last 7 days, purge within 24 hours, no backups); see the amendment below. The mechanism is unchanged.
+Accepted (27/10/2026). Amended 18/11/2026 for NFR-16 v0.7 (published museums last 7 days, purge within 24 hours, no backups); see the amendment below. The mechanism is unchanged. Amended 26/11/2026 (Proposed, awaiting A2): the purge records its own success for the keep-alive's purge-health flag (ADR 0023); see the second amendment at the end.
 
 ## Context
 NFR-16: museums stay available for at least 90 days from publishing, and deleted or expired content leaves live storage within 7 days. Deleting a museum must break the share link immediately (FR-52). Storage objects must be deleted through the Storage API, not by deleting rows from `storage.objects`.
@@ -77,3 +77,21 @@ A Creator-set expiry is not built in this iteration. When it is, it may only low
 - Signed photo URLs issued just before the end stay valid for up to 1 hour (`LIMITS.signedUrlTtlSeconds`), and objects are deleted at the next purge run (at most about 60 minutes after the end). A Visitor who already had the museum open can therefore still load a photo for up to an hour after the end. Opening the link after the end shows nothing (US-68 AC-2 is met). Capping the URL lifetime at `expires_at` is an open question in the architect's handoff.
 - A paused project stops purge, so expired photos would stay in storage until it is restored. ADR 0022 is the control.
 - Nothing is deployed, so no existing museum keeps a 90-day `expires_at`.
+
+## Amendment (26/11/2026): the purge records its own success (ADR 0023)
+
+Status: Proposed, awaiting the user's design approval (A2) for iteration 5.
+
+**Why.** NFR-33 (Should, user decision 26/11/2026) asks the keep-alive to report whether the purge is keeping up. A pg_cron "succeeded" row only shows that `invoke_purge_expired()` queued the HTTP call (A-41), so the purge must leave its own signal.
+
+**What changes in this ADR's mechanism.** Only the last step of a run. The schedule (minute 17, hourly), the pg_net call, the secret, the batch size, the queue and the response `{ purged, retried, failed }` are unchanged.
+
+| Item | Before | Now |
+|---|---|---|
+| End of a `purge-expired` run | Answers 200 | Calls `public.record_purge_success()` (upserts the one row of `public.purge_heartbeat` with Postgres `now()`), then answers 200 |
+| What counts as a successful run | (not defined) | The run passed the secret check, expired its batch, went through the queue and reached the heartbeat call. A run with `failed > 0` still counts: failed deletes show up in the keep-alive's queue-age condition instead |
+| A run that throws | 500 | 500, and no heartbeat is written |
+| Who writes the heartbeat | (none) | Only the purge. The keep-alive reads it and never writes |
+
+**Consequence replaced.** The 18/11/2026 consequence "Nothing alerts on it today" no longer holds once ADR 0023 ships. A storage delete stuck for more than 3 hours, an expiry more than 3 hours overdue, or no successful run in 3 hours makes the next daily keep-alive answer `purgeHealthy: false` and turns its run red (NFR-34). Detection is daily (A-42).
+

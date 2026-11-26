@@ -24,7 +24,7 @@ Iteration 4's phase log is in docs/lifecycle/retrospective.md.
 | Phase | Status | Evidence | Date |
 |---|---|---|---|
 | 1 Plan | Done (A1 approved with changes 26/11/2026; 80% threshold applied, requirements v0.8.1, 14 places) | requirements, user stories and backlog v0.8: FR-104 rewritten (Could to Should), FR-106 to FR-111, NFR-33 to NFR-35, US-72 to US-81, 8 backlog rows In progress; prettier passes; IDs cross-checked; Must count unchanged at 90; Q-36 to Q-45 raised | 26/11/2026 |
-| 2 Design | In progress | Expected: architect (keep-alive contract, how limits are measured), ux-ui-designer (space-full states, N-11 dock, N-12, N-13) | |
+| 2 Design | In progress (architect done 26/11/2026: architecture v1.7, ADR 0023 purge health, ADR 0024 space-full guard, amendments to ADR 0010 and 0022, Q-37 answered: egress cannot be read by the app, contradictions C-1 to C-11; ux-ui-designer delegated) | Expected: architect (keep-alive contract, how limits are measured), ux-ui-designer (space-full states, N-11 dock, N-12, N-13) | |
 | 3 Build | Not started | | |
 | 4 Verify | Not started | | |
 | 5 Review | Not started | | |
@@ -53,6 +53,7 @@ Iteration 4's phase log is in docs/lifecycle/retrospective.md.
 - 18/11/2026 (tech lead): this is a Feature iteration, because a Must requirement and user-facing wording change, combined with hosting work. Route: 1, 2 (architect only), 3, 4, 5, 6, 7.
 
 ## Open questions (owner)
+- For A2 (from the architect, 26/11/2026): (1) space measurement error: fail open (recommended) or fail closed; (2) C-11: `?e2e=1` switches on the scene test hook in production builds (`src/scene/controllers/testHooks.ts:107`, verified by the tech lead): add the one-line gate to iteration 5 (recommended); (3) product-manager: the keep-alive's red-run annotation may name the cause, "flag missing" or "purge behind" (recommended yes).
 - Q-36 to Q-45: answered at A1 on 26/11/2026 (see Approvals). Q-37 (egress) still needs the architect's confirmation in phase 2; Q-45 (N-13 target) the scene-developer's measurement.
 - Q-34 (user, before launch; backlog V-7): confirm on supabase.com/pricing the 1 GB storage, 500 MB database, about 5 GB egress and about 500,000 Edge Function invocations a month, whether a Sydney region is offered on Free, what happens at each limit, and how long a paused project can be restored.
 
