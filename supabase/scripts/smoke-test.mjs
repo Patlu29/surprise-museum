@@ -7,6 +7,9 @@
  * It creates a throw-away museum, uploads two tiny synthetic JPEGs through the signed upload
  * URLs, confirms them, publishes, reads the museum back by share token, checks that bad links
  * and a metadata-bearing upload are refused, then deletes everything. Nothing is left behind.
+ * It also prints `purge: healthy` or `purge: unhealthy` from the keep-alive answer (ADR 0023). That
+ * line is a report, not a check: the flag is false for up to about 60 minutes after the first
+ * deploy, so it never fails the run.
  * It prints PASS or FAIL for each step and exits with status 1 if any step fails.
  *
  * Needs Node 18 or later. No dependencies. Sends no Origin header, so CORS is not exercised.
@@ -118,14 +121,21 @@ const avatar = (gender = 'neutral', facialHair = 'none') => ({
 // keep-alive is read-only and needs only the anon key (ADR 0022), so it is checked first.
 const alive = await call('keep-alive', {});
 check(
-  'keep-alive returns ok and a fresh database time',
+  'keep-alive returns ok, a fresh database time and a boolean purgeHealthy, and nothing else',
   alive.status === 200 &&
     alive.json?.ok === true &&
     Number.isFinite(Date.parse(alive.json?.checkedAt ?? '')) &&
     Math.abs(Date.now() - Date.parse(alive.json.checkedAt)) < 5 * 60 * 1000 &&
-    Object.keys(alive.json).length === 2,
+    typeof alive.json?.purgeHealthy === 'boolean' &&
+    Object.keys(alive.json).length === 3,
   `status ${alive.status} ${alive.text.slice(0, 120)}`,
 );
+// ADR 0023 section 5: report the flag, never fail on it. Right after the first deploy it is false
+// until the first purge has run (up to about 60 minutes, the job runs at minute 17). Only the
+// two words are printed, as in the workflow's log.
+if (typeof alive.json?.purgeHealthy === 'boolean') {
+  console.log(`purge: ${alive.json.purgeHealthy ? 'healthy' : 'unhealthy'}`);
+}
 
 let editToken = null;
 try {

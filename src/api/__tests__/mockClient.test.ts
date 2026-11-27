@@ -560,3 +560,117 @@ describe('mock API plumbing', () => {
     expect((await api.manageGet(a.editToken)).photos.map((p) => p.id)).toEqual([photo.photoId]);
   });
 });
+
+describe('mock API: space-full switch (ADR 0024 section 7)', () => {
+  const SPACE_FULL_MESSAGE = 'Surprise Museum is full for now. Please try again later.';
+
+  async function spaceFullError(promise: Promise<unknown>): Promise<ApiRequestError> {
+    const error = await promise.then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(ApiRequestError);
+    return error as ApiRequestError;
+  }
+
+  it('is off by default, and MockApiOptions.spaceFull sets the initial value', async () => {
+    const free = createMockApi();
+    await expect(free.createMuseum()).resolves.toHaveProperty('editToken');
+    const full = createMockApi({ spaceFull: true });
+    expect(await code(full.createMuseum())).toBe('space_full');
+  });
+
+  it('createMuseum rejects with space_full (409, the server message, no field) and stores nothing', async () => {
+    const api = createMockApi();
+    api.setSpaceFull(true);
+    const error = await spaceFullError(api.createMuseum());
+    expect(error).toMatchObject({ code: 'space_full', status: 409, message: SPACE_FULL_MESSAGE });
+    expect(error.field).toBeUndefined();
+    expect((await api.info()).museums).toBe(0);
+  });
+
+  it('reservePhoto rejects with space_full, reserves nothing and uses no lifetime reservation', async () => {
+    const api = createMockApi();
+    const { editToken } = await api.createMuseum();
+    api.setSpaceFull(true);
+    for (let i = 0; i < LIMITS.maxPhotoReservations + 5; i++) {
+      expect(await code(api.reservePhoto(editToken))).toBe('space_full');
+    }
+    expect((await api.info()).photos).toBe(0);
+    api.setSpaceFull(false);
+    await expect(api.reservePhoto(editToken)).resolves.toHaveProperty('photoId');
+  });
+
+  it('a wrong token is still the uniform not_found while full', async () => {
+    const api = createMockApi({ spaceFull: true });
+    expect(await code(api.reservePhoto('A'.repeat(43)))).toBe('not_found');
+  });
+
+  it('publish with a photo that is not ready: space_full while full, conflict while free', async () => {
+    const api = createMockApi();
+    const { editToken } = await api.createMuseum();
+    const ready = await addPhoto(api, editToken);
+    const pending = await api.reservePhoto(editToken);
+    const doc = documentFor([ready.photoId, pending.photoId]);
+
+    api.setSpaceFull(true);
+    const full = await spaceFullError(api.publish(editToken, doc));
+    expect(full).toMatchObject({ code: 'space_full', status: 409 });
+    expect(full.field).toBeUndefined();
+    expect((await api.manageGet(editToken)).status).toBe('draft');
+
+    api.setSpaceFull(false);
+    await expect(api.publish(editToken, doc)).rejects.toMatchObject({
+      code: 'conflict',
+      field: 'document.photos[1].photoId',
+    });
+  });
+
+  it('publish with every photo ready is accepted while full, including a re-publish', async () => {
+    const api = createMockApi();
+    const { editToken } = await api.createMuseum();
+    const photo = await addPhoto(api, editToken);
+    api.setSpaceFull(true);
+    await expect(api.publish(editToken, documentFor([photo.photoId]))).resolves.toHaveProperty(
+      'shareToken',
+    );
+    await expect(
+      api.publish(editToken, documentFor([photo.photoId], { title: 'Changed' })),
+    ).resolves.toHaveProperty('shareToken');
+  });
+
+  it('every other call behaves as when space is free, while full', async () => {
+    const api = createMockApi();
+    const { editToken } = await api.createMuseum();
+    const first = await addPhoto(api, editToken);
+    const { shareToken } = await api.publish(editToken, documentFor([first.photoId]));
+    // Reserved before the threshold: uploads and confirms after it.
+    const early = await api.reservePhoto(editToken);
+    const spare = await api.reservePhoto(editToken);
+
+    api.setSpaceFull(true);
+    await expect(api.manageGet(editToken)).resolves.toHaveProperty('status', 'published');
+    await expect(api.renewUpload(editToken, spare.photoId)).resolves.toHaveProperty('photoId');
+    await api.uploadPhotoFile(early.full.signedUrl, jpeg(2048, 1536), () => undefined);
+    await api.uploadPhotoFile(early.wall.signedUrl, jpeg(1024, 768), () => undefined);
+    await expect(
+      api.confirmPhoto(editToken, {
+        photoId: early.photoId,
+        width: 2048,
+        height: 1536,
+        lqip: lqipDataUrl(),
+      }),
+    ).resolves.toMatchObject({ status: 'ready' });
+    await expect(api.removePhoto(editToken, spare.photoId)).resolves.toMatchObject({
+      removed: true,
+    });
+    await expect(api.getMuseum(shareToken)).resolves.toHaveProperty('museum');
+    await expect(api.deleteMuseum(editToken)).resolves.toEqual({ deleted: true });
+  });
+
+  it('is in memory only: a second mock over the same storage starts with space free', async () => {
+    const storage = createMemoryStorage();
+    createMockApi({ storage }).setSpaceFull(true);
+    await expect(createMockApi({ storage }).createMuseum()).resolves.toHaveProperty('editToken');
+  });
+});

@@ -490,6 +490,9 @@
 .photo-row.is-failed {
   border-left-color: var(--color-danger);
 }
+.photo-row.is-waiting {
+  border-left-color: var(--color-accent);
+}
 .photo-row.is-dragging {
   box-shadow: var(--shadow-panel);
   outline: var(--border-control) solid var(--color-accent);
@@ -574,6 +577,13 @@
 .photo-row__status--failed {
   color: var(--color-danger);
   font-weight: var(--weight-semibold);
+}
+.photo-row__status--waiting {
+  font-weight: var(--weight-medium);
+}
+.photo-row__status--waiting .icon {
+  flex: none;
+  color: var(--color-accent);
 }
 .photo-row__actions,
 .photo-row__confirm .row {
@@ -1113,4 +1123,100 @@
 }
 .published .consent {
   min-height: var(--touch-target-md);
+}
+
+/* ------------------------------------------------------------------ Space-full message (design spec 13.2) */
+/* The dialog is the layer: scrim, scrolling, safe-area padding. The card centres with margin: auto,
+   so it starts at the top and the layer scrolls when it does not fit; nothing is clipped. */
+.space-full {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: calc(var(--space-4) + var(--safe-top)) calc(var(--space-4) + var(--safe-right))
+    calc(var(--space-4) + var(--safe-bottom)) calc(var(--space-4) + var(--safe-left));
+  border: 0;
+  background: var(--color-scrim);
+  color: var(--color-text);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.space-full[open] {
+  display: flex;
+  flex-direction: column;
+}
+.space-full::backdrop {
+  background: transparent;
+}
+.space-full__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(var(--panel-max-width), 100%);
+  margin: auto;
+  padding: var(--space-6);
+  animation: overlay-in var(--duration-overlay) var(--ease-out);
+}
+.space-full[open] {
+  animation: backdrop-in var(--duration-overlay) var(--ease-out);
+}
+.space-full__mark {
+  display: block;
+  width: var(--space-10);
+}
+.space-full__mark .frame-mark {
+  width: 100%;
+  margin-inline: 0;
+}
+.space-full__heading {
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+}
+.space-full__heading:focus-visible {
+  outline-offset: var(--space-1);
+}
+.space-full__text {
+  max-width: var(--measure-reading);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+}
+.space-full__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.space-full__actions .btn {
+  width: 100%;
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .space-full {
+    padding: calc(var(--space-2) + var(--safe-top)) calc(var(--space-2) + var(--safe-right))
+      calc(var(--space-2) + var(--safe-bottom)) calc(var(--space-2) + var(--safe-left));
+  }
+  .space-full__card {
+    width: min(var(--content-max-width), 100%);
+    padding: var(--space-4);
+  }
+  .space-full__mark {
+    display: none;
+  }
+  .space-full__actions {
+    flex-direction: row;
+    gap: var(--target-gap);
+  }
+  .space-full__actions .btn {
+    flex: 1;
+    width: auto;
+  }
+}
+@media (forced-colors: active) {
+  .space-full__card {
+    outline: 1px solid CanvasText;
+  }
 }

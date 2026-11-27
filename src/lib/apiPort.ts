@@ -47,6 +47,11 @@ export function isApiError(error: unknown): error is ApiRequestError {
   return error instanceof ApiRequestError;
 }
 
+/** True when the service refused for space (409 `space_full`, ADR 0024). */
+export function isSpaceFull(error: unknown): error is ApiRequestError {
+  return isApiError(error) && error.code === 'space_full';
+}
+
 export interface ConfirmPhotoInput {
   photoId: string;
   width: number;
@@ -114,6 +119,12 @@ export function getApi(): MuseumApi {
   return current;
 }
 
+/**
+ * Where one string is needed and the FR-106 message is not shown. Never the server's own words
+ * (design spec 13.11).
+ */
+export const MSG_SPACE_FULL = "We're full for now. Please try again later.";
+
 /** Plain-language text for an error, safe to show to the Creator or the Visitor (never blames them). */
 export function describeApiError(error: unknown): string {
   if (!isApiError(error)) return 'Something went wrong. Please try again.';
@@ -133,6 +144,8 @@ export function describeApiError(error: unknown): string {
       return 'This museum has used all its photo uploads. Please start a new museum.';
     case 'invalid_image':
       return "We couldn't accept that photo. Try a different one.";
+    case 'space_full':
+      return MSG_SPACE_FULL;
     default:
       return error.message || 'Something went wrong. Please try again.';
   }

@@ -121,4 +121,31 @@ describe('publishDraft', () => {
     expect(await publishDraft()).toBe(false);
     expect(useBuilderStore.getState().publish.phase).toBe('idle');
   });
+
+  it('opens the space-full message, with no generic failure, when publish is refused for space', async () => {
+    setApi(
+      apiWith(async () => {
+        throw new ApiRequestError('space_full', 'server words', { status: 409 });
+      }),
+    );
+    expect(await publishDraft()).toBe(false);
+    const state = useBuilderStore.getState();
+    expect(state.spaceFull).toEqual({ action: 'publish' });
+    expect(state.publish).toMatchObject({ phase: 'idle', error: null });
+  });
+
+  it('sends nothing while a photo waits for space', async () => {
+    let calls = 0;
+    setApi(
+      apiWith(async () => {
+        calls += 1;
+        return { shareToken: 'x', publishedAt: '', expiresAt: '' };
+      }),
+    );
+    useBuilderStore
+      .getState()
+      .patchPhoto('a', { status: 'failed', errorKind: 'space-full', photoId: null });
+    expect(await publishDraft()).toBe(false);
+    expect(calls).toBe(0);
+  });
 });

@@ -389,8 +389,7 @@ function publishRects(
     v.set(spot.x, labelAnchorHeight(heights.guide), spot.z).project(camera);
     let label: ScreenRect | null = null;
     if (el && v.z >= -1 && v.z <= 1) {
-      const w = el.offsetWidth;
-      const h = el.offsetHeight;
+      const { width: w, height: h } = el.getBoundingClientRect();
       label = {
         x: area.left + (v.x * 0.5 + 0.5) * area.width - w / 2,
         y: area.top + (-v.y * 0.5 + 0.5) * area.height - h / 2,

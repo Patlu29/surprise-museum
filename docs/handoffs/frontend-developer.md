@@ -1,5 +1,91 @@
 # Handoff: frontend-developer
 
+Iteration: 5 (space full, finale dock, HUD pills; design spec v2.2 section 13, architecture 8.2). Phase: 3 Build.
+
+## Update: iteration 5 (27/11/2026)
+
+### Summary
+Built the space-full flow (store, upload queue, publish, message, waiting row, chip, reason line), the viewport-only finale dock, the HUD two-row rule and the copy test. The store matches architecture 8.2 exactly. The one deviation is an internal latch in `uploadQueue.ts` (see Decisions); it adds no store field. `isSpaceFull` was not in `src/api`, so it lives in `src/lib/apiPort.ts` as architecture 8.2 item 4 says. `setDemoSpaceFull` was already in `src/api/index.ts` and is used as documented.
+
+### Store shape and contract changes (document for the architect)
+| Item | Type and meaning | Writer | Reader |
+|---|---|---|---|
+| `builderStore.spaceFull` | `SpaceFullState \| null`, `SpaceFullState = { action: 'photo' \| 'publish' }`, `SpaceFullAction` exported. Starts `null`, memory only, cleared by `reset()`. Setting the same action again keeps the same object, so the message is neither re-announced nor re-animated | upload queue, `publishDraft()`, the Publish press in `CreateScreen`, the message's Back (`null`) | `SpaceFullMessage`, QA |
+| `builderStore.setSpaceFull(state \| null)` | action | as above | |
+| `PhotoErrorKind` | gains `'space-full'` | upload queue | `PhotoRow`, `validateDraft` |
+| `validateDraft(..., 'publish')` | new issue `photos-space-full` ("Some photos are waiting for space."); `photos-failed` only for non-space failures; `photos-uploading` only when no photo is failed | | `ReviewStep`, `StillToDo`, `CreateScreen` |
+| `retrySpaceFull()` (`uploadQueue.ts`) | clears `spaceFull`, re-queues every `space-full` photo from its blobs, calls `publishDraft()` only for `action: 'publish'` | message, waiting row | |
+| `isSpaceFull`, `MSG_SPACE_FULL`, `describeApiError` `space_full` case (`src/lib/apiPort.ts`) | as 8.2 item 4 | | |
+| `finaleDockFor(viewport)`, `finaleDockForLayout`, `finalePlacementFor` (`src/ui/overlays/finaleDockFor.ts`) | `FinaleDock = 'top' \| 'right'` through `detectLayout` | | `Hud` via `useFinaleDock` |
+| `useCaptionDock` option `tall` | removed (the finale no longer uses the caption search). `DockInputs.tall` stays for the caption tests | | |
+
+### Test hook entries (`window.__APP_TEST__`, dev and test builds only)
+`useBuilderStore` (read `getState().spaceFull`, photos' `errorKind`), `setMockSpaceFull(full: boolean)` (only when `getApiMode() === 'mock'`, else `undefined`; set it again after each `page.goto`). No URL parameter. Verified absent from a production build (see Verification).
+
+### Selectors for QA
+| What | Selector |
+|---|---|
+| Message | `getByRole('alertdialog', { name: "We're full for now" })`, class `.space-full` |
+| Its controls | `getByRole('button', { name: 'Try again' })` and `getByRole('button', { name: 'Back to my museum' })` inside the alertdialog |
+| Waiting row | `.photo-row.is-waiting`, status `.photo-row__status--waiting` ("Not added yet. We're full for now.") |
+| Row button | `getByRole('button', { name: 'Try again, photo 1' })` (also `[data-waiting-retry]`) |
+| Chip | button inside `.still-to-do` with text "Photos are waiting for space" |
+| Publish reason line | `#publish-reason` ("Some photos are waiting for space."), Publish stays enabled |
+| Finale card | `.finale-card[data-dock="top" \| "right"]` |
+| HUD | `.hud__bar` (container), `.hud__top`, `.hud-pill`; `.hud__pill-row` is `display: contents` in one row |
+"Try again" now names the message button, the waiting rows' buttons (with ", photo n") and the failed-publish button; scope queries to the alertdialog or the row.
+
+### Files changed
+- `src/state/builderStore.ts`, `src/state/draft.ts`, `src/state/uploadQueue.ts`, `src/state/publish.ts`, `src/lib/apiPort.ts`: store, issue, queue, publish and helpers
+- `src/ui/builder/SpaceFullMessage.tsx`, `spaceFullCopy.ts` (new): the message and its copy
+- `src/ui/builder/PhotoRow.tsx`, `ReviewStep.tsx`, `CreateScreen.tsx`, `stepCopy.ts`: waiting row, reason line, Publish handler, chip focus, chip label
+- `src/ui/overlays/finaleDockFor.ts` (new), `src/hooks/useFinaleDock.ts` (new), `src/ui/overlays/Hud.tsx`, `FinaleCard.tsx`, `src/hooks/useCaptionDock.ts`: finale dock, `.hud__bar` wrapper and `.hud__pill-row`
+- `src/ui/styles/builder.css` (message, waiting row), `src/ui/styles/visit.css` (container query, 359 px rule now trays only)
+- `src/main.tsx`: `setMockSpaceFull`
+- Tests: `src/state/{draft,publish,stores,uploadQueue}.test.ts`, `src/lib/apiPort.test.ts`, `src/ui/builder/{spaceFullCopy,stepCopy}.test.ts`, `src/ui/overlays/finaleDockFor.test.ts`
+
+### Verification
+| Check | Result | Label |
+|---|---|---|
+| `npm run lint`, `npm run typecheck`, `npm run format:check` | pass | Verified |
+| `npm run test` | 75 files, 1,131 tests pass (new: space-full queue, publish, store, issue, copy, `describeApiError`, dock boundaries) | Verified |
+| Scratch production build (`vite build --outDir <scratch>`), `check-bundle-size.mjs` | built; all chunks within budget; 3D total 992.7 of 1,000 kB; entry `index-*.js` 238.6 kB has no three.js | Verified |
+| Production build has no `__APP_TEST__`, `setMockSpaceFull`, `__surpriseMuseum`, `__SURPRISE_E2E__`, `__SURPRISE_QUALITY__` | none found in the scratch build | Verified |
+| Mock test build in headless Chromium at 360 by 640 (page routed to the build, `setMockSpaceFull(true)`, one photo added): alertdialog opens, focus on the heading, Tab loops Try again and Back (Shift+Tab reverse), buttons 56 and 48 px tall, card 328 by 509 px (spec estimate 509), no horizontal scroll, scrim click does nothing, Escape closes, row shows "Not added yet. We're full for now." with "Try again, photo 1", Try again while full brings the message back, Try again with space free makes the photo ready and no message | Verified |
+| HUD container query, synthetic markup with the built CSS (fallback fonts, so widths are indicative): 360 by 640 and 390 by 844 one row; 343 px two rows, 344 px one row (20 rem); 320 by 568 at 100% and 200% text two rows, 8 px between rows, bar 94 px tall at 200%; right tray wraps under the left and stays right-aligned at 500 px and 200% text | Partly verified (no real fonts, not the real HUD) |
+| US-75 AC-1 and AC-2 | copy unit test: sentence word counts 8, 13, 15, 17; no digit; banned words; no gendered pronoun | Verified |
+| US-75 AC-3 (Back keeps everything) | store test: closing leaves text and photos unchanged; UI path | Partly verified (store test; not run with 12 photos in the browser) |
+| US-75 AC-4 and Q-46 | queue test: Try again re-queues waiting photos only, ready photos not resent, no publish after `action: 'photo'` | Verified (unit) |
+| US-76 AC-1 (announced within 1 s) | alertdialog role; no screen reader run | Not verified |
+| US-76 AC-4 (320 px, 200% text), landscape variant, reduced motion | CSS written to spec 13.2; not rendered at 200% or in landscape | Not verified |
+| US-79 finale dock | pure function and rectangles unit tested against the spec table and boundary cases; the live card, 0, 1, 5 s stability and the rotation cross-fade not run | Partly verified |
+| Publish press with a waiting photo opens the message and sends nothing | `publishDraft` unit test (sends nothing); the `CreateScreen` handler not run in a browser | Partly verified |
+
+### Decisions
+- A module latch `spaceLatched` in `uploadQueue.ts`: after the first refusal, photos that finish processing later wait too instead of each sending a request that is refused (architecture 8.2 item 1 covers only photos "not yet started"). Cleared by Try again, adding or replacing a photo, discard and demo reset. No store field.
+- The message is a native `<dialog>` opened with `showModal()` (top layer and inert background for free). The scrim is the dialog's own background, `::backdrop` is transparent, so the layer scrolls as one box. `z-modal` is not needed in the top layer.
+- The waiting row's button uses `aria-label="Try again, photo n"` (the visible words are inside, WCAG 2.5.3). A visually hidden suffix gave "Try again , photo n" in Chromium.
+- The Publish reason line follows the photos (`useDraftIssues('publish')`), not only the last press, so it shows whenever a photo waits. Publish is never `aria-disabled` for space.
+- A Publish press with a waiting photo draws the other issues' summary behind the message without taking focus (`skipSummaryFocus`).
+- Finale placement reuses `candidatesFor(..., tall: true)` for sizes: top strip 136 px on a portrait phone, full right card elsewhere. The spec table says the tablet height is "50% of the height = 512"; the code gives 50% of the usable height (500 at 768 by 1024), the same rule the caption card used.
+- HUD: `.hud__bar` wraps `.hud__top` as the query container (a container on `.hud` would make it the containing block for the fixed cards). Below 20 rem the bar is `flex-wrap`, trays first, pill row last. The 359 px 4 px gap rule now applies to trays only, so pills keep 8 px.
+- Preview with waiting photos works (it uses processed photos), as design spec 13.13 question 2 assumes. Confirmed by `validateDraft` preview mode not raising space-full.
+
+### Not done
+- Browser checks for: 320 px at 200% text and landscape message, reduced motion, screen reader announcement, the live finale card (dock stability, rotation cross-fade, Carry on button), the real HUD at 360 px with Reset view and 480 to 600 px. QA owns these (design spec 13.12).
+- Next on step 1 has no space-full handler by design (architecture 8.2: it validates in preview mode and cannot raise it).
+
+### Open questions
+- 360 px, Reset view showing, 20 pictures: the synthetic check gave 6 px between pill and trays (existing one-row sum, design spec 13.9 open question 3). Not changed. Recommend QA measures it with real fonts; the one-line fix is a 22 rem threshold for that state (product-manager agrees first).
+- The finale card now never uses `chooseCaptionDock`, so it may cover labels or the characters (accepted trade-off, spec 13.7).
+
+### Requests for other agents
+- [open] architect: add `spaceFull`, `setSpaceFull`, `retrySpaceFull`, `photos-space-full`, `finalePlacementFor` and the `tall` removal from `useCaptionDock` to the Contracts section if it is to list them (all other fields match 8.2 exactly).
+- [open] scene-developer: the portrait label floor (68 px plus strip height) assumes a one-row HUD bar; the bar is now about 94 px tall in the two-row case (design spec 13.9). `screenRects` does not publish the bar; if you want its bottom edge, ask and I will publish it.
+- [open] qa-engineer: selectors above; `Try again` is no longer unique by name on the page.
+
+---
+
 ## Update: CR-4 polish (design spec v2.0, section 12) (02/11/2026)
 
 ### Summary

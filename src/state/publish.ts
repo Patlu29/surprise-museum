@@ -1,4 +1,4 @@
-import { getApi, isApiError } from '@/lib/apiPort';
+import { getApi, isApiError, isSpaceFull } from '@/lib/apiPort';
 import { useBuilderStore } from './builderStore';
 import { buildMuseumDocument, validateDraft } from './draft';
 
@@ -37,6 +37,14 @@ export async function publishDraft(): Promise<boolean> {
     });
     return true;
   } catch (error) {
+    if (isSpaceFull(error)) {
+      // Safety net (architecture 8.2): the client sends no publish with an unstored photo, so this
+      // is rare. Back to idle with no error, and the space-full message opens instead.
+      const state = useBuilderStore.getState();
+      state.setPublish({ phase: 'idle', error: null });
+      state.setSpaceFull({ action: 'publish' });
+      return false;
+    }
     const extra =
       isApiError(error) && error.code === 'rate_limited'
         ? " That's a lot of tries in a short time. Please wait a few minutes and try again."

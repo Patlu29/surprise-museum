@@ -1,5 +1,67 @@
 # Handoff: backend-developer
 
+## Iteration 5 Build step 2 (27/11/2026): implementation of api.md v1.3, ADR 0023, ADR 0024
+
+Iteration 5. Phase 3 Build. Nothing deployed, committed or run against a live Supabase project.
+
+### Summary
+Implemented purge health (heartbeat, keep-alive flag) and the space-full guard as `docs/api.md` v1.3 describes. Two new migrations, two pure modules, three new store methods in the Supabase and in-memory backends, handler changes in four functions, the mock and live client changes, smoke test, README and `.env.example`. `api.md` needed no change: the code matches it. The publish check sits where ADR 0024 section 3 says: inside the existing readiness loop of `publish()` in `manage-museum/handler.ts`, only on the branch where a listed photo is unknown or not `ready`. The loop throws on the first such photo, so space is measured at most once per publish, and a publish of all-ready photos never measures.
+
+### Files changed
+- `supabase/migrations/20261126000100_purge_heartbeat.sql` (new): `purge_heartbeat`, `record_purge_success()`, `purge_health_inputs()`; RLS, grants, `revoke ... from public, anon, authenticated`, as in ADR 0023. Not seeded.
+- `supabase/migrations/20261126000200_space_usage.sql` (new): `space_usage()`, `security definer`, as in ADR 0024.
+- `supabase/functions/_shared/purgeHealth.ts` (new), `_shared/space.ts` (new: `isSpaceFull`, `DEFAULT_SPACE_LIMITS`, `isServiceFull` (fail open, logs the error name), `refuseIfSpaceFull`, `spaceFullError`).
+- `_shared/contract.ts` (`KeepAliveResponse.purgeHealthy`, `ApiErrorCode` `space_full`), `_shared/http.ts` (`STATUS_BY_CODE`, `EndpointConfig.spaceLimits`), `_shared/ports.ts` (`purgeHealthInputs`, `spaceUsage`, `recordPurgeSuccess`), `_shared/config.ts` (optional thresholds, invalid is a `ConfigError`), `_shared/supabaseBackend.ts` (the three methods; health query uses `AbortSignal.timeout(5000)`), `_shared/testing/memoryBackend.ts` (heartbeat, usage, failure switches, queue `enqueuedAt`).
+- `create-museum/handler.ts`, `manage-museum/handler.ts` (`reserve-photo`, `publish`), `purge-expired/handler.ts`, `keep-alive/handler.ts` (header comment updated).
+- Tests: `tests/purgeHealth_test.ts` (new), `tests/space_test.ts` (new), `tests/keep_alive_test.ts`, `tests/purge_test.ts`, `supabase/tests/database/purge_health_space.test.sql` (new pgTAP, 24 checks).
+- `supabase/scripts/smoke-test.mjs`, `supabase/functions/.env.example`, `supabase/README.md`.
+- `src/api/liveClient.ts` (`KNOWN_CODES`), `src/api/mockClient.ts` (`STATUS`, `spaceFull` option, `setSpaceFull`, rejections), `src/api/index.ts` (`setDemoSpaceFull`), `src/api/__tests__/mockClient.test.ts`, `liveClient.test.ts`.
+
+### Verification
+| Check | Result | Label |
+|---|---|---|
+| `deno check --config supabase/functions/deno.json supabase/functions/*/index.ts` (Deno 2.9.6 via the npx cache, scratch `DENO_DIR`, public registry) | 5 entry points pass | Verified |
+| `deno lint` | 31 files, pass | Verified |
+| `deno test` | 77 passed, 0 failed (35 before) | Verified |
+| `npm run lint`, `npm run typecheck` | pass | Verified |
+| `npm run test` | 72 files, 1100 tests pass | Verified |
+| `npm run format:check` | One warning at the last run: `src/state/draft.ts`, which the frontend-developer is editing (not mine). My files pass `prettier --check` | Partly verified |
+| `vite build --outDir <scratch>` | built | Verified |
+| Smoke test against the real handlers, in-process (the dev server cannot bind a port in this sandbox): no heartbeat prints `purge: unhealthy`, fresh heartbeat prints `purge: healthy`, both PASS the keep-alive line and the rest | as expected | Verified |
+| Same, with storage at 800,000,000: `create-museum` 409 | as expected | Verified |
+| Each endpoint compared with api.md | Via Deno tests of body, status and exact keys; not over real HTTP | Partly verified |
+| Signed-out and other-user checks | No new protected route. A wrong token on `reserve-photo` is the uniform 404 and measures nothing (tested) | Verified |
+| pgTAP, the SQL itself, `space_usage()` against local `supabase start` | No Docker. Postgres 16 is installed but `initdb` failed (shared memory denied by the sandbox). The SQL is copied from the ADRs and reviewed by eye only | Not verified |
+| Migration idempotency | Reviewed: `create table if not exists`, `create or replace function`, grants and revokes are repeatable | Partly verified (not run) |
+| Whether `storage.objects` is readable by the function owner, and whether `metadata->>'size'` matches the dashboard | Needs a real project | Not verified |
+| Deno 2.9.8 (CI version) | Not on npm; 2.9.6 used | Partly verified |
+
+### Decisions
+- Space check order follows ADR 0024 section 3: `create-museum` after the rate-limit hit; `reserve-photo` after the token lookup and per-museum limit, before `reserve_photo()`.
+- `RuntimeConfig.spaceLimits` is required there; `EndpointConfig.spaceLimits` is optional so existing test configs keep working (absent means the defaults).
+- The purge health query and `space_usage()` are read through PostgREST `rpc`; bigint arrives as a JSON number, and a digit string is also accepted. Anything else is unreadable, so the keep-alive says `false` and the guard fails open.
+- A failed heartbeat write after a clean purge gives the usual 500 (per ADR 0023: any exception during the call).
+- Architecture 8.2 puts `isSpaceFull` and the `describeApiError` case in `src/lib/apiPort.ts`, which the frontend-developer owns, so I left both to them.
+
+### Not done
+- pgTAP and `space_usage()` against real Postgres (no Docker). Run `npx supabase test db` and the one-off check below where Docker exists.
+- `window.__APP_TEST__.setMockSpaceFull` in `src/main.tsx` (not mine).
+- No deploy, no live call.
+
+### Open questions
+- None blocking. Architecture 7.x and the ADR status lines still read "Proposed"; A2 approved them on 27/11/2026 (architect to update).
+
+### Requests for other agents
+- [open] frontend-developer: in the existing dev/test block of `src/main.tsx`, add `setMockSpaceFull: getApiMode() === 'mock' ? setDemoSpaceFull : undefined` (import `setDemoSpaceFull` from `@/api`). Also `isSpaceFull` and the `describeApiError` case in `src/lib/apiPort.ts`, the store and the UI (architecture 8.2). `src/state/draft.ts` currently fails `prettier --check`.
+- [open] devops-engineer: the two-step `keep-alive.yml` (ADR 0023 section 4), held back from `main` until the release order is done. Deploy order: `supabase db push` (both new migrations), then all five functions, wait for the next minute-17 purge, run `smoke-test.mjs` and expect `purge: healthy`, then merge the workflow. Check `deploy-supabase.yml` runs migrations before functions (it should already). Optional secrets `SPACE_FULL_*` need no deploy change.
+- [open] qa-engineer: update `keep-alive-static.spec.ts` to the three-key body. Use `setMockSpaceFull` (once the frontend adds it) for US-74 to US-77.
+- [open] devops-engineer or owner after deploy: one-off, in the SQL editor, `select * from public.space_usage();` to confirm `storage.objects` is readable and compare with the dashboard.
+
+### Requests received
+- [done] from architect (iteration 5): items 1 to 9 of the backend request list (migrations, pure modules, ports, handlers, config, contract, clients, tests, smoke test). Item 8's "run `space_usage()` against a local `supabase start`" is not done (no Docker). `docs/api.md` (item 10) was done in step 1.
+
+---
+
 ## Iteration 5 Build step 1 (27/11/2026): API contract only
 
 Phase 3 Build. Only `docs/api.md` (v1.2 to v1.3) and this note changed. No migration, handler, test, deploy or commit.

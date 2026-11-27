@@ -1,5 +1,36 @@
 # QA report: Surprise Museum
 
+## Round 10a: iteration 5 build smoke (27/11/2026)
+
+Scope: phase 3 exit for iteration 5. Only `tests/e2e/keep-alive-static.spec.ts` was changed. **The browser smoke test and the first full-suite run could not be done: this is an environment block, not an app result.**
+
+**Environment block.** The sandbox denies local port binding: `npx playwright test` failed at its webServer step with `listen EPERM: operation not permitted ::1:4173` (twice, same error). With no server on 4173 no browser spec can load the app, so the smoke spec, the space-full check (`setMockSpaceFull(true)`) and the desktop-chromium and mobile-webkit full runs are **Not tested**. I did not bypass the sandbox. To unblock: set `sandbox.network.allowLocalBinding: true` in the user's settings (applies without a restart), or run `npx playwright test --project=desktop-chromium --project=mobile-webkit` from a normal terminal. Counts for those runs: none.
+
+**keep-alive-static (task 1), Verified.** Run with a temporary config that has no webServer (the spec needs no browser; the config was deleted afterwards): 14 passed, 0 failed, 0 skipped, desktop-chromium only (the spec skips other projects by design).
+
+| Change | Why |
+|---|---|
+| Contract regex now requires `purgeHealthy: boolean` in `KeepAliveResponse` (was line 44) | contract.ts has the third key |
+| Handler test: store calls must equal `['keepAlive', 'purgeHealthInputs']` (was `['keepAlive']`) | handler also calls the read-only health query |
+| The old "no word purge in handler/index" check is narrowed. It now forbids `purge-expired`, `createPurge`, `handlePurge`, and the store methods `expireMuseums`, `listPurgeQueue`, `clearPurgeQueueEntry`, `recordPurgeFailure`, `recordPurgeSuccess` | the handler legitimately names `purgeHealthy` now; the guarantee (never calls purge, writes nothing) is kept and made explicit |
+| New: the handler's only imports are `../_shared/http.ts`, `../_shared/purgeHealth.ts`, `@contract`; a health failure is caught inside `try` with `purgeHealthy` defaulting to false; the response is exactly `{ ok: true, checkedAt, purgeHealthy }` | NFR-33 (d), api.md 10a |
+| New: `purgeHealth.ts` has no imports, no `fetch`, no `Deno.`, no clock reads | NFR-33: the flag is a pure function |
+| api.md 10a test: body regex now includes `"purgeHealthy": true or false`; also requires "exactly these three keys" and "A failed health check is not an error" | api.md v1.3 |
+| Workflow tests unchanged; a comment says the phase 6 two-step workflow will update them | the workflow is not changed in this phase |
+
+Kept: no rate limit, no `fetch`, no `Deno.env`, `verify_jwt` off, SQL grants and no-write, one cron line, POST only, one curl, key masked before use, no secret in the log, no 90-day figure.
+
+Limits: static source checks only. They do not prove the handler writes nothing at run time (the backend's Deno tests do) or that the workflow goes red on `purgeHealthy: false` (that is the phase 6 workflow). I could not mutate `handler.ts` to watch the new checks fail: the attempt was refused by the permission system and nothing was changed (handler.ts is unmodified by me).
+
+**Other test-side breakage (task 2), by reading only, Partly verified (not run).**
+- `getByRole('button', { name: 'Try again' })` in builder.spec.ts:707 (failed publish on the review step): the only other "Try again" buttons are the photo rows' ("Try again, photo n", create step) and the space-full dialog, neither on the review step, so it stays unique. Unchanged. Other specs' "Try again" are on the visit, viewer, preview-slot and couldn't-open screens, not the builder photo list. Unchanged.
+- `.hud__done`, `.finale-card[data-dock]`, `.is-strip`: the cr4-visit tests branch on `data-dock` (Carry on only when `top`, else count 0), so the fixed per-layout dock does not break them. `.is-strip` is read only into an annotation. No selector uses a HUD structure that the new `.hud__bar` and `.hud__pill-row` wrappers change. Not run, so a run may still show label-layout or finale-position expectations to update.
+- caption-card.spec.ts reads `info.dock` from the caption card, not the finale: unaffected.
+
+**Open item (task 4).** The `check()` on "I have the right to share" in `createMuseum` (`tests/e2e/support/app.ts:275`): not seen, because nothing could run. `app.ts` is unchanged. Playwright's `check()` already throws if the state does not change, and `createMuseum` then waits for Publish to unblock. If it recurs on mobile-webkit, capture the trace and screenshot, then wait for every photo row to finish uploading before ticking.
+
+**Static checks.** `npm run lint`, `npm run format:check`, `npm run typecheck`, `npx tsc -p tsconfig.e2e.json --noEmit`: all pass (Verified).
+
 ## Round 9b: flatShare re-capture fix (25/11/2026)
 
 Scope: the test-only fix recommended in round 9, approved by the user on 25/11/2026. Changed `tests/e2e/ceiling.spec.ts` only. No app code is left changed.

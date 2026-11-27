@@ -1,5 +1,5 @@
 import { Vector3, type Camera } from 'three';
-import { characterPoints } from '@/domain/camera/presentationFraming';
+import { characterPoints, FRAMING } from '@/domain/camera/presentationFraming';
 import { LAYOUT } from '@/domain/layout/constants';
 import type { PhotoSlot } from '@/domain/layout/types';
 import type { ScreenRect } from '@/state/screenRects';
@@ -63,6 +63,37 @@ export function characterCorners(
 ): Array<[number, number, number]> {
   const e = camera.matrixWorld.elements;
   return characterPoints(x, z, height, e[0] ?? 1, e[2] ?? 0);
+}
+
+/** Head ellipsoid of the avatar kit (proportions.ts): 0.32 m tall and 0.30 m wide on a 1.70 m figure. */
+const HEAD_TALL = 0.32;
+const HEAD_WIDE = 0.3;
+
+/**
+ * Corners of a character's head box in world space: the top 0.32 m of the figure, scaled with its
+ * height, 0.30 m wide across the camera's right axis. FR-111 measures label cover against this
+ * box, and the `headBoxes()` test hook publishes its projection.
+ */
+export function headCorners(
+  x: number,
+  z: number,
+  height: number,
+  camera: Camera,
+): Array<[number, number, number]> {
+  const e = camera.matrixWorld.elements;
+  const rx = e[0] ?? 1;
+  const rz = e[2] ?? 0;
+  const l = Math.hypot(rx, rz) || 1;
+  const scale = height / FRAMING.nominalHeight;
+  const dx = (rx / l) * (HEAD_WIDE * scale) * 0.5;
+  const dz = (rz / l) * (HEAD_WIDE * scale) * 0.5;
+  const bottom = height - HEAD_TALL * scale;
+  return [
+    [x - dx, bottom, z - dz],
+    [x + dx, bottom, z + dz],
+    [x - dx, height, z - dz],
+    [x + dx, height, z + dz],
+  ];
 }
 
 export function unionRect(a: ScreenRect | null, b: DOMRect | null): ScreenRect | null {

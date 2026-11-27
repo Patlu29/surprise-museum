@@ -471,6 +471,8 @@ export interface KeepAliveResponse {
   ok: true;
   /** ISO 8601 UTC. Postgres's own now(), so a fresh value proves the database answered. */
   checkedAt: string;
+  /** NFR-33. False when the purge is behind, has never run, or the check itself failed. */
+  purgeHealthy: boolean;
 }
 
 /** purge-expired (called by pg_cron, never by the browser). */
@@ -493,6 +495,7 @@ export type ApiErrorCode =
   | 'conflict' // 409: for example publishing while a photo is not ready
   | 'photo_limit' // 409: 20 photos already reserved or ready
   | 'upload_quota' // 409: maxPhotoReservations used up
+  | 'space_full' // 409: the service as a whole is full for now (ADR 0024); never has a field
   | 'invalid_image' // 422: confirm-photo found a bad or unsafe file; the objects were deleted
   | 'rate_limited' // 429: with a Retry-After header in seconds
   | 'server_error'; // 500

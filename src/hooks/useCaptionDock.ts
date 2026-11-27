@@ -24,7 +24,6 @@ export interface CaptionDockOptions {
   layout: LayoutKind;
   /** Caption scale: 1, 1.25 or 1.5. */
   captionScale: number;
-  tall: boolean;
   /** A new value (the photo id) starts a fresh choice and a fresh upgrade budget. */
   resetKey: string | null;
   measure: () => DockGeometry | null;
@@ -42,7 +41,7 @@ const STALE_MS = 1000;
  * camera, and the first `framed` signal gives one free re-choice if the card appeared earlier.
  */
 export function useCaptionDock(options: CaptionDockOptions): Placement | null {
-  const { active, layout, captionScale, tall, resetKey } = options;
+  const { active, layout, captionScale, resetKey } = options;
   const [placement, setPlacement] = useState<Placement | null>(null);
   const measureRef = useRef(options.measure);
   const busyRef = useRef(options.isBusy);
@@ -52,7 +51,7 @@ export function useCaptionDock(options: CaptionDockOptions): Placement | null {
   });
 
   useEffect(() => {
-    // A new card, layout, text size or card kind starts from a fresh choice.
+    // A new card, layout or text size starts from a fresh choice.
     let state: DockState = initialDockState();
     let mode = 'follow';
     let modeSettled = true;
@@ -90,7 +89,6 @@ export function useCaptionDock(options: CaptionDockOptions): Placement | null {
           : [],
         bigText: captionScale > 1,
         captionScale,
-        tall,
       };
       const before = state.placement;
       state = stepDock(state, {
@@ -108,7 +106,7 @@ export function useCaptionDock(options: CaptionDockOptions): Placement | null {
       window.clearTimeout(first);
       window.clearInterval(timer);
     };
-  }, [active, layout, captionScale, tall, resetKey]);
+  }, [active, layout, captionScale, resetKey]);
 
   return active ? placement : null;
 }

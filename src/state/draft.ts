@@ -21,7 +21,7 @@ export type PhotoStatus = 'queued' | 'processing' | 'uploading' | 'ready' | 'fai
 
 /** Why a photo failed, so the row can offer the right words and the right retry. */
 export type PhotoErrorKind =
-  'unreadable' | 'heic' | 'network' | 'rejected' | 'quota' | 'expired' | 'other';
+  'unreadable' | 'heic' | 'network' | 'rejected' | 'quota' | 'expired' | 'space-full' | 'other';
 
 export interface DraftPhoto {
   /** Stable local id, used as the React key and to find the photo's blobs. */
@@ -138,14 +138,26 @@ export function validateDraft(
   }
 
   if (mode === 'publish') {
-    if (photos.some((photo) => photo.status === 'failed')) {
+    // A photo refused for space is waiting, not failed: it has its own issue (design spec 13.3).
+    if (photos.some((photo) => photo.status === 'failed' && photo.errorKind === 'space-full')) {
+      issues.push({
+        id: 'photos-space-full',
+        fieldId: FIELD_IDS.photos,
+        step: 1,
+        message: 'Some photos are waiting for space.',
+      });
+    }
+    if (photos.some((photo) => photo.status === 'failed' && photo.errorKind !== 'space-full')) {
       issues.push({
         id: 'photos-failed',
         fieldId: FIELD_IDS.photos,
         step: 1,
         message: 'A photo did not upload. Retry it or remove it.',
       });
-    } else if (photos.some((photo) => photo.status !== 'ready')) {
+    } else if (
+      !photos.some((photo) => photo.status === 'failed') &&
+      photos.some((photo) => photo.status !== 'ready')
+    ) {
       issues.push({
         id: 'photos-uploading',
         fieldId: FIELD_IDS.photos,

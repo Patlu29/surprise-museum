@@ -2,6 +2,8 @@
  * purge-expired: called hourly by pg_cron through pg_net (ADR 0010), never by a browser.
  *   1. Deletes museums whose expires_at has passed (drafts 7 days after creation, published museums 7 days after first publish).
  *   2. Removes the storage objects of every museum in the purge queue, and dequeues on success.
+ *   3. Last step: records the run in purge_heartbeat (ADR 0023), also when some deletes failed.
+ *      A wrong secret or a throw earlier records nothing.
  * Authorised by the x-cron-secret header, compared in constant time. docs/api.md, "purge-expired".
  */
 import type { PurgeExpiredResponse } from '@contract';
@@ -48,6 +50,9 @@ export function createPurgeExpiredHandler(deps: PurgeExpiredDeps) {
             .catch(() => undefined);
         }
       }
+
+      // Only a run that reached this point counts. A throw here is the usual 500 and no heartbeat.
+      await store.recordPurgeSuccess();
 
       const response: PurgeExpiredResponse = { purged: expiredIds.size, retried, failed };
       return { status: 200, body: response };

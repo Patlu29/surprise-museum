@@ -103,3 +103,12 @@ export async function clearDemoData(): Promise<void> {
 export function getDemoDataInfo(): Promise<DemoDataInfo> {
   return sharedMock().info();
 }
+
+/**
+ * Turns the mock's space-full switch on or off (ADR 0024 section 7). In memory, per page, off by
+ * default. Call only when `getApiMode()` is `"mock"`; the test hook in `src/main.tsx` is the only
+ * caller, in development and test builds.
+ */
+export function setDemoSpaceFull(full: boolean): void {
+  sharedMock().setSpaceFull(full);
+}

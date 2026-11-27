@@ -1,3 +1,4 @@
+import { useDraftIssues } from '@/hooks/useDraftIssues';
 import { describeAvatar } from '@/lib/avatars';
 import { useBuilderStore } from '@/state/builderStore';
 import type { BuilderStep, DraftIssue } from '@/state/draft';
@@ -30,6 +31,10 @@ export function ReviewStep({ issues, onEditStep, onPreview, onPublish }: ReviewS
   const blocking = issues.filter(
     (issue) => issue.id === 'photos-uploading' || issue.id === 'photos-failed',
   );
+  // Photos waiting for space give the reason line but never make Publish unavailable: pressing it
+  // opens the space-full message (design spec 13.3). The line follows the photos, not the last press.
+  const waitingIssue = useDraftIssues('publish').find((issue) => issue.id === 'photos-space-full');
+  const reason = blocking[0] ?? waitingIssue;
 
   return (
     <div className="step-sections">
@@ -161,7 +166,7 @@ export function ReviewStep({ issues, onEditStep, onPreview, onPublish }: ReviewS
             large
             loading={publishing}
             unavailable={blocking.length > 0}
-            aria-describedby={blocking.length > 0 ? 'publish-reason' : undefined}
+            aria-describedby={reason ? 'publish-reason' : undefined}
             onClick={onPublish}
           >
             {publishing
@@ -171,9 +176,9 @@ export function ReviewStep({ issues, onEditStep, onPreview, onPublish }: ReviewS
                 : 'Publish museum'}
           </Button>
         </div>
-        {blocking.length > 0 ? (
+        {reason ? (
           <p id="publish-reason" className="muted">
-            {blocking[0]?.message}
+            {reason.message}
           </p>
         ) : null}
       </div>

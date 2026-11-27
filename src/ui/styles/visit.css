@@ -252,6 +252,42 @@
   align-items: start;
   gap: var(--space-2);
 }
+/* The container the two-row rule queries. Its content width is the HUD's content width: the viewport
+   minus the layer's padding (--hud-margin plus the side safe-area insets). */
+.hud__bar {
+  min-width: 0;
+  container-type: inline-size;
+}
+/* In one row the pill's wrapper disappears, so the pill is a grid item as before. */
+.hud__pill-row {
+  display: contents;
+}
+/* Below 20 rem of HUD content width (design spec 13.9, FR-110): the trays share row 1 and the progress
+   pill drops to a centred row 2, with --target-gap (8 px) between every pair of pills and rows. If the
+   trays do not fit together, the right tray wraps under the left and stays right-aligned. 20 rem grows
+   with the browser's text size, so 360 and 390 px phones keep one row at normal text. */
+@container (width < 20rem) {
+  .hud__top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--target-gap);
+    align-items: flex-start;
+  }
+  .hud__top > .hud__cluster {
+    order: 1;
+  }
+  .hud__top > .hud__cluster--end {
+    order: 2;
+    margin-inline-start: auto;
+  }
+  .hud__pill-row {
+    order: 3;
+    display: flex;
+    flex: 0 0 100%;
+    justify-content: center;
+  }
+}
+
 /* A tray: one glass pill that holds its buttons, with one blur per tray (design spec 12.6.1). */
 .hud__cluster {
   display: flex;
@@ -322,7 +358,6 @@
 }
 /* At 359 px and narrower the gaps may fall to 4 px (the 320 px reflow case only). */
 @media (max-width: 359px) {
-  .hud__top,
   .hud__cluster {
     gap: var(--space-1);
   }

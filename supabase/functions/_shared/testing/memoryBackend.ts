@@ -13,6 +13,8 @@ import type {
   PublishInput,
   PublishResult,
 } from '../ports.ts';
+import type { PurgeHealthInputs } from '../purgeHealth.ts';
+import type { SpaceUsage } from '../space.ts';
 import { bytesToHex } from '../tokens.ts';
 
 interface MuseumRow extends MuseumRecord {
@@ -24,13 +26,28 @@ interface MuseumRow extends MuseumRecord {
 export class MemoryBackend {
   readonly museums = new Map<string, MuseumRow>();
   readonly photos = new Map<string, PhotoRecord>();
-  readonly purgeQueue = new Map<string, { attempts: number; lastError: string | null }>();
+  readonly purgeQueue = new Map<
+    string,
+    { attempts: number; lastError: string | null; enqueuedAt: string }
+  >();
   readonly rateHits = new Map<string, number>();
   readonly objects = new Map<string, Uint8Array>();
   /** Set to make storage removal fail, to test the retry queue. */
   failStorageRemoval = false;
   /** Set to make the keep-alive query fail, to test the 500 path. */
   failKeepAlive = false;
+  /** Set to make the purge-health query fail, to test that the keep-alive still answers 200. */
+  failPurgeHealth = false;
+  /** Set to make the space measurement fail, to test that the guard fails open. */
+  failSpaceUsage = false;
+  /** Set to make the heartbeat write fail, to test that the purge then answers 500. */
+  failRecordPurgeSuccess = false;
+  /** What `spaceUsage()` reports. Tests set it to either side of a threshold. */
+  usage: SpaceUsage = { storageBytes: 0, databaseBytes: 0 };
+  /** Number of times `spaceUsage()` was called, to prove which actions measure. */
+  spaceChecks = 0;
+  /** The last successful purge run (ISO 8601), as `purge_heartbeat.last_success_at`. Never seeded. */
+  heartbeat: string | null = null;
   now: () => Date = () => new Date();
   private counter = 0;
 
@@ -182,7 +199,11 @@ export class MemoryBackend {
     },
 
     deleteMuseum: (museumId) => {
-      this.purgeQueue.set(museumId, { attempts: 0, lastError: null });
+      this.purgeQueue.set(museumId, {
+        attempts: 0,
+        lastError: null,
+        enqueuedAt: this.now().toISOString(),
+      });
       this.museums.delete(museumId);
       for (const p of [...this.photos.values()])
         if (p.museumId === museumId) this.photos.delete(p.id);
@@ -204,6 +225,35 @@ export class MemoryBackend {
       return Promise.resolve(this.now().toISOString());
     },
 
+    purgeHealthInputs: (): Promise<PurgeHealthInputs> => {
+      if (this.failPurgeHealth) return Promise.reject(new Error('health query down'));
+      const now = this.now();
+      const oldest = (times: string[]): string | null =>
+        times.length === 0 ? null : times.reduce((a, b) => (a < b ? a : b));
+      return Promise.resolve({
+        checkedAt: now.toISOString(),
+        lastSuccessAt: this.heartbeat,
+        oldestQueuedAt: oldest([...this.purgeQueue.values()].map((q) => q.enqueuedAt)),
+        oldestExpiredAt: oldest(
+          [...this.museums.values()]
+            .filter((m) => new Date(m.expiresAt) <= now)
+            .map((m) => m.expiresAt),
+        ),
+      });
+    },
+
+    spaceUsage: () => {
+      this.spaceChecks++;
+      if (this.failSpaceUsage) return Promise.reject(new Error('usage query down'));
+      return Promise.resolve({ ...this.usage });
+    },
+
+    recordPurgeSuccess: () => {
+      if (this.failRecordPurgeSuccess) return Promise.reject(new Error('heartbeat down'));
+      this.heartbeat = this.now().toISOString();
+      return Promise.resolve();
+    },
+
     expireMuseums: (limit) => {
       const now = this.now();
       const expired = [...this.museums.values()]
@@ -211,7 +261,11 @@ export class MemoryBackend {
         .slice(0, limit)
         .map((m) => m.id);
       for (const id of expired) {
-        this.purgeQueue.set(id, { attempts: 0, lastError: null });
+        this.purgeQueue.set(id, {
+          attempts: 0,
+          lastError: null,
+          enqueuedAt: this.now().toISOString(),
+        });
         this.museums.delete(id);
         for (const p of [...this.photos.values()]) if (p.museumId === id) this.photos.delete(p.id);
       }

@@ -85,6 +85,7 @@ describe('CR-4 copy', () => {
     ]);
     for (const issue of issues) expect(STILL_TO_DO_LABELS[issue.id], issue.id).toBeDefined();
     expect(STILL_TO_DO_LABELS['photos-uploading']).toBe('Wait for photos to finish');
+    expect(STILL_TO_DO_LABELS['photos-space-full']).toBe('Photos are waiting for space');
   });
 
   it('falls back to the issue message for an id with no short label', () => {

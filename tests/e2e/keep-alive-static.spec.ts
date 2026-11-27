@@ -41,7 +41,7 @@ test.describe('US-69 keep-alive matches ADR 0022', () => {
     expect(contract).toMatch(/keepAlive:\s*'keep-alive'/);
     expect(contract).toMatch(/export type KeepAliveRequest = Record<string, never>;/);
     expect(contract).toMatch(
-      /export interface KeepAliveResponse\s*\{\s*ok: true;\s*checkedAt: string;?\s*\}/,
+      /export interface KeepAliveResponse\s*\{\s*ok: true;\s*checkedAt: string;\s*purgeHealthy: boolean;?\s*\}/,
     );
     expect(contract).toMatch(/CONTRACT_VERSION\s*=\s*1\b/);
     expect(contract).toMatch(/retentionDays:\s*7\b/);
@@ -74,19 +74,42 @@ test.describe('US-69 keep-alive matches ADR 0022', () => {
     );
   });
 
-  test('US-69 AC-4 (handler source): imports nothing from purge-expired or the rate limiter, makes no HTTP call, and only calls store.keepAlive()', () => {
+  test('US-69 AC-4 and NFR-33 (handler source): never calls or imports the purge, no HTTP call, and only calls the two read-only store queries', () => {
     const handler = code(read('supabase/functions/keep-alive/handler.ts'));
     const index = code(read('supabase/functions/keep-alive/index.ts'));
     for (const source of [handler, index]) {
-      expect(source).not.toMatch(/purge/i);
+      // Iteration 5: the handler now works out purgeHealthy, so the word "purge" is allowed. What must stay
+      // out is the purge function itself and every store method that writes or purges.
+      expect(source).not.toMatch(/purge-expired|purge_expired|createPurge|handlePurge/i);
+      expect(source).not.toMatch(
+        /expireMuseums|listPurgeQueue|clearPurgeQueueEntry|recordPurgeFailure|recordPurgeSuccess/,
+      );
       expect(source).not.toMatch(/rate_?limit|rateLimit|ipHash|hashIp/i);
       expect(source).not.toMatch(/\bfetch\(|XMLHttpRequest|Deno\.env/);
     }
+    const imports = [...handler.matchAll(/from '([^']+)'/g)].map((m) => m[1]);
+    expect(
+      imports.sort(),
+      'the only imports: the contract, the shared http helpers and the pure flag',
+    ).toEqual(['../_shared/http.ts', '../_shared/purgeHealth.ts', '@contract']);
     expect(handler, 'it is not rate limited (a rate limit needs a write)').toMatch(
       /name: 'keep-alive', cors: false, requireJson: true/,
     );
+    // keepAlive() is the heartbeat query; purgeHealthInputs() is the read-only health query (ADR 0023).
     const storeCalls = [...handler.matchAll(/deps\.store\.(\w+)/g)].map((m) => m[1]);
-    expect(storeCalls).toEqual(['keepAlive']);
+    expect(storeCalls).toEqual(['keepAlive', 'purgeHealthInputs']);
+    expect(handler, 'a failed health check is a 200 with purgeHealthy false, not an error').toMatch(
+      /let purgeHealthy = false;\s*try\s*\{/,
+    );
+    expect(handler, 'the response carries exactly the three keys').toMatch(
+      /\{ ok: true, checkedAt, purgeHealthy \}/,
+    );
+  });
+
+  test('NFR-33 (purgeHealth.ts): the pure flag has no imports, so it can reach no database, network or clock', () => {
+    const source = code(read('supabase/functions/_shared/purgeHealth.ts'));
+    expect(source).not.toMatch(/^\s*import\b/m);
+    expect(source).not.toMatch(/\bfetch\(|Deno\.|Date\.now\(|new Date\(\)/);
   });
 
   test('US-69 (docs/api.md 10a): documents POST /functions/v1/keep-alive, the anon key only, body {} and the 200 shape', () => {
@@ -96,7 +119,13 @@ test.describe('US-69 keep-alive matches ADR 0022', () => {
     const section = api.slice(start, api.indexOf('\n## 11.', start));
     expect(section).toContain('POST /functions/v1/keep-alive');
     expect(section).toContain('apikey: <public anon or publishable key>');
-    expect(section).toMatch(/\{ "ok": true, "checkedAt": "\d{4}-\d\d-\d\dT[\d:.]+Z" \}/);
+    expect(section).toMatch(
+      /\{ "ok": true, "checkedAt": "\d{4}-\d\d-\d\dT[\d:.]+Z", "purgeHealthy": (true|false) \}/,
+    );
+    expect(section, 'exactly three keys, nothing that reveals a count or time').toMatch(
+      /exactly these three keys/,
+    );
+    expect(section).toMatch(/A failed health check is not an error/);
     expect(section).toMatch(/\*\*Rate limit:\*\* none/);
     expect(section).toMatch(/never calls `purge-expired`/);
     expect(section).toMatch(/\| 500 \| `server_error` \|/);
@@ -127,6 +156,10 @@ test.describe('US-69 keep-alive matches ADR 0022', () => {
   });
 
   const workflowPath = '.github/workflows/keep-alive.yml';
+
+  // The workflow assertions below match the current one-step workflow. The devops-engineer's phase 6 change
+  // (two steps, red when purgeHealthy is false, NFR-34) will update them, and it must not reach main before
+  // the function deploy. Until then they pin the guarantees that stay: one cron, POST only, no purge, masked key.
 
   // REV-8 (b): the workflow is a release artefact (phase 6). A deleted or renamed file must fail, not skip.
   test('US-69 AC-2: .github/workflows/keep-alive.yml exists', () => {

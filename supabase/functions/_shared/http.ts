@@ -12,6 +12,7 @@
 import type { ApiError, ApiErrorCode } from '@contract';
 import { hashClientIp } from './tokens.ts';
 import type { MuseumStore } from './ports.ts';
+import type { SpaceLimits } from './space.ts';
 
 export const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   bad_request: 400,
@@ -19,6 +20,7 @@ export const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   conflict: 409,
   photo_limit: 409,
   upload_quota: 409,
+  space_full: 409,
   invalid_image: 422,
   rate_limited: 429,
   server_error: 500,
@@ -64,6 +66,8 @@ export interface EndpointConfig {
   allowedOrigins: string[];
   rateLimitSalt: string;
   cronSecret?: string | undefined;
+  /** Space-full thresholds (ADR 0024). Absent means the defaults. */
+  spaceLimits?: SpaceLimits | undefined;
 }
 
 export interface BaseDeps {

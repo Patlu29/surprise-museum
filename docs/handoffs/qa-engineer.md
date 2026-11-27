@@ -1,5 +1,25 @@
 # Handoff: qa-engineer
 
+Iteration: 5, phase 3 Build, final step. Latest: Round 10a (build smoke). Before that: Round 9b.
+
+## Round 10a, iteration 5 build smoke (27/11/2026)
+
+Changed `tests/e2e/keep-alive-static.spec.ts` to the iteration 5 contract (C-6), `docs/qa-report.md`, this note. Details are in the report's Round 10a section.
+
+| Check | Result | Label |
+|---|---|---|
+| keep-alive-static, temporary config with no webServer | 14 passed, 0 failed | Verified |
+| lint, format:check, typecheck, `tsc -p tsconfig.e2e.json` | pass | Verified |
+| Smoke spec, space-full check, full suite on desktop-chromium and mobile-webkit | blocked: sandbox denies port 4173 (`listen EPERM`) | Not tested |
+| Stale selectors elsewhere in tests/e2e | read only, none found | Partly verified |
+| `createMuseum` checkbox race on mobile-webkit | not seen, nothing ran; `app.ts` unchanged | Not verified |
+
+Requests for other agents:
+- [open] Tech Lead: allow local port binding (`sandbox.network.allowLocalBinding: true`) or run the smoke and full suite on a normal terminal, then re-run Round 10a task 3.
+- [open] devops-engineer (phase 6): the two-step workflow must update the workflow assertions in keep-alive-static.spec.ts (marked by a comment there); do not merge it before the function deploy.
+
+---- Earlier notes ----
+
 Iteration: none open (post-release). Latest: Round 9b flatShare re-capture fix (after the round 9 diagnosis). Before that: iteration 4, phase 6 Release.
 
 ## Round 9b, flatShare re-capture fix (25/11/2026)

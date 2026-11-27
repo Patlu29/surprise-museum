@@ -130,6 +130,7 @@ describe('createLiveApi errors', () => {
     [404, { error: 'not_found', message: 'm' }, 'not_found'],
     [409, { error: 'photo_limit', message: 'm' }, 'photo_limit'],
     [409, { error: 'upload_quota', message: 'm' }, 'upload_quota'],
+    [409, { error: 'space_full', message: 'm' }, 'space_full'],
     [422, { error: 'invalid_image', message: 'm', field: 'full' }, 'invalid_image'],
     [400, { error: 'bad_request', message: 'm' }, 'bad_request'],
     [500, { error: 'server_error', message: 'm' }, 'server_error'],
@@ -138,6 +139,25 @@ describe('createLiveApi errors', () => {
     await expect(
       api.confirmPhoto(EDIT, { photoId: PHOTO, width: 1, height: 1, lqip: 'x' }),
     ).rejects.toMatchObject({ code, status });
+  });
+
+  it('keeps space_full as its own code on the three calls that can return it (ADR 0024)', async () => {
+    const body = {
+      error: 'space_full',
+      message: 'Surprise Museum is full for now. Please try again later.',
+    };
+    const { api } = setup(() => jsonResponse(409, body));
+    for (const call of [
+      () => api.createMuseum(),
+      () => api.reservePhoto(EDIT),
+      () => api.publish(EDIT, {} as never),
+    ]) {
+      const error = await call().catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(ApiRequestError);
+      expect(error).toMatchObject({ code: 'space_full', status: 409, message: body.message });
+      expect((error as ApiRequestError).field).toBeUndefined();
+      expect((error as ApiRequestError).retryAfterSeconds).toBeUndefined();
+    }
   });
 
   it('falls back to a code from the status when the body is not JSON', async () => {

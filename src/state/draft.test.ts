@@ -85,6 +85,36 @@ describe('validateDraft', () => {
     ]);
   });
 
+  it('raises photos-space-full, not photos-failed, for a photo refused for space', () => {
+    const waiting = photo('c', { status: 'failed', photoId: null, errorKind: 'space-full' });
+    const issues = validateDraft(ok(fields(), [photo('a'), waiting]), 'publish');
+    expect(issues.map((i) => i.id)).toEqual(['photos-space-full']);
+    expect(issues[0]).toMatchObject({
+      step: 1,
+      fieldId: 'builder-add-photos',
+      message: 'Some photos are waiting for space.',
+    });
+    // Preview mode never raises it, so Preview and the step-1 Next gate work with waiting photos.
+    expect(validateDraft(ok(fields(), [photo('a'), waiting]), 'preview')).toEqual([]);
+  });
+
+  it('raises both issues, space first, when another photo failed for another reason', () => {
+    const waiting = photo('c', { status: 'failed', photoId: null, errorKind: 'space-full' });
+    const broken = photo('d', { status: 'failed', photoId: null, errorKind: 'network' });
+    expect(validateDraft(ok(fields(), [waiting, broken]), 'publish').map((i) => i.id)).toEqual([
+      'photos-space-full',
+      'photos-failed',
+    ]);
+  });
+
+  it('does not add photos-uploading while a photo waits for space', () => {
+    const waiting = photo('c', { status: 'failed', photoId: null, errorKind: 'space-full' });
+    const uploading = photo('b', { status: 'uploading', photoId: null });
+    expect(validateDraft(ok(fields(), [waiting, uploading]), 'publish').map((i) => i.id)).toEqual([
+      'photos-space-full',
+    ]);
+  });
+
   it('does not count a photo that never processed', () => {
     const broken = photo('a', { processed: false, status: 'failed' });
     expect(validateDraft(ok(fields(), [broken]), 'preview').map((i) => i.id)).toEqual(['photos']);

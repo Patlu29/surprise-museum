@@ -41,6 +41,7 @@ const WELCOME_FPS = 10;
 
 /** Tests can force a tier with `window.__SURPRISE_QUALITY__ = 'high' | 'low'` (E2E mode only). */
 function forcedQuality(): QualitySetting | null {
+  if (!(import.meta.env.DEV || import.meta.env.MODE === 'test')) return null;
   const w = window as Window & { __SURPRISE_QUALITY__?: unknown; __SURPRISE_E2E__?: boolean };
   if (!w.__SURPRISE_E2E__) return null;
   return w.__SURPRISE_QUALITY__ === 'high' || w.__SURPRISE_QUALITY__ === 'low'

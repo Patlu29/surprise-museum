@@ -1,5 +1,6 @@
 import { Html } from '@react-three/drei';
 import type { CharacterRole } from '@/domain/characters/characterState';
+import { LABEL_MAX_WIDTH } from '../controllers/labelLayout';
 
 /**
  * Floating name label (FR-17, ADR 0011, design spec 5.5). A DOM element anchored above the head
@@ -58,7 +59,7 @@ export function NameLabelPill({
         // Size to the text, then clamp: without this the label collapses to a column of letters
         // when it sits near the right edge of its absolutely positioned wrapper.
         width: 'max-content',
-        maxWidth: 'min(var(--label-max-width, 11rem), 36vw)',
+        maxWidth: LABEL_MAX_WIDTH,
         padding: 'var(--label-padding-y, 6px) var(--label-padding-x, 12px)',
         background: 'var(--label-bg, #1f1620)',
         color: 'var(--label-fg, #fbf6ee)',

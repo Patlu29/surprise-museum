@@ -3,7 +3,7 @@
 Application: Surprise Museum. A creator builds a small 3D museum of up to 20 photos with captions and a closing message, picks two stylised characters (the Visitor and the Guide), and shares an unlisted link. The recipient walks the Visitor through the museum while the Guide presents each photo. React Three Fiber on GitHub Pages, Supabase backend.
 Approval mode: Key gates
 Current iteration: 5 (Feature and fixes: OPS-1 + CR-13 purge health, CR-9 space full, DEBT-2 test stability, BUG-15, N-12, N-13)
-Current phase: 3 Build
+Current phase: 4 Verify
 Last updated: 26/11/2026
 Deployed: 24/11/2026, live at https://patlu29.github.io/surprise-museum/ (GitHub Pages) with Supabase Free project `lklbpilfkxlegdrrohst` (see the Deploy row under Approvals and "Deploy record" below)
 
@@ -25,8 +25,8 @@ Iteration 4's phase log is in docs/lifecycle/retrospective.md.
 |---|---|---|---|
 | 1 Plan | Done (A1 approved with changes 26/11/2026; 80% threshold applied, requirements v0.8.1, 14 places) | requirements, user stories and backlog v0.8: FR-104 rewritten (Could to Should), FR-106 to FR-111, NFR-33 to NFR-35, US-72 to US-81, 8 backlog rows In progress; prettier passes; IDs cross-checked; Must count unchanged at 90; Q-36 to Q-45 raised | 26/11/2026 |
 | 2 Design | Done, A2 approved 27/11/2026 (architect done 26/11/2026: architecture v1.7, ADR 0023 purge health, ADR 0024 space-full guard, amendments to ADR 0010 and 0022, Q-37 answered: egress cannot be read by the app, contradictions C-1 to C-11; ux-ui-designer done 26/11/2026: design spec v2.2 section 13) | 26/11/2026 | Expected: architect (keep-alive contract, how limits are measured), ux-ui-designer (space-full states, N-11 dock, N-12, N-13) | |
-| 3 Build | In progress | backend-developer: docs/api.md contract first; architect: ADR status and phase-3 confirmations; product-manager: wording alignment | 27/11/2026 |
-| 4 Verify | Not started | | |
+| 3 Build | Done | Backend, frontend and scene built; scene fix round 1 (FR-111 widen step discarded by push-apart; 360x640 picture 1 accepted by the user). Tech lead checks 27/11/2026: lint, format, typecheck pass; vitest 75 files 1,131 tests; Deno check 31 files, lint, test 77 passed; scratch production build; bundle 3D total 992.9 of 1,000 kB (7.1 kB headroom); no test-hook names in the production build. keep-alive-static.spec.ts updated by QA (14 passed). Smoke: journey + builder specs on desktop-chromium and mobile-webkit, 67 passed, 1 skipped, 0 failed (tech lead, outside the sandbox: the sandbox blocks local port binding). Mobile-webkit consent checkbox failure not reproduced (frontend 35/35 and 43/43; smoke 0 failures). Requests: architect contracts update in progress; devops two-step keep-alive.yml in phase 6 | 27/11/2026 |
+| 4 Verify | In progress | CI on the build commit; then performance-optimiser and qa-engineer full suite | 27/11/2026 |
 | 5 Review | Not started | | |
 | 6 Release | Not started | Deploying the change to the live site needs the user's separate approval | |
 | 7 Operate and learn | Not started | | |
@@ -42,6 +42,8 @@ Iteration 4's phase log is in docs/lifecycle/retrospective.md.
 | A1 scope | 4 | Approved (the user's own answers set the scope) | User | 18/11/2026 | Supabase Free plus a scheduled keep-alive; GitHub Pages with the existing Actions pipeline; museums promised for 7 days, then the whole museum and photos are deleted; free-limit guardrail is docs plus a usage check, no new in-app handling |
 
 ## Decisions and answers
+- 27/11/2026 (user, "switch to whole library", then "After iteration 5"): rewrite the 3D scene in plain three.js and remove React Three Fiber and drei, as iteration 6 after iteration 5 is released, starting with a spike (canvas and render loop first, measure the saving). Needs a new ADR (architect). Tech lead's analysis 27/11/2026: R3F is 182 kB minified / 57 kB gzip (rolldown, same versions); 15 files use R3F hooks, 7 use R3F JSX, drei is used only for `<Html>`; 64 scene files already import three directly. To go into the backlog in phase 7.
+- 27/11/2026 (user): FR-111 known issue accepted: at 360x640, picture 1, 24-character names, the lower label still covers 56% of the Guide's head and 41% of the Visitor's after fix round 1 (all other measured cases 0 to 7%); the picture and caption strip leave no room to rise, so FR-111's order reaches the 4 px drop. Tallest Visitor and 320x568 not measured.
 - 26/11/2026 (user, "okay do them"): iteration 5 takes OPS-1 + CR-13, CR-9, DEBT-2, BUG-15, N-12 and N-13. CR-9 reverses the 18/11/2026 decision "guardrail is docs plus a usage check, no new in-app handling": in-app space-full handling is now wanted (scope and priority confirmed at A1).
 - 18/11/2026 (user): the internal npm-mirror hostname found in three deno.lock files (no credentials) is removed from current files; git history is left as it is (user chose "Leave history").
 - 18/11/2026 (user): add a project .npmrc.
@@ -69,6 +71,7 @@ Iteration 4's phase log is in docs/lifecycle/retrospective.md.
 Every iteration 4 request was done or moved to the backlog (V-6, V-7, V-8, DEBT-2, OPS-1, CR-12 to CR-14, DEBT-3, DEBT-4); review routing is recorded in docs/review.md and docs/lifecycle/retrospective.md.
 
 ## Environment notes
+- 27/11/2026: the sandbox blocks local port binding and hides the long-running vite preview on 4173 (it is running, PID from 18/11/2026). Browser test runs need the tech lead to run outside the sandbox with `PW_REUSE_SERVER=1`, or the user to set `sandbox.network.allowLocalBinding: true`.
 - Node v26.7.0, npm 11.19.0, public npm registry reachable (18/11/2026).
 - Vite preview on port 4173 serves dist/ for Playwright; never kill it. Use 2 workers on desktop-chromium.
 - Firefox cannot launch in this sandbox.

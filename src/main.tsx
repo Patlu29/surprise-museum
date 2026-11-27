@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/App';
-import { registerApi } from '@/api';
+import { getApiMode, registerApi, setDemoSpaceFull } from '@/api';
 import { useBuilderStore } from '@/state/builderStore';
 import { inputState } from '@/state/inputState';
 import { useMuseumStore } from '@/state/museumStore';
@@ -30,6 +30,9 @@ if (import.meta.env.DEV || import.meta.env.MODE === 'test') {
     useMuseumStore,
     useSessionStore,
     useSettingsStore,
+    // Turns the mock's space-full switch on or off for this page (ADR 0024). Mock mode only, never
+    // set from a URL, and not stored: set it again after each page load.
+    setMockSpaceFull: getApiMode() === 'mock' ? setDemoSpaceFull : undefined,
   };
 }
 

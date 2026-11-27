@@ -3,7 +3,7 @@ import { LIMITS } from '@contract';
 import { announce } from '@/state/announcer';
 import { useBuilderStore } from '@/state/builderStore';
 import type { DraftPhoto } from '@/state/draft';
-import { removePhoto, replacePhoto, retryPhoto } from '@/state/uploadQueue';
+import { removePhoto, replacePhoto, retryPhoto, retrySpaceFull } from '@/state/uploadQueue';
 import { Button } from '@/ui/components/Button';
 import { Icon } from '@/ui/components/Icon';
 import { LimitedField } from '@/ui/components/LimitedField';
@@ -132,6 +132,10 @@ export function PhotoRow({ photo, index, total, listRef }: PhotoRowProps) {
     }
   };
 
+  // A photo refused for space is waiting, not failed (design spec 13.3): info look, no alert.
+  const waiting = photo.status === 'failed' && photo.errorKind === 'space-full';
+  const failedRow = photo.status === 'failed' && !waiting;
+
   const busy =
     photo.status === 'processing' || photo.status === 'uploading' || photo.status === 'queued';
 
@@ -141,7 +145,8 @@ export function PhotoRow({ photo, index, total, listRef }: PhotoRowProps) {
         'photo-row',
         dragging && 'is-dragging',
         grabbed && 'is-grabbed',
-        photo.status === 'failed' && 'is-failed',
+        failedRow && 'is-failed',
+        waiting && 'is-waiting',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -172,7 +177,11 @@ export function PhotoRow({ photo, index, total, listRef }: PhotoRowProps) {
         <div className="photo-row__info">
           <h3 className="photo-row__title">Photo {number}</h3>
           <p className="photo-row__file user-text muted">{photo.fileName}</p>
-          {photo.status === 'failed' ? (
+          {waiting ? (
+            <p className="photo-row__status photo-row__status--waiting">
+              <Icon name="info" size="sm" /> {statusText(photo)}
+            </p>
+          ) : failedRow ? (
             <p className="photo-row__status photo-row__status--failed" role="alert">
               <Icon name="alert" size="sm" /> {statusText(photo)}
             </p>
@@ -231,7 +240,18 @@ export function PhotoRow({ photo, index, total, listRef }: PhotoRowProps) {
         </div>
       ) : (
         <div className="photo-row__actions">
-          {photo.status === 'failed' && RETRYABLE.includes(photo.errorKind) ? (
+          {waiting ? (
+            <Button
+              variant="primary"
+              icon="retry"
+              data-waiting-retry=""
+              aria-label={`Try again, photo ${number}`}
+              onClick={() => retrySpaceFull()}
+            >
+              Try again
+            </Button>
+          ) : null}
+          {failedRow && RETRYABLE.includes(photo.errorKind) ? (
             <Button variant="primary" icon="retry" onClick={() => retryPhoto(photo.localId)}>
               Retry
             </Button>

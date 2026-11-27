@@ -78,6 +78,11 @@ export interface MockApiOptions {
   verifyImages?: boolean;
   /** Lower the photo-byte cap below the backend's own capacity. */
   maxBytes?: number;
+  /**
+   * Start as a full service (ADR 0024 section 7). Default false. The mock never measures anything;
+   * this switch is the only way it refuses for space.
+   */
+  spaceFull?: boolean;
 }
 
 /** What the UI can show about the demo data. */
@@ -95,6 +100,11 @@ export type MockMuseumApi = MuseumApi & {
   reset(): Promise<void>;
   /** Counts and storage use, for a "Demo data" panel. */
   info(): Promise<DemoDataInfo>;
+  /**
+   * Makes the mock behave as a full service, or as one with room again. In memory, per instance:
+   * a new page starts with space free. See docs/api.md section 12.
+   */
+  setSpaceFull(full: boolean): void;
 };
 
 const DAY_MS = 86_400_000;
@@ -107,6 +117,7 @@ const STATUS: Record<ApiErrorCode, number> = {
   conflict: 409,
   photo_limit: 409,
   upload_quota: 409,
+  space_full: 409,
   invalid_image: 422,
   rate_limited: 429,
   server_error: 500,
@@ -121,6 +132,10 @@ function fail(code: ApiErrorCode, message: string, field?: string): ApiRequestEr
 
 /** The one body every bad link produces, matching the server's message. */
 const notFound = () => fail('not_found', 'This museum could not be found.');
+
+/** The one body the server sends for space_full: no field, no figure (FR-104 (g)). */
+const spaceFullError = () =>
+  fail('space_full', 'Surprise Museum is full for now. Please try again later.');
 
 const storageFull = () =>
   new ApiRequestError(
@@ -199,6 +214,7 @@ export function createMockApi(options: MockApiOptions = {}): MockMuseumApi {
   const latencyMs = options.latencyMs ?? 0;
   const now = options.now ?? (() => Date.now());
   const verifyImages = options.verifyImages ?? true;
+  let spaceFull = options.spaceFull ?? false;
 
   // Object URLs created by this tab, by photo, rendition and upload number.
   const urls = new Map<string, string>();
@@ -395,6 +411,8 @@ export function createMockApi(options: MockApiOptions = {}): MockMuseumApi {
         }
 
         case 'reserve-photo': {
+          // First, as on the server: a refusal reserves nothing and counts no reservation.
+          if (spaceFull) throw spaceFullError();
           if (photosOf(state, key).length >= LIMITS.maxPhotos) {
             throw fail('photo_limit', 'A museum can hold at most 20 photos.');
           }
@@ -494,6 +512,8 @@ export function createMockApi(options: MockApiOptions = {}): MockMuseumApi {
             const entry = doc.photos[i];
             const photo = entry ? mine.get(entry.photoId) : undefined;
             if (!photo || photo.status !== 'ready') {
+              // Only a photo that is not stored can need new space (Q-39 (a)).
+              if (spaceFull) throw spaceFullError();
               throw fail(
                 'conflict',
                 'A photo is not ready. Wait for uploads to finish.',
@@ -560,8 +580,13 @@ export function createMockApi(options: MockApiOptions = {}): MockMuseumApi {
       };
     },
 
+    setSpaceFull(full) {
+      spaceFull = full;
+    },
+
     async createMuseum(signal): Promise<CreateMuseumResponse> {
       await pause(signal);
+      if (spaceFull) throw spaceFullError();
       const tokens = await createTokenPair();
       const key = bytesToHex(tokens.editTokenHash);
       const expiresAt = now() + LIMITS.draftRetentionDays * DAY_MS;

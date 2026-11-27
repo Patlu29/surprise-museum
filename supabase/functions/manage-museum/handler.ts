@@ -33,6 +33,7 @@ import {
   type PhotoStorage,
 } from '../_shared/ports.ts';
 import { toMuseumDocument, toMuseumPhotos } from '../_shared/present.ts';
+import { isServiceFull, refuseIfSpaceFull, spaceFullError } from '../_shared/space.ts';
 import { deriveShareToken, hashToken } from '../_shared/tokens.ts';
 import {
   FULL_RENDITION,
@@ -150,6 +151,8 @@ export function createManageMuseumHandler(deps: ManageMuseumDeps) {
   }
 
   async function reservePhoto(museum: MuseumRecord, now: Date): Promise<PhotoUploadTicket> {
+    // After the token and rate-limit checks, before a slot or a reservation is used (ADR 0024).
+    await refuseIfSpaceFull(store, deps.config.spaceLimits);
     const photoId = await store.reservePhoto(museum.id);
     return ticketFor(museum.id, photoId, now);
   }
@@ -256,6 +259,9 @@ export function createManageMuseumHandler(deps: ManageMuseumDeps) {
       const entry = doc.photos[i];
       const photo = entry ? known.get(entry.photoId) : undefined;
       if (!photo || photo.status !== 'ready') {
+        // Only a photo that is not stored can need new space (Q-39 (a)); a publish of stored
+        // photos is never measured. Measured here, once, because the loop throws.
+        if (await isServiceFull(store, deps.config.spaceLimits)) throw spaceFullError();
         throw new ApiException('conflict', 'A photo is not ready. Wait for uploads to finish.', {
           field: `document.photos[${i}].photoId`,
         });

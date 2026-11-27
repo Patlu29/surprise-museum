@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { MuseumContent } from '@contract';
 import { useCaptionGate } from '@/hooks/useCaptionGate';
 import { useCaptionDock, type DockGeometry } from '@/hooks/useCaptionDock';
+import { useFinaleDock } from '@/hooks/useFinaleDock';
 import { useCoaching } from '@/hooks/useCoaching';
 import { useLayoutKind } from '@/hooks/useLayoutKind';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -164,15 +165,17 @@ export function Hud({ content, openSheet, onOpenSheet, onReplay }: HudProps) {
     [],
   );
 
-  const placement = useCaptionDock({
-    active: card !== null,
+  // The finale takes its dock from the layout kind alone (FR-108); only caption cards are searched for.
+  const captionPlacement = useCaptionDock({
+    active: card === 'caption',
     layout,
     captionScale: captionSize === 'xlarge' ? 1.5 : captionSize === 'large' ? 1.25 : 1,
-    tall: card === 'finale',
     resetKey: photo?.id ?? null,
     measure,
     isBusy,
   });
+  const finalePlacement = useFinaleDock(card === 'finale', layout, measure, () => topRef.current);
+  const placement = card === 'finale' ? finalePlacement : captionPlacement;
 
   const guideOutfit = content.guideAvatar.outfitColor;
   const badgeInk = useMemo(() => badgeInkFor(guideOutfit), [guideOutfit]);
@@ -226,44 +229,49 @@ export function Hud({ content, openSheet, onOpenSheet, onReplay }: HudProps) {
       data-layout={layout}
       data-sheet={openSheet ?? undefined}
     >
-      <div ref={topRef} className="hud__top" data-reset={cameraOff ? 'showing' : undefined}>
-        <div className="hud__cluster">
-          <HudButton
-            icon="list"
-            label="Pictures"
-            showLabel
-            onClick={() => onOpenSheet('pictures')}
-          />
-          <HudButton
-            icon="compass"
-            label={allViewed ? 'To the finale' : 'Where next?'}
-            showLabel
-            onClick={askWhereNext}
-          />
-        </div>
-        <p className="hud-pill">
-          <span
-            className="hud-pill__ring"
-            aria-hidden="true"
-            style={{ ['--p' as string]: total > 0 ? (viewedCount / total) * 100 : 0 }}
-          />
-          <span aria-hidden="true">
-            {viewedCount} of {total}
-          </span>
-          <span className="visually-hidden">
-            {viewedCount} of {total} pictures viewed
-          </span>
-        </p>
-        <div className="hud__cluster hud__cluster--end">
-          <HudButton icon="settings" label="Settings" onClick={() => onOpenSheet('settings')} />
-          {cameraOff ? (
+      {/* The bar wrapper is the container the two-row rule queries (design spec 13.9). */}
+      <div className="hud__bar">
+        <div ref={topRef} className="hud__top" data-reset={cameraOff ? 'showing' : undefined}>
+          <div className="hud__cluster">
             <HudButton
-              icon="reset"
-              label="Reset view"
-              onClick={() => useSessionStore.getState().resetView()}
+              icon="list"
+              label="Pictures"
+              showLabel
+              onClick={() => onOpenSheet('pictures')}
             />
-          ) : null}
-          <HudButton icon="help" label="Help" onClick={() => onOpenSheet('help')} />
+            <HudButton
+              icon="compass"
+              label={allViewed ? 'To the finale' : 'Where next?'}
+              showLabel
+              onClick={askWhereNext}
+            />
+          </div>
+          <div className="hud__pill-row">
+            <p className="hud-pill">
+              <span
+                className="hud-pill__ring"
+                aria-hidden="true"
+                style={{ ['--p' as string]: total > 0 ? (viewedCount / total) * 100 : 0 }}
+              />
+              <span aria-hidden="true">
+                {viewedCount} of {total}
+              </span>
+              <span className="visually-hidden">
+                {viewedCount} of {total} pictures viewed
+              </span>
+            </p>
+          </div>
+          <div className="hud__cluster hud__cluster--end">
+            <HudButton icon="settings" label="Settings" onClick={() => onOpenSheet('settings')} />
+            {cameraOff ? (
+              <HudButton
+                icon="reset"
+                label="Reset view"
+                onClick={() => useSessionStore.getState().resetView()}
+              />
+            ) : null}
+            <HudButton icon="help" label="Help" onClick={() => onOpenSheet('help')} />
+          </div>
         </div>
       </div>
 

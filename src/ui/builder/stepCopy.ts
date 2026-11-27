@@ -25,6 +25,7 @@ export const STILL_TO_DO_LABELS: Readonly<Record<string, string>> = {
   photos: 'Add a photo',
   'photos-uploading': 'Wait for photos to finish',
   'photos-failed': "Fix the photo that didn't upload",
+  'photos-space-full': 'Photos are waiting for space',
   'visitor-name': "Add the Visitor's name",
   'guide-name': 'Add a Guide name',
   consent: 'Confirm you can share the photos',

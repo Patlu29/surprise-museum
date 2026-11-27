@@ -1,12 +1,13 @@
 import type { PhotoUploadTicket } from '@contract';
 import { LIMITS } from '@contract';
 import { getApiMode } from '@/api';
-import { describeApiError, getApi, isApiError } from '@/lib/apiPort';
+import { describeApiError, getApi, isApiError, isSpaceFull } from '@/lib/apiPort';
 import { newLocalId } from '@/lib/id';
 import type { FileCheck, ProcessedPhoto } from '@/media';
 import { MediaError, processPhoto, validateSourceFile } from '@/media';
 import { createDraftPhoto, useBuilderStore } from './builderStore';
 import type { DraftPhoto, PhotoErrorKind } from './draft';
+import { publishDraft } from './publish';
 
 /**
  * Photo intake and upload for the builder (architecture 5.2).
@@ -33,6 +34,8 @@ export const MSG_UPLOAD_FAILED = 'Upload failed: check your connection.';
 /** The mock backend's 413 (demo storage full): says where the fix is (the Demo copy notice). */
 export const MSG_DEMO_FULL =
   'The demo storage on this device is full. Choose Clear demo data in the demo notice, then your photos will upload again.';
+/** The waiting row's status line (design spec 13.3): not a failure, so no "failed" or "upload". */
+export const MSG_SPACE_WAITING = "Not added yet. We're full for now.";
 export const MSG_TOO_LARGE = 'This photo is too large to upload. Try a smaller one.';
 
 export interface UploadDeps {
@@ -75,6 +78,12 @@ let uploading = 0;
 let museumPromise: Promise<string> | null = null;
 /** Bumped when the demo backend is wiped, so a draft created before the wipe is never adopted. */
 let generation = 0;
+/**
+ * Set at the first space refusal, so photos that finish processing afterwards wait too instead of
+ * each sending a request that is refused. Cleared by Try again, adding or replacing a photo, and
+ * a draft reset: each of those is a new action that the service may now accept (FR-104 (d)).
+ */
+let spaceLatched = false;
 
 function store() {
   return useBuilderStore.getState();
@@ -86,6 +95,17 @@ function findPhoto(localId: string): DraftPhoto | undefined {
 
 function fail(localId: string, error: string, errorKind: PhotoErrorKind): void {
   store().patchPhoto(localId, { status: 'failed', error, errorKind, progress: 0 });
+}
+
+/** First refusal for space (architecture 8.2 item 1): this photo and every photo not yet started wait. */
+function refuseForSpace(localId: string): void {
+  spaceLatched = true;
+  fail(localId, MSG_SPACE_WAITING, 'space-full');
+  for (const waiting of uploadQueue.splice(0)) {
+    if (entries.get(waiting)?.removed || !findPhoto(waiting)) continue;
+    fail(waiting, MSG_SPACE_WAITING, 'space-full');
+  }
+  store().setSpaceFull({ action: 'photo' });
 }
 
 function mediaFailure(error: unknown): { message: string; kind: PhotoErrorKind } {
@@ -196,6 +216,10 @@ async function runProcess(localId: string): Promise<void> {
     if (entry.removed) return;
     entry.processed = result;
     const backend = deps.backendConfigured();
+    const waitForSpace = backend && spaceLatched;
+    const afterProcessing: Partial<DraftPhoto> = waitForSpace
+      ? { status: 'failed', progress: 0, error: MSG_SPACE_WAITING, errorKind: 'space-full' }
+      : { status: backend ? 'uploading' : 'ready', progress: backend ? 0 : 1 };
     store().patchPhoto(localId, {
       width: result.width,
       height: result.height,
@@ -203,10 +227,9 @@ async function runProcess(localId: string): Promise<void> {
       wallUrl: deps.createObjectUrl(result.wall),
       fullUrl: deps.createObjectUrl(result.full),
       processed: true,
-      status: backend ? 'uploading' : 'ready',
-      progress: backend ? 0 : 1,
+      ...afterProcessing,
     });
-    if (backend) uploadQueue.push(localId);
+    if (backend && !waitForSpace) uploadQueue.push(localId);
   } catch (error) {
     if (entry.removed) return;
     const { message, kind } = mediaFailure(error);
@@ -294,6 +317,10 @@ async function runUpload(localId: string): Promise<void> {
     store().patchPhoto(localId, { status: 'ready', progress: 1, error: null, errorKind: null });
   } catch (error) {
     if (entry.removed || (isApiError(error) && error.code === 'aborted')) return;
+    if (isSpaceFull(error)) {
+      refuseForSpace(localId);
+      return;
+    }
     const { message, kind } = uploadFailure(error);
     if (kind === 'rejected') {
       // The server deleted the objects, so a retry must reserve a fresh slot.
@@ -333,6 +360,7 @@ export async function addFiles(files: readonly File[]): Promise<void> {
   }
   if (rejections.length > 0) store().addRejections(rejections);
   if (accepted.length === 0) return;
+  spaceLatched = false;
   const items = accepted.map((file) => newItem(file));
   store().addPhotoItems(items);
   for (const item of items) processQueue.push(item.localId);
@@ -378,6 +406,7 @@ export async function replacePhoto(localId: string, file: File): Promise<boolean
   const caption = current.caption;
   release(localId, true);
   entries.set(localId, { file, processed: null, controller: null, removed: false });
+  spaceLatched = false;
   store().patchPhoto(localId, { ...createDraftPhoto(localId, file.name, caption) });
   processQueue.push(localId);
   pump();
@@ -399,6 +428,23 @@ export function retryPhoto(localId: string): void {
   pump();
 }
 
+/**
+ * Try again after a space refusal (design spec 13.2, 13.3). Closes the message, then repeats the
+ * refused action once: every waiting photo is queued again from its processed blobs (no file is
+ * chosen again, ready photos are not sent again), and a refused publish is sent again. If space is
+ * still full the first refusal opens the message again. It never publishes after a photo refusal
+ * (Q-46): the Creator presses Publish again. Nothing runs in the background.
+ */
+export function retrySpaceFull(): void {
+  const action = store().spaceFull?.action;
+  store().setSpaceFull(null);
+  spaceLatched = false;
+  for (const photo of store().photos) {
+    if (photo.status === 'failed' && photo.errorKind === 'space-full') retryPhoto(photo.localId);
+  }
+  if (action === 'publish') void publishDraft();
+}
+
 /** Retries photos that failed only because the connection dropped. Called when the browser comes back online. */
 export function retryNetworkFailures(): void {
   for (const photo of store().photos) {
@@ -416,6 +462,7 @@ export function reuploadAfterDemoReset(): void {
   for (const entry of entries.values()) entry.controller?.abort();
   uploadQueue.length = 0;
   museumPromise = null;
+  spaceLatched = false;
   generation += 1;
   store().setEditToken(null);
   store().setPublish({ phase: 'idle', error: null, shareToken: null, expiresAt: null });
@@ -441,5 +488,6 @@ export function discardDraft(): void {
   processQueue.length = 0;
   uploadQueue.length = 0;
   museumPromise = null;
+  spaceLatched = false;
   store().reset();
 }

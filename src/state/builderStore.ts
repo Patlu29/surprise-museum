@@ -35,6 +35,13 @@ export interface PublishState {
   expiresAt: string | null;
 }
 
+export type SpaceFullAction = 'photo' | 'publish';
+
+/** The FR-106 message is open while this is non-null. It holds no figure and no reason. */
+export interface SpaceFullState {
+  action: SpaceFullAction;
+}
+
 export interface BuilderState extends DraftFields {
   /** The step the Creator was last on, so Exit preview returns to the right place. */
   step: BuilderStep;
@@ -55,6 +62,11 @@ export interface BuilderState extends DraftFields {
   restoredDraftNotice: boolean;
   /** True once the notice has been announced, so it is announced once per page load. */
   restoredDraftNoticeAnnounced: boolean;
+  /**
+   * Set when the service refused a photo or a publish for space (architecture 8.2, FR-106). The
+   * space-full message is open while it is non-null. Memory only, never saved; `reset()` clears it.
+   */
+  spaceFull: SpaceFullState | null;
 
   setStep: (step: BuilderStep) => void;
   setText: (field: 'title' | 'visitorName' | 'guideName' | 'closingMessage', value: string) => void;
@@ -77,6 +89,8 @@ export interface BuilderState extends DraftFields {
   setEditToken: (token: string | null) => void;
   setPublish: (patch: Partial<PublishState>) => void;
   acknowledgeEditLink: (value: boolean) => void;
+  /** Opens (a value) or closes (null) the space-full message. Closing changes nothing else. */
+  setSpaceFull: (state: SpaceFullState | null) => void;
   /** Clears the whole draft. Call `discardDraft()` in uploadQueue, which also frees blobs. */
   reset: () => void;
   /** Hides the notice for this page load (Dismiss). Not saved. */
@@ -111,6 +125,7 @@ function initialState() {
     publish: { ...initialPublish },
     restoredDraftNotice: false,
     restoredDraftNoticeAnnounced: false,
+    spaceFull: null as SpaceFullState | null,
   };
 }
 
@@ -207,6 +222,14 @@ export const useBuilderStore = create<BuilderState>()((set) => ({
       restoredDraftNotice: patch.phase === 'done' ? false : state.restoredDraftNotice,
     })),
   acknowledgeEditLink: (editLinkAcknowledged) => set({ editLinkAcknowledged }),
+  // A second refusal while the message is open changes nothing, so it is neither re-announced nor
+  // restarted (design spec 13.2).
+  setSpaceFull: (spaceFull) =>
+    set((state) =>
+      state.spaceFull && spaceFull && state.spaceFull.action === spaceFull.action
+        ? state
+        : { spaceFull: spaceFull ? { action: spaceFull.action } : null },
+    ),
 
   reset: () => {
     clearSavedDraft();

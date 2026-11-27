@@ -4,6 +4,8 @@
  * Keeping the handlers behind these interfaces lets every access rule be tested without a project.
  */
 import type { AvatarConfig, MuseumStatus, MuseumTheme } from '@contract';
+import type { PurgeHealthInputs } from './purgeHealth.ts';
+import type { SpaceUsage } from './space.ts';
 
 export interface MuseumRecord {
   id: string;
@@ -85,12 +87,21 @@ export interface MuseumStore {
 
   /** Postgres's own now() as ISO 8601 UTC, through one read-only call. Writes nothing. */
   keepAlive(): Promise<string>;
+  /**
+   * The four timestamps the purge-health flag is worked out from (ADR 0023). Read-only. The real
+   * implementation gives up after 5 seconds and throws.
+   */
+  purgeHealthInputs(): Promise<PurgeHealthInputs>;
+  /** File storage in use and database size, in bytes, read from the database (ADR 0024). */
+  spaceUsage(): Promise<SpaceUsage>;
 
   /** Deletes expired museums (queueing their storage) and returns their ids. */
   expireMuseums(limit: number): Promise<string[]>;
   listPurgeQueue(limit: number): Promise<string[]>;
   clearPurgeQueueEntry(museumId: string): Promise<void>;
   recordPurgeFailure(museumId: string, message: string): Promise<void>;
+  /** Stores Postgres's now() as the last successful purge run (ADR 0023). Throws on failure. */
+  recordPurgeSuccess(): Promise<void>;
 }
 
 export type DownloadResult =

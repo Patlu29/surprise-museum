@@ -1,5 +1,56 @@
 # Handoff: scene-developer
 
+## Update 27/11/2026: iteration 5, labels (FR-109, FR-111) and C-11
+
+### Files changed
+- `src/scene/controllers/labelLayout.ts`: rewritten solver. Widths and heights come from `getBoundingClientRect()` (fractional). Stacking order per 13.8: the lower label stays, the upper rises 4 px clear; if that fails both widen to `min(2 x --label-max-width, 100vw - 16px)` (kept only if no margin overhang and no picture contact); the 4 px drop is last. `insideShiftX` rounds the final x offset inwards and is the last horizontal step; N-10 overhang labels keep plain rounding. New exports `LABEL_MAX_WIDTH`, `LABEL_MAX_WIDTH_WIDE`, `insideShiftX`, `riseShiftY`.
+- `src/scene/controllers/labelLayout.test.ts`: fake labels now supply `getBoundingClientRect`; new tests for `insideShiftX`, `riseShiftY`, rise, widen and return to normal width.
+- `src/scene/characters/NameLabel.tsx`: uses `LABEL_MAX_WIDTH`. `src/scene/controllers/SceneDriver.tsx`: Guide spot label uses the fractional box.
+- `src/scene/controllers/projection.ts`: `headCorners` (top 0.32 m of the figure, 0.30 m wide, scaled with height).
+- `src/scene/controllers/testHooks.ts`: new `headBoxes()`; C-11 gate. `src/scene/Experience.tsx`: `forcedQuality()` gated the same way.
+
+### Verification
+| Check | Result | Label |
+|---|---|---|
+| `npm run lint`, `format:check`, `npm run test` (75 files, 1131 tests) | pass | Verified |
+| `npm run typecheck` | one error, `src/api/mockClient.ts(104)` missing `space_full` (backend/frontend work in progress, not scene) | Verified, not mine |
+| Label e2e (`cr4-visit`, `label-strip`) on desktop-chromium and mobile-webkit, scratch test-mode build on port 4182 | 40 passed before fix round 1; re-run result below | see report |
+| C-11: scratch production build, grep for `__APP_TEST__`, `setMockSpaceFull`, `__surpriseMuseum`, `__SURPRISE_E2E__`, `__SURPRISE_QUALITY__` | 0 files each; the test-mode build contains them | Verified |
+| C-11: headless Chromium with `?e2e=1` and `__SURPRISE_E2E__` set | production: `__surpriseMuseum` and `__APP_TEST__` undefined; test mode: hook installed | Verified |
+| `playwright.config.ts` builds with `--mode test` | yes (webServer command) | Verified |
+| FR-109 exactness | unit-tested (`insideShiftX`); e2e tolerance still 1.5 px (QA file), so the new exactness is not asserted end to end | Partly verified |
+
+### Head cover (FR-111), fix round 1 (desktop-chromium, software GL, pictures 1 to 3)
+**Cause found (Verified by logging the solver state in a scratch build):** the widen step ran, but its result was thrown away. After widening, `arrange()` still pushed the two labels apart sideways; two 155 px labels beside a picture cannot both fit, so one was pushed past the 8 px margin (`overhang`), `wideFits` failed, and the solver reverted to the narrow 130 px labels and the 4 px drop. CSS was not the cause: `NameLabel.tsx` sets the cap inline and the widened cap reached the DOM (computed max-width 129.6 px only in the reverted state).
+**Fix (`labelLayout.ts`):** (1) once widened, the labels are stacked vertically, so the sideways push-apart is skipped in that pass (13.8 step 3); (2) the wide cap is also limited to the room beside the picture (`max(normal, min(wide, room))`), so a widened label does not run into the picture grown 8 px.
+
+Label width actually rendered (px) and cover of each head by the lower label, 6-character names: 77 and 78 px wide, 0% in all 9 cases (3 viewports x 3 pictures). 24-character names:
+
+| Viewport | Picture | Label width (Guide/Visitor) | Cover, Guide head | Cover, Visitor head |
+|---|---|---|---|---|
+| 360x640 | 1 | 155 / 155 | 56% | 41% |
+| 360x640 | 2 | 221 / 221 | 7% | 0% |
+| 360x640 | 3 | 196 / 196 | 6% | 0% |
+| 390x844 | 1, 3 | 140 / 140 | Guide off screen (label hidden) | 0% |
+| 390x844 | 2 | 140 / 140 | 0% | 0% |
+| 1280x720 | 1 to 3 | 176 / 176 | 0% | 0% |
+
+Before the fix 360x640 was 94 to 100% on all three pictures.
+**Still above 25%:** 360x640 picture 1 only (Guide 56%, Visitor 41%). It reaches the 4 px drop: the picture sits beside the heads (x 172 to 306), leaving about 163 px for widening, so the labels stay at 155 px (68 and 50 px tall) and the stack cannot rise clear because of the strip floor (192 px) above the heads at about y 275 (the rise room is about 83 px, less than 68 + 50 + 4 = 122). Rules 1 and 2 of FR-111 (picture, strip) rank above the head limit, so this is the case FR-111 allows. Tallest Visitor: the hook cannot choose the avatar height and I did not test it; not verified.
+**HUD note:** the floor used is the caption strip (`portraitStripBottom`), not the HUD bar; at 360x640 and 390x844 the HUD is one row so nothing above changes. Request, only if a two-row HUD (320x568) must also bound the rise: frontend-developer to publish the bar's bottom edge in `screenRects`; I have not measured 320x568 head cover.
+
+### Decisions
+- C-11 gate is the literal `import.meta.env.DEV || import.meta.env.MODE === 'test'` early return at the top of `installTestHooks` and `forcedQuality` (architect's finding), so the code is removed from production.
+
+### Open questions
+- Accept 360x640 picture 1 (56% and 41%) under FR-111's order (picture and strip outrank the head limit)? Answer: tech lead.
+
+### Requests for other agents
+- [open] frontend-developer (optional): publish the HUD bar's bottom edge via `screenRects` if the rise must respect a two-row bar.
+- [open] qa-engineer: tighten the BUG-15 tolerance (1.5 px) to 0 now that the margin is exact, and add a `headBoxes()` check.
+- [open] frontend-developer: `.name-label` in `src/ui/styles/visit.css` has its own `max-width: min(var(--label-max-width), 36vw)` for the builder preview only; the scene label sets its width inline, so no change needed.
+- [open] backend/frontend: `src/api/mockClient.ts(104)` fails typecheck (`space_full`).
+
 ## Update 03/11/2026: ceiling strip moved to the exit side (spec 12.8.3, v2.0.1)
 
 - **Change:** `src/scene/objects/museumDressing.ts` now places each room's strip at `cz - Math.min(depth * 0.3, 2.4)` (toward -Z, the exit, ahead of the Visitor). It was `cz +`. One sign; same geometry, triangle count and draw calls. This supersedes row 3 of the table below ("toward the entrance").

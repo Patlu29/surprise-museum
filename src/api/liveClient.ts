@@ -47,6 +47,7 @@ const KNOWN_CODES: ReadonlySet<string> = new Set([
   'conflict',
   'photo_limit',
   'upload_quota',
+  'space_full',
   'invalid_image',
   'rate_limited',
   'server_error',

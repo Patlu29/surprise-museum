@@ -9,7 +9,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { announce } from '@/state/announcer';
 import { useBuilderStore } from '@/state/builderStore';
 import type { BuilderStep, DraftIssue } from '@/state/draft';
-import { BUILDER_STEPS, hasDraftContent, validateDraft } from '@/state/draft';
+import { BUILDER_STEPS, FIELD_IDS, hasDraftContent, validateDraft } from '@/state/draft';
 import { publishDraft } from '@/state/publish';
 import { retryNetworkFailures } from '@/state/uploadQueue';
 import { Alert } from '@/ui/components/Alert';
@@ -24,6 +24,7 @@ import { ReviewStep } from './ReviewStep';
 import { sortByStep, STEP_PURPOSE } from './stepCopy';
 import { Stepper } from './Stepper';
 import { StillToDo } from './StillToDo';
+import { SpaceFullMessage } from './SpaceFullMessage';
 import { WordsStep } from './WordsStep';
 
 function focusField(id: string) {
@@ -31,6 +32,17 @@ function focusField(id: string) {
   if (!element) return;
   element.scrollIntoView({ block: 'center' });
   element.focus({ preventScroll: true });
+}
+
+/** The first waiting photo's Try again button, or Add photos when none waits (design spec 13.3). */
+function focusWaitingPhoto() {
+  const retry = document.querySelector<HTMLElement>('[data-waiting-retry]');
+  if (retry) {
+    retry.scrollIntoView({ block: 'center' });
+    retry.focus({ preventScroll: true });
+  } else {
+    focusField(FIELD_IDS.photos);
+  }
 }
 
 /**
@@ -52,6 +64,8 @@ export default function CreateScreen() {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const summaryRef = useRef<HTMLDivElement>(null);
   const firstRender = useRef(true);
+  // A Publish press that opens the space-full message draws its summary behind it without focus.
+  const skipSummaryFocus = useRef(false);
   const [attempt, setAttempt] = useState<{ step: BuilderStep; issues: DraftIssue[] } | null>(null);
   const [missing, setMissing] = useState<DraftIssue[] | null>(null);
 
@@ -81,6 +95,10 @@ export default function CreateScreen() {
 
   // After a failed Next or Publish, focus moves to the summary of problems (WCAG 3.3.1).
   useEffect(() => {
+    if (skipSummaryFocus.current) {
+      skipSummaryFocus.current = false;
+      return;
+    }
     if (attempt && attempt.issues.length > 0) summaryRef.current?.focus();
   }, [attempt]);
 
@@ -121,6 +139,15 @@ export default function CreateScreen() {
 
   const publish = () => {
     const issues = validateDraft(snapshot(), 'publish');
+    if (issues.some((issue) => issue.id === 'photos-space-full')) {
+      // C-10: a photo waiting for space opens the message and sends nothing. The other issues stay
+      // in the summary behind it, without taking focus.
+      const others = issues.filter((issue) => issue.id !== 'photos-space-full');
+      skipSummaryFocus.current = others.length > 0;
+      requireIssues(others);
+      useBuilderStore.getState().setSpaceFull({ action: 'photo' });
+      return;
+    }
     if (issues.length > 0) {
       requireIssues(issues);
       const consent = issues.find((issue) => issue.id === 'consent');
@@ -134,7 +161,10 @@ export default function CreateScreen() {
   const goToIssue = (issue: DraftIssue) => {
     setMissing(null);
     if (issue.step !== step) goTo(issue.step);
-    window.setTimeout(() => focusField(issue.fieldId), 50);
+    window.setTimeout(
+      () => (issue.id === 'photos-space-full' ? focusWaitingPhoto() : focusField(issue.fieldId)),
+      50,
+    );
   };
 
   /**
@@ -292,6 +322,8 @@ export default function CreateScreen() {
           ) : null}
         </div>
       </div>
+
+      <SpaceFullMessage fallbackFocus={() => headingRef.current?.focus()} />
 
       <Dialog
         open={missing !== null}

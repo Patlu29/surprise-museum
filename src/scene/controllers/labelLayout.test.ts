@@ -5,6 +5,8 @@ import {
   clampShiftX,
   layoutLabels,
   LABEL_EDGE_MARGIN,
+  insideShiftX,
+  riseShiftY,
   separateShiftX,
   stackShiftY,
   type LabelActor,
@@ -88,14 +90,27 @@ describe('separateShiftX (12.6.8 rule 2)', () => {
   });
 });
 
-/** A minimal label element: layout size, an opacity, and the style and dataset it writes. */
+/** A minimal label element: a box size, an opacity, and the style and dataset it writes. */
 function fakeLabel(w: number, h: number) {
   return {
-    offsetWidth: w,
-    offsetHeight: h,
     dataset: {} as Record<string, string>,
-    style: { opacity: '1', translate: '', visibility: '' },
+    style: { opacity: '1', translate: '', visibility: '', maxWidth: '' },
+    getBoundingClientRect: () => ({ width: w, height: h }),
   } as unknown as HTMLElement & { style: { translate: string; visibility: string } };
+}
+
+/**
+ * A label that wraps like text: one line is `natural` wide, the box is at most `cap` wide (or
+ * `wideCap` once the solver widens it) and every extra line adds `line` px of height.
+ */
+function wrapLabel(natural: number, cap: number, wideCap: number, line = 18, pad = 15) {
+  const el = fakeLabel(0, 0);
+  el.getBoundingClientRect = () => {
+    const width = Math.min(natural, el.dataset.wide === '1' ? wideCap : cap);
+    const lines = Math.ceil((natural - pad) / (width - pad));
+    return { width, height: lines * line + pad } as DOMRect;
+  };
+  return el;
 }
 
 describe('layoutLabels on a 360x640 portrait screen (N-10)', () => {
@@ -144,7 +159,7 @@ describe('layoutLabels on a 360x640 portrait screen (N-10)', () => {
     const v = fakeLabel(110, 32);
     const out = layoutLabels(actors(-1.35, -1.0, g, v), camera, area, null, 192);
     expect(out.guide!.width).toBe(158);
-    expect(out.guide!.height).toBe(68);
+    expect(out.guide!.height).toBeCloseTo(68, 6);
   });
 
   it('hides a label whose head is off screen sideways, and shows it again', () => {
@@ -202,5 +217,94 @@ describe('stackShiftY (BUG-15)', () => {
     expect(stackShiftY({ bottom: 100 }, { top: 90 })).toBe(14);
     expect(stackShiftY({ bottom: 100 }, { top: 120 })).toBe(0);
     expect(stackShiftY({ bottom: 100 }, { top: 90 }, 0)).toBe(10);
+  });
+});
+
+describe('insideShiftX (FR-109, BUG-15)', () => {
+  it('rounds inwards: up against the left margin, down against the right one', () => {
+    // Left edge at 7.4 after a 0.4 px shift: nearest rounding gives 0, inwards gives 1.
+    expect(insideShiftX({ left: 7.6, right: 107.6 }, -0.4, 8, 352)).toBe(1);
+    expect(insideShiftX({ left: 7.6, right: 107.6 }, 0.4, 8, 352)).toBe(1);
+    expect(7.6 + insideShiftX({ left: 7.6, right: 107.6 }, 0.4, 8, 352)).toBeGreaterThanOrEqual(8);
+    // Right edge at 352.4 against a 352 margin.
+    const out = insideShiftX({ left: 252.4, right: 352.4 }, -0.4, 8, 352);
+    expect(352.4 + out).toBeLessThanOrEqual(352);
+  });
+  it('never leaves an edge inside the margin whatever the fraction', () => {
+    for (let i = 0; i < 200; i++) {
+      const left = 100 + i * 0.37;
+      const w = 90.3 + i * 0.11;
+      for (const dx of [-250.49, -250.51, 244.49, 244.51, -3.5, 0.5]) {
+        const out = insideShiftX({ left, right: left + w }, dx, 8, 352);
+        expect(Number.isInteger(out)).toBe(true);
+        if (w < 344) {
+          expect(left + out).toBeGreaterThanOrEqual(8);
+          expect(left + w + out).toBeLessThanOrEqual(352);
+        }
+      }
+    }
+  });
+});
+
+describe('riseShiftY (13.8 step 2)', () => {
+  it('raises the upper label to 4 px above the lower one', () => {
+    expect(riseShiftY({ bottom: 110 }, { top: 100 })).toBe(14);
+    expect(riseShiftY({ bottom: 90 }, { top: 100 })).toBe(0);
+  });
+});
+
+describe('layoutLabels, stacked labels (13.8, FR-111)', () => {
+  const camera = new PerspectiveCamera(60, 360 / 640, 0.1, 100);
+  camera.position.set(0, 2, 5);
+  camera.lookAt(0, 1, 0);
+  camera.updateMatrixWorld();
+  camera.updateProjectionMatrix();
+  const area = { left: 0, top: 0, width: 360, height: 640 };
+  const actors = (g: HTMLElement, v: HTMLElement, gz: number, vz: number): LabelActor[] => [
+    { role: 'visitor', element: v, x: 0.2, z: vz, height: 1.7 },
+    { role: 'guide', element: g, x: -0.2, z: gz, height: 1.7 },
+  ];
+
+  it('raises one label clear of the other without widening', () => {
+    // Both heads at about the same screen height, labels side by side would not fit.
+    const g = fakeLabel(200, 33);
+    const v = fakeLabel(200, 33);
+    const out = layoutLabels(actors(g, v, 0, 0.05), camera, area, null, null);
+    const gr = out.guide!;
+    const vr = out.visitor!;
+    const [upper, lower] = gr.y < vr.y ? [gr, vr] : [vr, gr];
+    // The collision raise (5.5 rule 2) already clears them; the gap is at least 3 px.
+    expect(upper.y + upper.height).toBeLessThanOrEqual(lower.y - 3);
+    expect(g.dataset.wide ?? '').toBe('');
+  });
+
+  it('widens both labels when the picture and the strip stop the upper label rising, and drops last', () => {
+    const g = wrapLabel(245, 200, 344);
+    const v = wrapLabel(245, 200, 344);
+    // Strip floor right above the anchors: no room to rise, so both widen to one line.
+    const out = layoutLabels(actors(g, v, 0, 0.05), camera, area, null, 300);
+    expect(g.dataset.wide).toBe('1');
+    expect(v.dataset.wide).toBe('1');
+    expect(out.guide!.height).toBeCloseTo(33, 6);
+    expect(out.guide!.x).toBeGreaterThanOrEqual(8);
+    expect(out.guide!.x + out.guide!.width).toBeLessThanOrEqual(352);
+    // 4 px apart vertically, so the drop (last resort) applied.
+    const [u, l] =
+      out.guide!.y < out.visitor!.y ? [out.guide!, out.visitor!] : [out.visitor!, out.guide!];
+    expect(l.y - (u.y + u.height)).toBeGreaterThanOrEqual(4 - 1e-9);
+  });
+
+  it('returns both labels to their normal width when they stop being stacked', () => {
+    const g = wrapLabel(245, 200, 344);
+    const v = wrapLabel(245, 200, 344);
+    layoutLabels(actors(g, v, 0, 0.05), camera, area, null, 300);
+    expect(g.dataset.wide).toBe('1');
+    const apart: LabelActor[] = [
+      { role: 'visitor', element: v, x: 1.0, z: 0, height: 1.7 },
+      { role: 'guide', element: g, x: -1.0, z: 3, height: 1.7 },
+    ];
+    layoutLabels(apart, camera, area, null, null);
+    expect(g.dataset.wide ?? '').toBe('');
+    expect(v.dataset.wide ?? '').toBe('');
   });
 });

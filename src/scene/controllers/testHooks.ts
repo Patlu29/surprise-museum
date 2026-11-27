@@ -6,16 +6,20 @@ import type {
   PresentationCameraController,
   PresentationCameraSnapshot,
 } from '../cameras/PresentationCameraController';
+import type { ScreenRect } from '@/state/screenRects';
+import { avatarHeight } from '../characters/avatarRig';
 import { computePictureVisibleFraction } from './framingRects';
+import { headCorners, projectPoints } from './projection';
 import type { SceneRuntime } from '../runtime/SceneRuntime';
 import { jumpTo, replay } from './actions';
 
 /**
- * Playwright test hooks. Convention: `window.__surpriseMuseum`, installed only when the page opts
- * in, so nothing is exposed to ordinary visitors:
+ * Playwright test hooks. Convention: `window.__surpriseMuseum`. They exist only in a development
+ * or test-mode build (C-11): a production build never installs them, whatever the URL or window
+ * flags say. Inside a test-mode build the page must also opt in:
  *   - tests call `page.addInitScript(() => { window.__SURPRISE_E2E__ = true; })`, or
- *   - the URL has `?e2e=1` before the hash, or
- *   - the Vite dev server is running.
+ *   - the URL has `?e2e=1` before the hash.
+ * The Vite dev server installs them without an opt-in.
  * Everything is read-only except the explicit actions below. Positions are plan metres (x, z);
  * headings are radians (0 faces +Z, PI faces down the route).
  */
@@ -36,6 +40,11 @@ export interface MuseumTestHooks {
   retryPhoto(photoId: string): void;
   /** Picture positions and zones, to compute where to walk. */
   layout(): TestLayout;
+  /**
+   * Each character's projected head box in CSS pixels, viewport coordinates (FR-111); null when
+   * the head is off screen or the character is not drawn. Read the label boxes from the DOM.
+   */
+  headBoxes(): { visitor: ScreenRect | null; guide: ScreenRect | null };
 }
 
 export interface TestSnapshot {
@@ -101,12 +110,17 @@ declare global {
   }
 }
 
+/**
+ * The build gate comes first and is written as plain `import.meta.env` reads so the bundler
+ * replaces it with `false` in a production build (C-11). The opt-ins only apply inside it.
+ */
 export function testHooksEnabled(): boolean {
   if (typeof window === 'undefined') return false;
+  if (!(import.meta.env.DEV || import.meta.env.MODE === 'test')) return false;
   return (
+    import.meta.env.DEV ||
     window.__SURPRISE_E2E__ === true ||
-    new URLSearchParams(window.location.search).get('e2e') === '1' ||
-    import.meta.env.DEV
+    new URLSearchParams(window.location.search).get('e2e') === '1'
   );
 }
 
@@ -116,6 +130,8 @@ export function installTestHooks(
   gl: WebGLRenderer,
   presenter: PresentationCameraController,
 ): () => void {
+  // Literal build gate first, so a production build drops the hook code (C-11).
+  if (!(import.meta.env.DEV || import.meta.env.MODE === 'test')) return () => undefined;
   if (!testHooksEnabled()) return () => undefined;
 
   const describe = (role: 'visitor' | 'guide'): TestCharacter => {
@@ -226,6 +242,20 @@ export function installTestHooks(
     retryPhoto(photoId) {
       runtime.photos.retry(photoId);
       useMuseumStore.getState().setPhotoStatus(photoId, 'loading');
+    },
+    headBoxes() {
+      const camera = presenter.camera;
+      const box = gl.domElement.getBoundingClientRect();
+      const area = { left: box.left, top: box.top, width: box.width, height: box.height };
+      const head = (role: 'visitor' | 'guide'): ScreenRect | null => {
+        const s = runtime.registry.getSource(role).read();
+        if (!camera || s.opacity <= 0.05) return null;
+        const height = avatarHeight(
+          role === 'visitor' ? runtime.content.visitorAvatar : runtime.content.guideAvatar,
+        );
+        return projectPoints(headCorners(s.position.x, s.position.z, height, camera), camera, area);
+      };
+      return { visitor: head('visitor'), guide: head('guide') };
     },
     layout() {
       const l = runtime.layout;

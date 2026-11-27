@@ -8,6 +8,7 @@
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { ApiException } from './http.ts';
+import type { PurgeHealthInputs } from './purgeHealth.ts';
 import type {
   DownloadResult,
   MuseumRecord,
@@ -20,6 +21,9 @@ import type {
 import { toByteaLiteral } from './tokens.ts';
 
 const BUCKET = 'photos';
+
+/** ADR 0023: the keep-alive never waits longer than this for the purge-health query. */
+export const PURGE_HEALTH_TIMEOUT_MS = 5000;
 
 const MUSEUM_COLUMNS =
   'id,status,title,visitor_name,guide_name,opening_greeting,closing_message,theme,visitor_avatar,guide_avatar,published_at,expires_at';
@@ -67,6 +71,29 @@ function check(error: PgError | null): void {
 
 // deno-lint-ignore no-explicit-any
 type Row = Record<string, any>;
+
+/** One row of a set-returning rpc: PostgREST sends an array, a single object is accepted too. */
+function firstRow(data: unknown): Row {
+  const row: unknown = Array.isArray(data) ? data[0] : data;
+  if (typeof row !== 'object' || row === null) throw new BackendError('bad_rpc_result');
+  return row as Row;
+}
+
+/** A timestamp column: a string, or null. Anything else is an unreadable answer. */
+function nullableTimestamp(value: unknown): string | null {
+  if (value === null) return null;
+  if (typeof value === 'string') return value;
+  throw new BackendError('bad_rpc_result');
+}
+
+/** A bigint column. PostgREST sends a JSON number; a digit string is accepted too. */
+function byteCount(value: unknown): number {
+  const n = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;
+  if (typeof n !== 'number' || !Number.isSafeInteger(n) || n < 0) {
+    throw new BackendError('bad_rpc_result');
+  }
+  return n;
+}
 
 function toMuseum(row: Row): MuseumRecord {
   return {
@@ -241,6 +268,37 @@ export function createSupabaseStore(client: SupabaseClient): MuseumStore {
       const parsed = typeof data === 'string' ? new Date(data) : null;
       if (!parsed || Number.isNaN(parsed.getTime())) throw new BackendError('bad_rpc_result');
       return parsed.toISOString();
+    },
+
+    async purgeHealthInputs(): Promise<PurgeHealthInputs> {
+      const { data, error } = await client
+        .rpc('purge_health_inputs')
+        .abortSignal(AbortSignal.timeout(PURGE_HEALTH_TIMEOUT_MS));
+      check(error);
+      const row = firstRow(data);
+      const checkedAt = nullableTimestamp(row.checked_at);
+      if (checkedAt === null) throw new BackendError('bad_rpc_result');
+      return {
+        checkedAt,
+        lastSuccessAt: nullableTimestamp(row.last_success_at),
+        oldestQueuedAt: nullableTimestamp(row.oldest_queued_at),
+        oldestExpiredAt: nullableTimestamp(row.oldest_expired_at),
+      };
+    },
+
+    async spaceUsage() {
+      const { data, error } = await client.rpc('space_usage');
+      check(error);
+      const row = firstRow(data);
+      return {
+        storageBytes: byteCount(row.storage_bytes),
+        databaseBytes: byteCount(row.database_bytes),
+      };
+    },
+
+    async recordPurgeSuccess() {
+      const { error } = await client.rpc('record_purge_success');
+      check(error);
     },
 
     async expireMuseums(limit) {

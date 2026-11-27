@@ -110,6 +110,8 @@ Edit `supabase/functions/.env` (it is git-ignored) and fill in:
 | `ALLOWED_ORIGINS` | `https://patlu29.github.io,http://localhost:5173,http://localhost:4173` (no trailing slashes; drop the localhost entries if you do not want local development to reach production) |
 | `CRON_SECRET` | The same value you stored as the Vault secret `cron_secret` |
 | `RATE_LIMIT_SALT` | A different random value: `openssl rand -base64 32` |
+| `SPACE_FULL_STORAGE_BYTES` (optional) | Refuse new drafts, photos and unstored publishes at or above this many bytes of file storage. Default `800000000`. Leave it out unless Q-34 confirms different plan limits (then 80% of the confirmed figure). A whole number from 1 to 1000000000000; anything else makes every function answer 500 "not configured" |
+| `SPACE_FULL_DATABASE_BYTES` (optional) | The same for database size. Default `400000000` |
 
 Then upload them:
 
@@ -136,7 +138,7 @@ Find the public key in Project Settings, API Keys (the anon key, or the publisha
 node supabase/scripts/smoke-test.mjs https://<ref>.supabase.co <anon-or-publishable-key>
 ```
 
-Every line should say `PASS`. The first line checks `keep-alive`, which writes nothing. The script then creates a throw-away museum, uploads two tiny test images through signed URLs, publishes, reads it back, checks that a photo with EXIF is refused and that bad links return identical 404s, then deletes everything.
+Every line should say `PASS`. The first line checks `keep-alive`, which writes nothing, and the script then prints `purge: healthy` or `purge: unhealthy` from its answer. That line is a report, not a check: it never fails the run. Right after the first deploy it says `purge: unhealthy` until the first purge has run, which is at most about 60 minutes (the job runs at minute 17), because nothing has recorded a run yet. Run the smoke test again after that and expect `purge: healthy`. If `create-museum` answers 409, the service is above its space-full threshold (see step 6 and "Space full" below). The script then creates a throw-away museum, uploads two tiny test images through signed URLs, publishes, reads it back, checks that a photo with EXIF is refused and that bad links return identical 404s, then deletes everything.
 
 Check the hourly job (SQL editor):
 
@@ -199,7 +201,7 @@ You can run the same check on your own machine before pushing: `VITE_API_MODE=li
 
 A Free project pauses after about 7 days without activity (confirm on supabase.com/pricing). The `keep-alive` function runs one read-only query, so a scheduled call counts as activity on every layer it can reach. It writes nothing, never calls purge and needs only the public anon key.
 
-1. Check it by hand (use the same public key as step 8). Expect HTTP 200 and `{"ok":true,"checkedAt":"<now, UTC>"}`:
+1. Check it by hand (use the same public key as step 8). Expect HTTP 200 and exactly three keys, `{"ok":true,"checkedAt":"<now, UTC>","purgeHealthy":true}`:
 
    ```bash
    curl -sS -X POST "https://<ref>.supabase.co/functions/v1/keep-alive" \
@@ -209,7 +211,34 @@ A Free project pauses after about 7 days without activity (confirm on supabase.c
 2. The scheduled workflow (`.github/workflows/keep-alive.yml`, owned by the devops-engineer) calls it daily with the two repository variables from step 9. A red run in GitHub Actions means the keep-alive failed.
 3. GitHub switches off scheduled workflows in a public repository after 60 days with no repository activity. Every 50 days, open Actions and check that the latest keep-alive run is green and recent. If it was disabled, choose **Enable workflow**, then **Run workflow** once.
 4. If Supabase pauses the project anyway, restore it in the dashboard first, then re-run the workflow. Expired museums are purged within a few hours of the restore.
-5. Usage (database, storage, egress) is checked in the dashboard only (Usage page). The keep-alive reports none of it. Read-only SQL for the SQL editor is in ADR 0022, section 3.
+5. Usage (database, storage, egress) is checked in the dashboard only (Usage page). The keep-alive reports no figure. Read-only SQL for the SQL editor is in ADR 0022, section 3.
+6. **`purgeHealthy` (ADR 0023).** The one flag the keep-alive adds. It is `false` when any of these is true at the moment of the call: no purge run has finished in the last 3 hours (or none has ever been recorded); the oldest entry in the storage-delete queue is older than 3 hours; a museum or draft that ended more than 3 hours ago is still in the database. Exactly 3 hours is healthy. A failed health check also answers 200 with `false`. It writes nothing. The purge writes the heartbeat itself, as its last step: a run that reached the end counts, even if some file deletes failed (those show in the queue check). A wrong secret or an error part-way records nothing.
+
+   When the workflow shows `purge: unhealthy`, check in this order (SQL editor, read-only):
+
+   ```sql
+   select last_success_at, now() - last_success_at as age from public.purge_heartbeat;   -- no row: no run recorded yet
+   select museum_id, enqueued_at, attempts, last_error from public.storage_purge_queue order by enqueued_at;
+   select count(*), min(expires_at) from public.museums where expires_at <= now() - interval '3 hours';
+   select status, return_message, start_time from cron.job_run_details
+     where jobid = (select jobid from cron.job where jobname = 'surprise-museum-purge')
+     order by start_time desc limit 5;
+   ```
+
+   - No heartbeat row or an old one, with the queue and expired counts empty: the purge function is not finishing. Read the `purge-expired` logs (Edge Functions, Logs). A wrong `CRON_SECRET` (Vault secret differs from the function secret) answers 404 and records nothing; a missing `CRON_SECRET` answers 500. Note that a "succeeded" cron status only means the SQL that starts the HTTP call ran.
+   - Queue rows with a high `attempts` and a `last_error`: Storage deletes keep failing. Check the Storage status page, then wait for the next hourly run.
+   - A fresh deploy: `false` for up to about 60 minutes until the first purge. Run the smoke test after the next minute-17 run.
+   - The workflow is also red if the deployed function is older than ADR 0023 (no `purgeHealthy` key). Deploy the functions first (release order below).
+
+### Space full (ADR 0024)
+
+`create-museum`, `manage-museum` `reserve-photo`, and a `publish` that lists a photo not yet stored are refused with 409 `space_full` while file storage in use is at or above `SPACE_FULL_STORAGE_BYTES` (default 800,000,000) or database size is at or above `SPACE_FULL_DATABASE_BYTES` (default 400,000,000). Everything else works: Visitors, the edit page, delete, `renew-upload`, `confirm-photo`, the keep-alive and the purge. The two figures are read by `public.space_usage()` on each such request (no cache), so the service resumes by itself once the purge frees space. If that read fails, the request goes ahead and the function logs `space check unavailable (<error name>)`: the guard is a safety net and fails open, so watch the logs for that line. The app cannot see egress or Edge Function invocations; check those in the dashboard.
+
+### Release order for iteration 5
+
+1. `npx supabase db push` (the new migrations `20261126000100_purge_heartbeat.sql` and `20261126000200_space_usage.sql`), then deploy all five functions. Migrations first: if the functions went first, `record_purge_success()` would not exist and each purge would answer 500 after doing its work.
+2. Wait past the next minute-17 purge, then run the smoke test. Expect `purge: healthy`.
+3. Only then merge the two-step `keep-alive.yml` (it turns red on anything but `purgeHealthy: true`).
 
 ## Local development
 
@@ -243,10 +272,10 @@ node supabase/scripts/smoke-test.mjs http://127.0.0.1:54321 <local anon key from
 |---|---|
 | `npm test` | Vitest: token derivation and hashing, the JPEG metadata checker (including Safari-shaped fixtures checked against the browser's stripper), validation, the live client, the mock API and its IndexedDB and `localStorage` persistence, the production guard (`src/api/__tests__`) |
 | `node supabase/scripts/check-live-config.mjs` | The production-build guard (also covered by Vitest `liveConfigGuard.test.ts`) |
-| `deno test --config supabase/functions/deno.json supabase/functions` | The five handlers end to end against an in-memory store: lifecycle, uniform 404, CORS, rate limits, `confirm-photo` checks, retention (7 days), purge and keep-alive (writes nothing) |
+| `deno test --config supabase/functions/deno.json supabase/functions` | The five handlers end to end against an in-memory store: lifecycle, uniform 404, CORS, rate limits, `confirm-photo` checks, retention (7 days), purge (heartbeat), keep-alive (writes nothing, the 3-hour purge-health rule, fail-soft), the space-full guard and its configuration |
 | `deno lint --config supabase/functions/deno.json supabase/functions` | Lint for the function code (the root ESLint config skips this folder) |
 | `deno check --config supabase/functions/deno.json supabase/functions/*/index.ts` | Type-checks the entry points against the real `supabase-js` types |
-| `npx supabase test db` | pgTAP: `tests/database/lockdown.test.sql` (needs Docker) |
+| `npx supabase test db` | pgTAP: `tests/database/lockdown.test.sql` and `purge_health_space.test.sql` (needs Docker) |
 | `node supabase/scripts/smoke-test.mjs <url> <key>` | A live or local backend, end to end |
 
 ## Operations
@@ -274,12 +303,15 @@ node supabase/scripts/smoke-test.mjs http://127.0.0.1:54321 <local anon key from
 | A QA or preview build shows `unconfigured` errors | Production builds no longer fall back to the mock. Build with `VITE_API_MODE=mock` |
 | Demo mode says the demo storage is full | The mock caps photo storage (3 MiB in `localStorage`, 200 MiB in IndexedDB). Call `clearDemoData()` or clear the site's data in the browser |
 | `confirm-photo` returns 422 for an iPhone photo | Safari writes APP1 and APP13 segments; the browser must strip them before upload (`src/media/jpeg.ts`). A raw Safari file is refused by design |
+| Every call returns 500 "not configured" after setting a space threshold | `SPACE_FULL_STORAGE_BYTES` or `SPACE_FULL_DATABASE_BYTES` is not a whole number from 1 to 1000000000000 (the log names the variable). Fix it with `npx supabase secrets set`, or unset it for the default |
+| Creators see "Surprise Museum is full for now" | Storage or database use passed its threshold. Check the Usage page, free space (delete test data, wait for the purge) or raise the threshold if Q-34 confirms more room |
 | Purge job does nothing | Vault secrets missing (step 5), `CRON_SECRET` differs from the Vault value, or the project is paused (see step 10) |
 | `db push` fails on `cron` or `net` | Enable **pg_cron** and **pg_net** in Database, Extensions, then push again |
 
 ## Security checks to keep green
 
 - `anon` and `authenticated` cannot select, insert, update or delete any table in `public`, and cannot call any function there (pgTAP: `tests/database/lockdown.test.sql`).
+- `anon` and `authenticated` cannot read `purge_heartbeat` or run `record_purge_success()`, `purge_health_inputs()` or `space_usage()` (pgTAP: `tests/database/purge_health_space.test.sql`).
 - `anon` cannot list, read or upload objects in the `photos` bucket, and no policy exists on `storage.objects` (same test, and the lockdown `curl` checks in step 8).
 - `get-museum` and `manage-museum` return the same 404 body for a malformed, unknown, draft, expired and deleted token (Deno test "every bad link returns the identical 404 body").
 - The database holds only SHA-256 hashes of tokens (Deno test "stores only hashes").

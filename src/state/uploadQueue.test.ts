@@ -15,6 +15,8 @@ import {
   removePhoto,
   replacePhoto,
   retryPhoto,
+  retrySpaceFull,
+  MSG_SPACE_WAITING,
 } from './uploadQueue';
 
 const EDIT_TOKEN = 'E'.repeat(43);
@@ -329,5 +331,113 @@ describe('uploadQueue', () => {
     discardDraft();
     expect(photos()).toHaveLength(0);
     expect(useBuilderStore.getState().editToken).toBeNull();
+  });
+
+  describe('space full (architecture 8.2, FR-106)', () => {
+    const refuse = () => new ApiRequestError('space_full', 'server words', { status: 409 });
+
+    it('makes the refused photo and every photo not yet started wait, and opens the message once', async () => {
+      api.createMuseum = async () => {
+        api.calls.push('create');
+        await Promise.resolve();
+        throw refuse();
+      };
+      await addFiles([file('a.jpg'), file('b.jpg'), file('c.jpg')]);
+      await vi.waitFor(() => expect(photos().length === 3 && settled()).toBe(true));
+
+      expect(photos().map((p) => p.errorKind)).toEqual(['space-full', 'space-full', 'space-full']);
+      expect(photos().every((p) => p.status === 'failed' && p.photoId === null)).toBe(true);
+      expect(photos()[0]?.error).toBe(MSG_SPACE_WAITING);
+      expect(photos().every((p) => p.processed && p.wallUrl !== '')).toBe(true);
+      expect(useBuilderStore.getState().spaceFull).toEqual({ action: 'photo' });
+      expect(api.calls).not.toContain('reserve');
+    });
+
+    it('refused at reserve-photo: nothing is retried in the background', async () => {
+      api.reservePhoto = async () => {
+        api.calls.push('reserve');
+        throw refuse();
+      };
+      await addFiles([file('a.jpg')]);
+      await vi.waitFor(() => expect(settled()).toBe(true));
+      const before = api.calls.length;
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(api.calls.length).toBe(before);
+      expect(photos()[0]).toMatchObject({ status: 'failed', errorKind: 'space-full' });
+    });
+
+    it('Try again sends the waiting photos again from their blobs, with no file chosen again', async () => {
+      let full = true;
+      const realCreate = api.createMuseum.bind(api);
+      api.createMuseum = async () => {
+        if (full) {
+          await Promise.resolve();
+          throw refuse();
+        }
+        return realCreate();
+      };
+      await addFiles([file('a.jpg'), file('b.jpg')]);
+      await vi.waitFor(() => expect(photos().length === 2 && settled()).toBe(true));
+      expect(useBuilderStore.getState().spaceFull).not.toBeNull();
+
+      full = false;
+      retrySpaceFull();
+      expect(useBuilderStore.getState().spaceFull).toBeNull();
+      await vi.waitFor(() => expect(photos().every((p) => p.status === 'ready')).toBe(true));
+      expect(photos().map((p) => p.fileName)).toEqual(['a.jpg', 'b.jpg']);
+      expect(api.calls.filter((call) => call === 'reserve')).toHaveLength(2);
+    });
+
+    it('Try again leaves photos that are already ready alone', async () => {
+      await addFiles([file('a.jpg')]);
+      await vi.waitFor(() => expect(photos()[0]?.status).toBe('ready'));
+      const reserved = api.calls.filter((call) => call === 'reserve').length;
+      useBuilderStore.getState().setSpaceFull({ action: 'photo' });
+      retrySpaceFull();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(api.calls.filter((call) => call === 'reserve')).toHaveLength(reserved);
+      expect(photos()[0]?.status).toBe('ready');
+    });
+
+    it('Try again while still full brings the message back', async () => {
+      api.createMuseum = async () => {
+        await Promise.resolve();
+        throw refuse();
+      };
+      await addFiles([file('a.jpg')]);
+      await vi.waitFor(() => expect(useBuilderStore.getState().spaceFull).not.toBeNull());
+      retrySpaceFull();
+      expect(useBuilderStore.getState().spaceFull).toBeNull();
+      await vi.waitFor(() =>
+        expect(useBuilderStore.getState().spaceFull).toEqual({ action: 'photo' }),
+      );
+      expect(photos()[0]).toMatchObject({ status: 'failed', errorKind: 'space-full' });
+    });
+
+    it('a photo that finishes processing after the refusal waits too, without a request', async () => {
+      let release: () => void = () => undefined;
+      let call = 0;
+      configureUploads({
+        process: async () => {
+          call += 1;
+          if (call === 2) await new Promise<void>((resolve) => (release = resolve));
+          return processed();
+        },
+        backendConfigured: () => true,
+        demoMode: () => true,
+        createObjectUrl: () => `blob:${(urlCounter += 1)}`,
+        revokeObjectUrl: (url) => revoked.push(url),
+      });
+      api.createMuseum = async () => {
+        api.calls.push('create');
+        await Promise.resolve();
+        throw refuse();
+      };
+      await addFiles([file('a.jpg'), file('b.jpg')]);
+      await vi.waitFor(() => expect(photos()[0]?.errorKind).toBe('space-full'));
+      release();
+      await vi.waitFor(() => expect(photos()[1]?.errorKind).toBe('space-full'));
+      expect(api.calls.filter((c) => c === 'create')).toHaveLength(1);
+    });
   });
 });

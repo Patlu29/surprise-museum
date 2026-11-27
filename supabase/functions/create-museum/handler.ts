@@ -10,6 +10,7 @@ import {
   isEmptyObject,
   type BaseDeps,
 } from '../_shared/http.ts';
+import { refuseIfSpaceFull } from '../_shared/space.ts';
 import { createTokenPair, type RandomBytes } from '../_shared/tokens.ts';
 
 export const CREATE_LIMIT = { limit: 10, windowSeconds: 3600 } as const;
@@ -35,6 +36,8 @@ export function createCreateMuseumHandler(deps: CreateMuseumDeps) {
         CREATE_LIMIT.limit,
         CREATE_LIMIT.windowSeconds,
       );
+      // After the rate-limit hit, so a refusal still counts toward the 10 an hour (ADR 0024).
+      await refuseIfSpaceFull(deps.store, deps.config.spaceLimits);
 
       const tokens = await createTokenPair(deps.randomBytes);
       const expiresAt = new Date(

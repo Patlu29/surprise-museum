@@ -37,6 +37,16 @@ export function FinaleCard({
   const keepRef = useRef<HTMLButtonElement>(null);
   const [reading, setReading] = useState(false);
   const hasMessage = message.trim().length > 0;
+
+  // A change of dock (a phone rotation) cross-fades the same element: focus, scroll and the open
+  // reading sheet are kept and nothing is announced (design spec 13.7). A resize within one layout
+  // kind keeps the dock, so it never restarts the fade.
+  const [seenDock, setSeenDock] = useState(placement.dock);
+  const [swaps, setSwaps] = useState(0);
+  if (placement.dock !== seenDock) {
+    setSeenDock(placement.dock);
+    setSwaps((count) => count + 1);
+  }
   const compact =
     placement.size === 'strip' ||
     placement.layout === 'phone-portrait' ||
@@ -77,6 +87,7 @@ export function FinaleCard({
         minWidth: `min(var(--card-min-width), ${rect.width}px)`,
         maxHeight: `max(${rect.height}px, min(calc(100% - ${rect.y}px), 90%))`,
       };
+  if (swaps > 0) style.animationName = swaps % 2 ? 'card-swap-a' : 'card-swap-b';
   const heading = hasMessage ? `A note from ${guideName}` : 'The end';
 
   const footer = (

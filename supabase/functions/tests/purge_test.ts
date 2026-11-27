@@ -119,3 +119,65 @@ Deno.test('purge-expired retries failed storage clean-up on the next run', async
   assertEquals(app.backend.objects.size, 0);
   void buildJpeg;
 });
+
+Deno.test('purge-expired records the heartbeat as its last step on a clean run', async () => {
+  const app = createApp();
+  assertEquals(app.backend.heartbeat, null);
+  const r = await call(app.handlers.purge, {}, cron(CRON_SECRET));
+  assertEquals(r.json, { purged: 0, retried: 0, failed: 0 });
+  assertEquals(app.backend.heartbeat, new Date(app.nowMs()).toISOString());
+});
+
+Deno.test(
+  'purge-expired still records the heartbeat when some storage deletes failed',
+  async () => {
+    const app = createApp();
+    const { editToken } = await draftWithPhotos(app, 1);
+    app.backend.failStorageRemoval = true;
+    await call(app.handlers.manage, { action: 'delete', editToken });
+    const r = await call(app.handlers.purge, {}, cron(CRON_SECRET));
+    assertEquals(r.json, { purged: 0, retried: 0, failed: 1 });
+    assertEquals(app.backend.heartbeat, new Date(app.nowMs()).toISOString());
+  },
+);
+
+Deno.test('purge-expired records nothing for a wrong or missing secret', async () => {
+  const app = createApp();
+  for (const secret of [null, '', 'wrong']) {
+    assertEquals((await call(app.handlers.purge, {}, cron(secret))).status, 404);
+  }
+  assertEquals(app.backend.heartbeat, null);
+});
+
+Deno.test('purge-expired records nothing when no secret is configured', async () => {
+  const { createPurgeExpiredHandler } = await import('../purge-expired/handler.ts');
+  const app = createApp();
+  const handler = createPurgeExpiredHandler({
+    store: app.backend.store,
+    storage: app.backend.storage,
+    config: { allowedOrigins: [], rateLimitSalt: 's' },
+  });
+  assertEquals((await call(handler, {}, { origin: null })).status, 500);
+  assertEquals(app.backend.heartbeat, null);
+});
+
+Deno.test('purge-expired records nothing when a step throws, and answers 500', async () => {
+  const app = createApp();
+  const original = console.error;
+  console.error = () => undefined;
+  try {
+    app.backend.store.listPurgeQueue = () => Promise.reject(new Error('queue down'));
+    assertEquals((await call(app.handlers.purge, {}, cron(CRON_SECRET))).status, 500);
+    assertEquals(app.backend.heartbeat, null);
+
+    // A failure of the heartbeat write itself is also a 500, with the usual generic body.
+    const other = createApp();
+    other.backend.failRecordPurgeSuccess = true;
+    const r = await call(other.handlers.purge, {}, cron(CRON_SECRET));
+    assertEquals(r.status, 500);
+    assertEquals(r.json.error, 'server_error');
+    assertEquals(other.backend.heartbeat, null);
+  } finally {
+    console.error = original;
+  }
+});

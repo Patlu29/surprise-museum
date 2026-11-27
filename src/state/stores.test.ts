@@ -442,3 +442,34 @@ describe('screenRects and announcer', () => {
     expect(useAnnouncerStore.getState().message).toBe('Hello');
   });
 });
+
+describe('builderStore space full (architecture 8.2)', () => {
+  beforeEach(() => useBuilderStore.getState().reset());
+
+  it('starts closed, opens with an action and closes without touching the draft', () => {
+    const store = useBuilderStore.getState();
+    expect(store.spaceFull).toBeNull();
+    store.setText('guideName', 'Tom');
+    store.addPhotoItems([createDraftPhoto('a', 'a.jpg', 'Hi')]);
+    store.setSpaceFull({ action: 'photo' });
+    expect(useBuilderStore.getState().spaceFull).toEqual({ action: 'photo' });
+    useBuilderStore.getState().setSpaceFull(null);
+    const after = useBuilderStore.getState();
+    expect(after.spaceFull).toBeNull();
+    expect(after.guideName).toBe('Tom');
+    expect(after.photos.map((photo) => photo.caption)).toEqual(['Hi']);
+  });
+
+  it('keeps the same state object for a second refusal of the same action', () => {
+    useBuilderStore.getState().setSpaceFull({ action: 'photo' });
+    const first = useBuilderStore.getState().spaceFull;
+    useBuilderStore.getState().setSpaceFull({ action: 'photo' });
+    expect(useBuilderStore.getState().spaceFull).toBe(first);
+  });
+
+  it('is cleared by reset', () => {
+    useBuilderStore.getState().setSpaceFull({ action: 'publish' });
+    useBuilderStore.getState().reset();
+    expect(useBuilderStore.getState().spaceFull).toBeNull();
+  });
+});
