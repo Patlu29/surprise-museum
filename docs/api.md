@@ -1,8 +1,8 @@
 # API contract: Surprise Museum
 
-Version 1.2 (contract version 1) | 20/11/2026 | Owner: backend-developer
+Version 1.3 (contract version 1) | 27/11/2026 | Owner: backend-developer
 
-Types: `supabase/functions/_shared/contract.ts` (imported in the browser as `@contract`). Design: `docs/architecture.md` sections 7 and 10, ADRs 0003, 0004, 0010, 0012 and 0022.
+Types: `supabase/functions/_shared/contract.ts` (imported in the browser as `@contract`). Design: `docs/architecture.md` sections 7 and 10, ADRs 0003, 0004, 0010, 0012, 0022, 0023 and 0024.
 
 ## 1. Overview
 
@@ -13,8 +13,8 @@ There is no REST resource tree. The browser calls three Supabase Edge Functions,
 | `create-museum` | Creator's browser | Start a draft, receive the edit token |
 | `get-museum` | Visitor's browser | Read a published museum by share token |
 | `manage-museum` | Creator's browser | Everything the edit token allows (7 actions) |
-| `purge-expired` | pg_cron only | Delete expired museums and their files |
-| `keep-alive` | Scheduled GitHub Actions workflow only | Read-only check that stops the free project pausing (NFR-32) |
+| `purge-expired` | pg_cron only | Delete expired museums and their files, then record that the run finished (section 10) |
+| `keep-alive` | Scheduled GitHub Actions workflow only | Read-only check that stops the free project pausing (NFR-32) and reports one flag, whether the purge is keeping up (NFR-33) |
 
 Base URL: `{VITE_SUPABASE_URL}/functions/v1/<function-name>`.
 
@@ -77,9 +77,10 @@ Every non-2xx response has this body (type `ApiError`):
 |---|---|---|
 | `bad_request` | 400 | Malformed JSON or failed validation. Also 405 (not `POST`), 413 (body over 64 KiB), 415 (not `application/json`) and 403 (origin not allowed) |
 | `not_found` | 404 | Unknown, malformed, draft (for `get-museum`), expired or deleted token. **Always the identical body** (below). Also an unknown `photoId` inside a valid museum, with the message "Photo not found." |
-| `conflict` | 409 | The request is valid but the state does not allow it (photo not uploaded yet, photo not ready at publish, photo already uploaded, removing a published photo) |
+| `conflict` | 409 | The request is valid but the state does not allow it (photo not uploaded yet, photo not ready at publish while space is free, photo already uploaded, removing a published photo) |
 | `photo_limit` | 409 | The museum already has 20 photos (pending or ready) |
 | `upload_quota` | 409 | The museum has used all 100 lifetime photo reservations |
+| `space_full` | 409 | The service as a whole is full for now (iteration 5, ADR 0024). Never has a `field`. See "Space full" below |
 | `invalid_image` | 422 | `confirm-photo` found a bad or unsafe file. Both objects were deleted; the photo stays reserved so the upload can be retried |
 | `rate_limited` | 429 | With a `Retry-After` header in seconds |
 | `server_error` | 500 | Unexpected. No detail is given; the cause is in the function logs (kind and code only, never content) |
@@ -89,6 +90,38 @@ The uniform not-found body (`get-museum` and `manage-museum`; also `purge-expire
 ```json
 { "error": "not_found", "message": "This museum could not be found." }
 ```
+
+### Space full (`space_full`, 409)
+
+The whole body is exactly this. There is no `field`, no `Retry-After`, no figure and nothing that says which limit was reached (FR-104 (g)):
+
+```json
+{ "error": "space_full", "message": "Surprise Museum is full for now. Please try again later." }
+```
+
+The status is 409, with `photo_limit` and `upload_quota`. Clients read the `error` value; the status is only a fallback. An older client that does not know the code treats it as `server_error` and shows its generic message.
+
+| Function and action | Can return `space_full`? | Where in the request |
+|---|---|---|
+| `create-museum` | **Yes** | After the body check and the rate-limit count (a refusal still counts toward the 10 drafts an hour), before anything is stored |
+| `manage-museum` `reserve-photo` | **Yes** | After the token check and the per-museum rate limit, before the slot is reserved. A refusal reserves nothing and uses none of the 100 lifetime reservations |
+| `manage-museum` `publish` | **Only when the document lists a photo that is not `ready`** | In the readiness check. If any listed photo is not ready: `space_full` while the service is full, otherwise the usual 409 `conflict` with its `field`. If every listed photo is `ready`, nothing is measured and the publish runs as always (a re-publish that adds no file, or a first publish of photos already stored) |
+| `manage-museum` `renew-upload`, `confirm-photo` | No | They finish a photo reserved earlier (FR-104 (c)) |
+| `manage-museum` `get`, `remove-photo`, `delete` | No | Read or remove only (FR-107) |
+| `get-museum`, `keep-alive`, `purge-expired` | No | Read, check or remove only (FR-107) |
+
+When it applies. The server reads two figures from the database on each gated request, with no cache: the total size of the files in the `photos` bucket, and the database size. It refuses while **either** is at or above its threshold:
+
+| Figure | Default threshold (refuse at this many bytes or more) | Optional function secret that overrides it |
+|---|---|---|
+| File storage in use | 800,000,000 | `SPACE_FULL_STORAGE_BYTES` |
+| Database size | 400,000,000 | `SPACE_FULL_DATABASE_BYTES` |
+
+Exactly at the threshold refuses (800,000,000 refuses, 799,999,999 accepts; likewise 400,000,000 and 399,999,999). Both secrets are optional: unset means the default. A set value must be a whole number from 1 to 1,000,000,000,000; anything else makes every function return 500 `server_error` "The service is not configured." until it is fixed. Neither figure nor threshold appears in any response.
+
+The check resumes by itself: the next request after space is freed (for example by the purge) is accepted.
+
+**Fail open.** If the measurement itself fails, the request goes ahead as if space were free, and the function logs `space check unavailable (<error name>)`, never a figure. This is the user's decision at A2 (27/11/2026): a fault in the safety net must not stop every Creator. Egress and function invocations are not measured; the app cannot detect them (ADR 0024, Q-37).
 
 ### Who sees what
 
@@ -118,12 +151,13 @@ The uniform not-found body (`get-museum` and `manage-museum`; also `purge-expire
 | Published lifetime | 7 days from the first publish (re-publishing does not extend it) | NFR-16 |
 | Photo download URLs | Valid 1 hour | ADR 0003 |
 | Photo upload URLs | Valid 2 hours | ADR 0003 |
+| Space full | Refuse new drafts, photo reservations and publishes with an unstored photo at 800,000,000 bytes of file storage or 400,000,000 bytes of database (defaults, 80% of the Free plan) | FR-104, ADR 0024 (section 4) |
 
 Rate limits (fixed windows, keyed by a salted hash of the client address; IPv6 addresses count by their /64 network):
 
 | Function | Limit |
 |---|---|
-| `create-museum` | 10 drafts per hour per client |
+| `create-museum` | 10 drafts per hour per client (a `space_full` refusal counts) |
 | `get-museum` | 60 lookups per minute per client, and 20 misses per 10 minutes per client. After 20 misses every lookup from that client returns 429 until the window ends, which slows link guessing |
 | `manage-museum` | 120 requests per minute per client, 600 per hour per museum, and the same 20-misses-per-10-minutes limit as `get-museum` |
 | `keep-alive` | None, on purpose: a rate limit needs a database write, and this function must write nothing (section 10a) |
@@ -160,6 +194,7 @@ apikey: <anon key>
 | Status | Code |
 |---|---|
 | 400 | `bad_request` (body is not `{}`) |
+| 409 | `space_full` (section 4; nothing is created) |
 | 429 | `rate_limited` |
 
 ## 8. `get-museum`
@@ -222,7 +257,7 @@ Everything the edit token allows. Every request has `action` and `editToken`; th
 | Action | Extra fields | Success | Effect |
 |---|---|---|---|
 | `get` | none | 200 `ManageGetResponse` | Read the museum for the edit screen |
-| `reserve-photo` | none | 201 `PhotoUploadTicket` | Reserve a photo slot and sign two upload URLs |
+| `reserve-photo` | none | 201 `PhotoUploadTicket` | Reserve a photo slot and sign two upload URLs (409 `space_full` when the service is full) |
 | `renew-upload` | `photoId` | 200 `PhotoUploadTicket` | New upload URLs for a pending photo (retry, FR-4) |
 | `confirm-photo` | `photoId`, `width`, `height`, `lqip` | 200 `{ photoId, status: "ready" }` | Verify the uploaded files and mark the photo ready |
 | `remove-photo` | `photoId` | 200 `{ photoId, removed: true }` | Delete a photo and its files |
@@ -269,7 +304,7 @@ For a draft that has never been published: `status: "draft"`, `shareToken: null`
 }
 ```
 
-Extra errors: 409 `photo_limit`, 409 `upload_quota`.
+Extra errors: 409 `photo_limit`, 409 `upload_quota`, 409 `space_full` (section 4; nothing is reserved and no reservation is counted).
 
 ### Photo upload (to Storage, not to a function)
 
@@ -405,7 +440,7 @@ The same rules apply to `visitorAvatar` and `guideAvatar`; there are no per-char
 - Removed in v1.1: the rule that `visitorAvatar.facialHair` must be `"none"`, and its error "Facial hair is available for the Guide only."
 - Reading: missing or unrecognised `gender` renders as Neutral. Use `avatarGender(config)` from `contract.ts`; do not compare `config.gender` directly.
 
-Errors: 400 `bad_request` with `field` such as `document.visitorName` or `document.photos[3].caption`; 409 `conflict` with `field: "document.photos[1].photoId"` when that photo is unknown, belongs to another museum, or is not `ready`.
+Errors: 400 `bad_request` with `field` such as `document.visitorName` or `document.photos[3].caption`; 409 `conflict` with `field: "document.photos[1].photoId"` when that photo is unknown, belongs to another museum, or is not `ready`; 409 `space_full` instead of that `conflict` when at least one listed photo is not `ready` **and** the service is full (section 4; no `field`, nothing changes). A publish whose photos are all `ready` is never refused for space.
 
 ### `delete`
 
@@ -442,9 +477,29 @@ Content-Type: application/json
 
 Up to 100 museums are expired and 100 queue entries drained per run; a bigger backlog clears over successive hours.
 
+**Heartbeat (iteration 5, ADR 0023, ADR 0010 amendment).** As its last step, after the queue has been drained and before it answers, a run calls `record_purge_success()`. That stores Postgres's `now()` in the one-row table `purge_heartbeat`; `keep-alive` reads it (section 10a). The response above does not change.
+
+| Run | Heartbeat |
+|---|---|
+| Reached the end, `failed` is 0 | Recorded |
+| Reached the end with `failed` above 0 | **Still recorded.** Failed file deletes are caught by the queue-age condition of the health flag, so each condition reports one thing |
+| Wrong or missing secret (404), `CRON_SECRET` not set (500), or any step throws (500) | **Nothing recorded** |
+
+`purge-expired` is never refused for space (section 4).
+
 ## 10a. `keep-alive`
 
-Called once a day by a scheduled GitHub Actions workflow, never by the app or a browser. It runs one read-only query so the Supabase Free project is never idle for 7 days (ADR 0022, NFR-32, US-69). It creates nothing, never calls `purge-expired`, writes no `rate_limits` row, counts no miss, and reveals nothing but the database clock.
+Called once a day by a scheduled GitHub Actions workflow, never by the app or a browser. It runs two read-only queries: `public.keep_alive()`, so the Supabase Free project is never idle for 7 days (ADR 0022, NFR-32, US-69), and `public.purge_health_inputs()`, which feeds one flag (ADR 0023, NFR-33). It **writes nothing**: it creates nothing, never calls `purge-expired`, writes no `rate_limits` row and counts no miss. The heartbeat it reads is written by the purge, never by this function.
+
+**What it reveals:** the database clock and **one boolean**, `purgeHealthy`. No count, age, last-run time, id, size or reason.
+
+`purgeHealthy` is `false` when any one of these is true at the moment of the call (each age is measured against `checkedAt`):
+
+1. no purge run has completed in the last 3 hours, or none has ever been recorded (so it is `false` after a fresh deploy until the first purge, up to about 60 minutes);
+2. the oldest entry in the storage-delete queue is older than 3 hours;
+3. a museum or draft whose end passed more than 3 hours ago is still in the database.
+
+Exactly 3 hours is still healthy; 3 hours and 1 minute is not. Any value that cannot be read is treated as unhealthy.
 
 **Auth:** the public anon (or publishable) key in the `apikey` header, like every other function. No other secret. `verify_jwt` is off. **Rate limit:** none. **CORS:** none (a browser can send it but cannot read the answer).
 **Body:** `{}` (an empty body is also accepted)
@@ -457,12 +512,16 @@ apikey: <public anon or publishable key>
 {}
 ```
 
-**200** (`KeepAliveResponse`)
+**200** (`KeepAliveResponse`), exactly these three keys:
 ```json
-{ "ok": true, "checkedAt": "2026-11-20T09:37:02.114Z" }
+{ "ok": true, "checkedAt": "2026-11-27T20:37:04.512Z", "purgeHealthy": true }
 ```
 
-`checkedAt` is Postgres's own `now()` from `public.keep_alive()`, as ISO 8601 UTC, so a fresh value proves the database answered.
+`checkedAt` is Postgres's own `now()` from `public.keep_alive()`, as ISO 8601 UTC, so a fresh value proves the database answered. `purgeHealthy` is a boolean, never missing or `null`.
+
+**A failed health check is not an error.** If `purge_health_inputs()` throws, returns something unreadable or does not answer within 5 seconds, the answer is still 200 with `ok: true`, a fresh `checkedAt` and `purgeHealthy: false`. The function logs only `keep-alive: purge health check failed (<error name>)`, never a value. Only a failure of `keep_alive()` itself is the 500 below.
+
+The workflow is red when `purgeHealthy` is `false`, missing or not a boolean (NFR-34). A deployment that lacks the field (an old function) therefore turns it red; see ADR 0023 section 5 for the deploy order.
 
 | Status | `error` | When |
 |---|---|---|
@@ -470,7 +529,7 @@ apikey: <public anon or publishable key>
 | 405 | `bad_request` | Not `POST` |
 | 413 | `bad_request` | Body over 64 KiB |
 | 415 | `bad_request` | Not `application/json` |
-| 500 | `server_error` | The database call failed or did not return a timestamp. The workflow treats this as a failed keep-alive |
+| 500 | `server_error` | `keep_alive()` failed or did not return a timestamp. The workflow treats this as a failed keep-alive. A failure of the purge health check is **not** this error (see above) |
 
 A paused or unreachable project answers from the Supabase platform before this function runs, with a non-200 status. The workflow treats any non-200 as a failure.
 
@@ -553,6 +612,18 @@ It follows every rule in this document: the same validators, the same JPEG check
 - **Size cap.** An upload that would pass the cap is refused with `server_error`, status 413 and the message "The demo storage on this device is full. Clear the demo data and try again." Existing data is untouched. Expired museums are deleted the next time any call runs, which frees their photos.
 - **Clear demo data.** `clearDemoData()` (from `@/api`) deletes every demo museum, photo and draft in this browser, for every tab. `getDemoDataInfo()` returns `{ storage, museums, photos, usedBytes, capacityBytes }` for a "Demo data" panel.
 - There is no rate limiting.
+- **Space-full switch (iteration 5, ADR 0024 section 7).** The mock never measures anything. It has a switch, off by default, that makes it behave as a full service:
+
+  | Item | Detail |
+  |---|---|
+  | `setSpaceFull(full: boolean): void` | On the mock class (`MockMuseumApi`). `MockApiOptions.spaceFull?: boolean` sets the initial value (default `false`) |
+  | `setDemoSpaceFull(full: boolean): void` | Exported from `@/api` beside `clearDemoData()`; drives the app's mock |
+  | `window.__APP_TEST__.setMockSpaceFull` | `((full: boolean) => void) \| undefined`. Present only when `getApiMode() === "mock"` and only in development and test builds; a production build drops it. Never reachable from a URL parameter |
+  | Lifetime | In memory, per page. A new page or reload starts with space free; a test sets it again after each `page.goto` |
+  | While on | `createMuseum` and `reservePhoto` reject with `space_full` (409), and `publish` does when a listed photo is not `ready` (otherwise `conflict`). Every other call behaves as when space is free, including `renew-upload`, `confirm-photo`, `get`, `remove-photo`, `delete` and `get-museum` |
+
+  The mock's own 413 "demo storage on this device is full" is separate: it is about the device, and its fix is Clear demo data.
+- The mock has no `keep-alive` and no purge health value: `keep-alive` is not part of the `MuseumApi` interface the app uses, the app never calls it, and there is no purge in the browser.
 - "Signed URLs" are `blob:` object URLs made by each tab from the stored bytes, and upload URLs are `mock://upload/...`.
 - Demo data is per browser profile and per origin (`localhost:5173` and `localhost:4173` have separate data).
 
@@ -564,3 +635,4 @@ It follows every rule in this document: the same validators, the same JPEG check
 | 28/10/2026 | Integration round 1. `confirm-photo` accepts every segment the browser keeps (JFIF up to 14 bytes, ICC with any body, Adobe up to 12 bytes) and still rejects APP1 and APP13; Safari regression fixtures added. The mock persists in IndexedDB (else `localStorage`) with a size cap, `clearDemoData()` and `getDemoDataInfo()`. Production builds are always live unless `VITE_API_MODE=mock`; `supabase/scripts/check-live-config.mjs` fails a deploy build with missing or unsafe configuration |
 | 29/10/2026 | v1.1, CR-1 (ADR 0020, written by the architect). Optional `gender` on both avatars (`feminine`, `masculine`, `neutral`; absent means and is stored as `neutral`; unknown values rejected); responses always include `gender`. Facial hair allowed for the Visitor. New contract exports `AVATAR_GENDERS`, `AvatarGender`, `DEFAULT_AVATAR_GENDER`, `isAvatarGender`, `avatarGender`. No contract or avatar version bump, no database migration. Deploy the functions before the frontend (ADR 0020, section 6). Implemented in the Edge Functions and the mock (backend-developer, 30/10/2026): `validateAvatar` no longer takes a role; `present.ts` and the mock fill `neutral` for old rows without rewriting them |
 | 19/11/2026 | v1.2, iteration 4 (ADR 0010 amendment, ADR 0022). `LIMITS.retentionDays` is 7 (was 90): a published museum lasts 7 days from its first publish, purge completes within 24 hours, there are no backups, and an expired link keeps the uniform `not_found` (Q-33 a). New function `keep-alive` (`POST /functions/v1/keep-alive`, body `{}`, 200 `{ ok: true, checkedAt }`) with `FUNCTION_NAMES.keepAlive`, `KeepAliveRequest`, `KeepAliveResponse` and `keepAlive()` on the store port; migration `20261118000100_keep_alive.sql` adds `public.keep_alive()` (service role only). `CONTRACT_VERSION` stays 1: only a value and an addition changed, and no field changed shape. Example `expiresAt` values now show 7 days. Deploy the migration before the function |
+| 27/11/2026 | v1.3, iteration 5 (ADR 0023, ADR 0024, approved at A2 27/11/2026). `keep-alive` 200 body is now exactly `{ ok, checkedAt, purgeHealthy }` (a failed health check still answers 200 with `purgeHealthy: false`; "reveals nothing but the database clock" removed). `purge-expired` ends a successful run with `record_purge_success()` (also when `failed` is above 0; nothing on a throw). New error `space_full` (409, no `field`, no figures) from `create-museum`, `reserve-photo` and a `publish` that lists a photo not `ready`; never from `renew-upload`, `confirm-photo`, `get`, `remove-photo`, `delete`, `get-museum`, `keep-alive` or `purge-expired`; fails open when the measurement errors; thresholds 800,000,000 bytes storage and 400,000,000 bytes database, overridable with optional secrets `SPACE_FULL_STORAGE_BYTES` and `SPACE_FULL_DATABASE_BYTES`. Mock: `setSpaceFull`, `setDemoSpaceFull`, `__APP_TEST__.setMockSpaceFull`. `CONTRACT_VERSION` stays 1 (an added field and an added code). Deploy migrations before functions |

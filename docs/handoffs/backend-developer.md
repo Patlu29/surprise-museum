@@ -1,5 +1,48 @@
 # Handoff: backend-developer
 
+## Iteration 5 Build step 1 (27/11/2026): API contract only
+
+Phase 3 Build. Only `docs/api.md` (v1.2 to v1.3) and this note changed. No migration, handler, test, deploy or commit.
+
+### Summary
+`docs/api.md` now matches ADR 0023, ADR 0024 and architecture 7.7, 7.8, 8.2. Changed: header and change log (section 13); section 1 table; section 4 (`space_full` row, new "Space full" subsection); section 5 (limit row, create-museum rate note); sections 7, 9 (`reserve-photo`, `publish`); section 10 (heartbeat); section 10a (200 body, purge-health rules, 5 s timeout, still-200 rule); section 12 (mock switch, no keep-alive in the mock). `CONTRACT_VERSION` stays 1.
+
+### Exact shapes
+- keep-alive 200: `{ "ok": true, "checkedAt": "<ISO>", "purgeHealthy": <boolean> }`, exactly three keys. Health-check error or timeout: still 200, `purgeHealthy: false`. `keep_alive()` failure: 500 as before.
+- space_full: 409 `{ "error": "space_full", "message": "Surprise Museum is full for now. Please try again later." }`, no `field`, no figures. Gated: `create-museum`, `reserve-photo`, `publish` only with a listed non-ready photo. Fail open. Defaults 800,000,000 and 400,000,000 bytes; optional secrets `SPACE_FULL_STORAGE_BYTES`, `SPACE_FULL_DATABASE_BYTES` (whole number 1 to 1e12, else ConfigError and 500).
+- purge-expired: unchanged body; `record_purge_success()` at the end of a run that reaches it (also with `failed > 0`); nothing on 404, 500 or a throw.
+- Mock: `setSpaceFull`, `MockApiOptions.spaceFull`, `setDemoSpaceFull`, `__APP_TEST__.setMockSpaceFull` (mock mode, dev and test builds). The mock has no keep-alive or purge-health value: keep-alive is not on the `MuseumApi` interface (checked with grep in `src/api` and `src/lib/apiPort.ts`).
+
+### Verification
+| Check | Result | Label |
+|---|---|---|
+| `prettier --check docs/api.md` | passed | Verified |
+| Read-through against ADR 0023, ADR 0024, architecture 7.7, 7.8, 8.2 for each shape above | matches | Verified |
+| `STATUS_BY_CODE` in `http.ts` has no `space_full` yet; `mockClient.ts`, `liveClient.ts` have none of the new names | Expected: code is the next task | Verified (grep) |
+| Behaviour of any endpoint | Nothing implemented yet | Not verified |
+
+### Contradictions found (none inside api.md now)
+| # | Where | Issue | Who |
+|---|---|---|---|
+| 1 | ADR 0023, ADR 0024, ADR 0010 and ADR 0022 amendments, architecture header and 7.x | Status still "Proposed, awaiting A2"; the user approved at A2 on 27/11/2026 | architect |
+| 2 | `supabase/functions/keep-alive/handler.ts` header comment | Still says the endpoint reveals nothing but the clock | backend-developer (next task) |
+| 3 | `supabase/README.md` | Not yet checked for the keep-alive body, five-function steps and new secrets; will update with the build | backend-developer (next task) |
+| 4 | ADR 0024 section 3 says publish measures "in the existing readiness pre-check" | The pre-check is in the publish handler; the exact code position is for the build task to confirm | backend-developer |
+
+### Decisions
+- `space_full` rate-limit wording: a `create-museum` refusal still counts toward 10 drafts an hour (ADR 0024 section 3 order: rate limit, then space check).
+- Added a "Space full" subsection to section 4 rather than a new top-level section, so section numbers other documents cite do not move.
+
+### Not done
+- Migrations (`purge_heartbeat`, `purge_health_inputs`, `space_usage`), handlers, `contract.ts`, `http.ts`, ports and backends, mock and client changes, config parsing, `.env.example`, smoke test, tests, keep-alive handler comment: the next task.
+
+### Open questions
+- None for the user. Q-34 (confirmed Free plan limits) could change the default thresholds; they are overridable by secret, with no code change.
+
+### Requests for other agents
+- [open] architect: mark ADR 0023, ADR 0024 and the amendments Accepted (A2, 27/11/2026); update the architecture header.
+- [open] frontend-developer: build against `docs/api.md` v1.3: `space_full` in `KNOWN_CODES`, `isSpaceFull`, `setDemoSpaceFull`. I (backend-developer) will add the mock's `setSpaceFull` and `setDemoSpaceFull` in `src/api` in the build task; confirm that is wanted there, since `src/api` was built by me in iteration 1.
+
 ## Iteration 4 Build (19/11/2026): 7-day retention and keep-alive
 
 Phase 3 Build. Nothing deployed, committed or linked to a Supabase project.

@@ -1,6 +1,27 @@
 # Handoff: product-manager
 
-Iteration: 5 (Feature and fixes: OPS-1 + CR-13, CR-9, DEBT-2 including N-11, BUG-15, N-12, N-13). Phase: 1 Plan. The user approved the scope at A1 on 26/11/2026 with one change (Q-36 = 80%) and answered Q-36 to Q-45. Nothing deployed by this phase.
+Iteration: 5 (Feature and fixes: OPS-1 + CR-13, CR-9, DEBT-2 including N-11, BUG-15, N-12, N-13, C-11). Phase: 3 Build, start (v0.8.2 below); phase 1 Plan notes follow. The user approved the scope at A1 on 26/11/2026 with one change (Q-36 = 80%) and answered Q-36 to Q-45; approved the design at A2 on 27/11/2026.
+
+## v0.8.2 update (27/11/2026, after A2)
+Requirements, stories and backlog are v0.8.2, each with a change-log line. Wording only; no ID changed; Must count still 90.
+
+| Item | Done |
+|---|---|
+| 1 FR-108 (C-9) | Second sentence now "does not change while the card is open, unless the viewport changes layout kind" (design 13.7) |
+| 2 US-75 | Proposal line replaced by the approved copy (design 13.5). Checked by reading: 4 sentences of 8, 13, 15, 17 words (I recounted), no digit, none of the six words, no gendered pronoun, two controls, so AC-1 and AC-2 pass. FR-106 now points to 13.5 |
+| 3 NFR-33 (e) (C-8) | "calls no other function and no purge, and writes nothing" |
+| 4 Design 13.13 Q1 | Q-46: no; decided by the tech lead on the designer's recommendation, 27/11/2026. No requirement contradicted: FR-106 (d) and US-75 AC-4 say "refused action", which for a Publish press with a waiting photo is sending the photos. I added that sentence to FR-106 (d) and US-75 AC-4 so two readers cannot disagree |
+| 5 Annotation | Q-47: yes. NFR-34 (b) and US-73 AC-4 allow `::error` to name "flag missing" or "purge behind"; no count, age, time or key; summary exactly "purge: unhealthy". NFR-34 (b) did not clearly allow it before |
+| 6 US-74 AC-5 | Note: checked at the API (Deno and mock tests); client stops the publish first (C-10) |
+| 7 Fail open, C-11 | FR-104 (i), A-44, Q-48 (user, A2). Backlog row C-11 added: In progress (iteration 5), Should, owner scene-developer |
+
+Also: FR-104 (e) and Q-37 record the architect's finding that egress cannot be read (his handoff asked for it).
+
+Verification: read-back of every edit; searched the three files for "calls nothing" and old proposal text. Label: Verified by reading. `npm run format:check` not run (no tool): Not verified, tech lead to run.
+
+Open questions: none for the user. C-8 to C-10 and architect questions 1 to 3 are closed.
+
+Request for other agents: [open] devops-engineer and backend-developer: Q-47 means the workflow annotation may name the cause; keep it to those two phrases. [open] qa-engineer: add a check that the scene hook is absent in a production build with `?e2e=1` (C-11).
 
 ## A1 update (v0.8.1, 26/11/2026)
 Requirements, user stories and backlog are now v0.8.1, each with a change-log line. No ID changed, no Must added or removed (still 90).
