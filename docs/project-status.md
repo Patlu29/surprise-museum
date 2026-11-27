@@ -3,7 +3,7 @@
 Application: Surprise Museum. A creator builds a small 3D museum of up to 20 photos with captions and a closing message, picks two stylised characters (the Visitor and the Guide), and shares an unlisted link. The recipient walks the Visitor through the museum while the Guide presents each photo. React Three Fiber on GitHub Pages, Supabase backend.
 Approval mode: Key gates
 Current iteration: 5 (Feature and fixes: OPS-1 + CR-13 purge health, CR-9 space full, DEBT-2 test stability, BUG-15, N-12, N-13)
-Current phase: 2 Design
+Current phase: 3 Build
 Last updated: 26/11/2026
 Deployed: 24/11/2026, live at https://patlu29.github.io/surprise-museum/ (GitHub Pages) with Supabase Free project `lklbpilfkxlegdrrohst` (see the Deploy row under Approvals and "Deploy record" below)
 
@@ -24,8 +24,8 @@ Iteration 4's phase log is in docs/lifecycle/retrospective.md.
 | Phase | Status | Evidence | Date |
 |---|---|---|---|
 | 1 Plan | Done (A1 approved with changes 26/11/2026; 80% threshold applied, requirements v0.8.1, 14 places) | requirements, user stories and backlog v0.8: FR-104 rewritten (Could to Should), FR-106 to FR-111, NFR-33 to NFR-35, US-72 to US-81, 8 backlog rows In progress; prettier passes; IDs cross-checked; Must count unchanged at 90; Q-36 to Q-45 raised | 26/11/2026 |
-| 2 Design | In progress (architect done 26/11/2026: architecture v1.7, ADR 0023 purge health, ADR 0024 space-full guard, amendments to ADR 0010 and 0022, Q-37 answered: egress cannot be read by the app, contradictions C-1 to C-11; ux-ui-designer done 26/11/2026: design spec v2.2 section 13; awaiting A2) | Expected: architect (keep-alive contract, how limits are measured), ux-ui-designer (space-full states, N-11 dock, N-12, N-13) | |
-| 3 Build | Not started | | |
+| 2 Design | Done, A2 approved 27/11/2026 (architect done 26/11/2026: architecture v1.7, ADR 0023 purge health, ADR 0024 space-full guard, amendments to ADR 0010 and 0022, Q-37 answered: egress cannot be read by the app, contradictions C-1 to C-11; ux-ui-designer done 26/11/2026: design spec v2.2 section 13) | 26/11/2026 | Expected: architect (keep-alive contract, how limits are measured), ux-ui-designer (space-full states, N-11 dock, N-12, N-13) | |
+| 3 Build | In progress | backend-developer: docs/api.md contract first; architect: ADR status and phase-3 confirmations; product-manager: wording alignment | 27/11/2026 |
 | 4 Verify | Not started | | |
 | 5 Review | Not started | | |
 | 6 Release | Not started | Deploying the change to the live site needs the user's separate approval | |
@@ -34,6 +34,7 @@ Iteration 4's phase log is in docs/lifecycle/retrospective.md.
 ## Approvals
 | Gate | Iteration | Decision | Given by | Date | Covers |
 |---|---|---|---|---|---|
+| A2 design | 5 | Approved | User | 27/11/2026 | Architecture v1.7, ADR 0023 (purge health), ADR 0024 (space-full guard), amendments to ADR 0010 and 0022, design spec v2.2 section 13 (including the 320 px two-row HUD). Answers: space measurement error fails open (requests go ahead, error logged); C-11 test-hook gate fixed in iteration 5 (scene-developer) |
 | A1 scope | 5 | Approved with changes | User | 26/11/2026 | Requirements, stories and backlog v0.8 (OPS-1 + CR-13, CR-9, DEBT-2, BUG-15, N-11, N-12, N-13). Change: Q-36 space-full threshold 80% (800 MB storage, 400 MB database), not the 90% default. Q-38/Q-39 default (stop new drafts, photos and publishes with an unstored photo; keep work; viewers, edit, delete unaffected). Q-40 default (3 hours on each of three conditions). Q-37, Q-41 to Q-45 take their recommended defaults |
 | A2 design | 4 | Approved | User | 19/11/2026 | ADR 0010 amendment, ADR 0022 (keep-alive), architecture v1.6, design spec v2.1; Q-33 (a) shared not-found screen; Q-35 (a) FR-105 stays Must |
 | A3 release | 4 | Approved (release with known issues) | User | 23/11/2026 | docs/lifecycle/release-readiness.md of 20/11/2026: known issues X-1 to X-5 (accepted earlier), BUG-15, N-11 to N-13, and the Not verified items that need a deploy. Separately: no deploy in this iteration ("No deploy yet") |
@@ -53,7 +54,7 @@ Iteration 4's phase log is in docs/lifecycle/retrospective.md.
 - 18/11/2026 (tech lead): this is a Feature iteration, because a Must requirement and user-facing wording change, combined with hosting work. Route: 1, 2 (architect only), 3, 4, 5, 6, 7.
 
 ## Open questions (owner)
-- For A2 (from the architect, 26/11/2026): (1) space measurement error: fail open (recommended) or fail closed; (2) C-11: `?e2e=1` switches on the scene test hook in production builds (`src/scene/controllers/testHooks.ts:107`, verified by the tech lead): add the one-line gate to iteration 5 (recommended); (3) product-manager: the keep-alive's red-run annotation may name the cause, "flag missing" or "purge behind" (recommended yes).
+- A2 questions answered 27/11/2026 (fail open; C-11 fixed in iteration 5). Annotation wording ("flag missing" or "purge behind"): product-manager, with the wording alignment.
 - Q-36 to Q-45: answered at A1 on 26/11/2026 (see Approvals). Q-37 (egress) still needs the architect's confirmation in phase 2; Q-45 (N-13 target) the scene-developer's measurement.
 - Q-34 (user, before launch; backlog V-7): confirm on supabase.com/pricing the 1 GB storage, 500 MB database, about 5 GB egress and about 500,000 Edge Function invocations a month, whether a Sydney region is offered on Free, what happens at each limit, and how long a paused project can be restored.
 
