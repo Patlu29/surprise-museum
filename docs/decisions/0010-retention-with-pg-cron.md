@@ -1,7 +1,7 @@
 # 0010: Retention with pg_cron, pg_net and a purge function
 
 ## Status
-Accepted (27/10/2026). Amended 18/11/2026 for NFR-16 v0.7 (published museums last 7 days, purge within 24 hours, no backups); see the amendment below. The mechanism is unchanged. Amended 26/11/2026 (Proposed, awaiting A2): the purge records its own success for the keep-alive's purge-health flag (ADR 0023); see the second amendment at the end.
+Accepted (27/10/2026). Amended 18/11/2026 for NFR-16 v0.7 (published museums last 7 days, purge within 24 hours, no backups); see the amendment below. The mechanism is unchanged. Amended 26/11/2026, accepted 27/11/2026 (the user's A2 design approval for iteration 5): the purge records its own success for the keep-alive's purge-health flag (ADR 0023); see the second amendment at the end.
 
 ## Context
 NFR-16: museums stay available for at least 90 days from publishing, and deleted or expired content leaves live storage within 7 days. Deleting a museum must break the share link immediately (FR-52). Storage objects must be deleted through the Storage API, not by deleting rows from `storage.objects`.
@@ -80,7 +80,7 @@ A Creator-set expiry is not built in this iteration. When it is, it may only low
 
 ## Amendment (26/11/2026): the purge records its own success (ADR 0023)
 
-Status: Proposed, awaiting the user's design approval (A2) for iteration 5.
+Status: Accepted 27/11/2026 (the user's A2 design approval for iteration 5). Proposed 26/11/2026.
 
 **Why.** NFR-33 (Should, user decision 26/11/2026) asks the keep-alive to report whether the purge is keeping up. A pg_cron "succeeded" row only shows that `invoke_purge_expired()` queued the HTTP call (A-41), so the purge must leave its own signal.
 

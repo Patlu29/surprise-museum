@@ -1,7 +1,7 @@
 # 0023: Purge health: a heartbeat written by the purge, one flag in the keep-alive
 
 ## Status
-Proposed (26/11/2026, iteration 5 phase 2), awaiting the user's design approval (A2). Amends ADR 0022 (the keep-alive now reveals one boolean, and the workflow turns red on it) and ADR 0010 (the purge records its own success). Both carry a dated amendment that points here.
+Accepted (27/11/2026, the user's A2 design approval for iteration 5). Proposed 26/11/2026 (iteration 5 phase 2). Amends ADR 0022 (the keep-alive now reveals one boolean, and the workflow turns red on it) and ADR 0010 (the purge records its own success). Both carry a dated amendment that points here.
 
 ## Context
 Requirements v0.8.1: NFR-33 and NFR-34 (Should), US-72 and US-73, backlog OPS-1 and CR-13. User decision 26/11/2026, Q-40 (a): the purge is **unhealthy** when any one of these is true at the moment the keep-alive runs:

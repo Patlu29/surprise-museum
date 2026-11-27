@@ -1,6 +1,64 @@
 # Handoff: architect
 
-Iteration: 5 (Feature and fixes: OPS-1 + CR-13 purge health, CR-9 space full, DEBT-2, BUG-15, N-12, N-13). Phase: 2 Design, architecture step (26/11/2026). Iteration 4's notes (phase 7 sync, phase 5 review, phase 2 design) and earlier rounds follow below, unchanged.
+Iteration: 5 (Feature and fixes: OPS-1 + CR-13 purge health, CR-9 space full, DEBT-2, BUG-15, N-12, N-13, and C-11). Phase: 3 Build, start (27/11/2026); the phase 2 Design section follows it. Iteration 4's notes (phase 7 sync, phase 5 review, phase 2 design) and earlier rounds follow below, unchanged.
+
+## Iteration 5, phase 3 Build start (27/11/2026)
+
+### Summary
+A2 was given on 27/11/2026, so ADR 0023 and ADR 0024 are Accepted and the dated amendments in ADR 0010 and ADR 0022 are accepted. Fail open is recorded as the user's decision. I answered the designer's three contract requests in architecture 8.2 and added the C-11 test-hook gate to the contracts. `docs/architecture.md` is v1.7.1. Documents only: no code, no commit, no deploy.
+
+### Files changed
+- `docs/decisions/0023-purge-health-in-the-keep-alive.md`: status Accepted (27/11/2026, A2).
+- `docs/decisions/0024-space-full-guard.md`: status Accepted (27/11/2026, A2); section 5 records fail open as the user's decision at A2.
+- `docs/decisions/0010-retention-with-pg-cron.md`, `docs/decisions/0022-free-tier-hosting-and-keep-alive.md`: status lines and the 26/11/2026 amendment status say accepted 27/11/2026 (A2).
+- `docs/architecture.md` v1.7 to v1.7.1: header; 7.8 (fail open decided); 8.2 (`validateDraft` row, new "Issue text and the step-1 gate" table, test-mode URL parameters, new "Test-hook gate (C-11)" table, release check, finale dock); 10.2 (test-hook row); 11 (scene hook gate); 16 (ADR statuses); 17 (v1.7.1 row).
+- `docs/handoffs/architect.md`: this section; phase 2 open questions 1 and 2 marked answered.
+
+### Verification
+| Check | Result | Label |
+|---|---|---|
+| No pending "Proposed" or "awaiting A2" status left in ADR 0023, ADR 0024, the two amendments, or architecture. The remaining hits are dated "Proposed 26/11/2026" history notes after "Accepted", and the historical v1.7 change-log row | `grep -nE "Proposed\|awaiting\|until A2"` over the files | Verified |
+| (a) `finaleDockFor` can return `'top' \| 'right'` through `detectLayout` | `detectLayout` in `src/lib/layout.ts` returns the four kinds; `DockKind` in `src/ui/overlays/chooseCaptionDock.ts:11` includes `top` and `right`. The function is not written yet (frontend-developer) | Verified (read) |
+| (b) Where the chip text lives | Chip labels come from `STILL_TO_DO_LABELS` in `src/ui/builder/stepCopy.ts`; the Publish reason line is `blocking[0]?.message` in `src/ui/builder/ReviewStep.tsx:176` | Verified (read) |
+| (c) The step-1 Next gate cannot report `photos-space-full` | `next()` (`src/ui/builder/CreateScreen.tsx:102-108`) validates in `'preview'` mode and filters to step 1; `'preview'` mode raises only `photos` for step 1 (`src/state/draft.ts:108-166`); `usablePhotos` counts processed photos (`draft.ts:91-93`). Holds while `photos-space-full` stays publish-only, as 8.2 requires | Verified (read) |
+| The app hook is gated correctly | `src/main.tsx:24`: `if (import.meta.env.DEV \|\| import.meta.env.MODE === 'test')` | Verified (read) |
+| C-11 exists in the real production bundle | `npm run build -- --outDir <scratch>`: `assets/Experience-*.js` contains `__surpriseMuseum`, `__SURPRISE_E2E__`, `__SURPRISE_QUALITY__` and the `?e2e=1` check; `__APP_TEST__` is absent | Verified |
+| Playwright's build runs in test mode | `VITE_API_MODE=mock npm run build -- --mode test --outDir <scratch>`: the log shows `vite build --mode test …`, and the output contains `__APP_TEST__` | Verified |
+| A literal build condition as the installer's first statement removes the hook from production; a condition inside a helper leaves it in | Scratch project built with the installed Vite 8.3.5 in `production` and `test` mode, both guard shapes | Verified (scratch test, not the real code) |
+| `tests/audit/` uses the same test-mode build | `tests/audit/lib.mjs:3-4` | Verified (read) |
+| The scene-developer's fix removes the five names from `dist/` and keeps the e2e suite green | Not written yet | Not verified (scene-developer, then QA and the release review) |
+| Scratch builds cleaned up; nothing written to `dist/` or the project | Removed from the scratch folder; built with `--outDir` outside the project | Verified |
+| Lint, typecheck, unit tests, format | No code changed; `.prettierignore` excludes Markdown | Not verified (not applicable) |
+
+### Decisions
+- **Finale dock signature:** `finaleDockFor(viewport: { width: number; height: number }): FinaleDock`, `type FinaleDock = Extract<DockKind, 'top' | 'right'>`, in `src/ui/overlays/finaleDockFor.ts`, calling `detectLayout`. Keeping the viewport parameter (not the layout kind) matches FR-108's wording and lets the unit test use the spec's boundary viewports directly.
+- **Issue text:** `message` "Some photos are waiting for space." (design spec 12.5.4 reason line) and chip label "Photos are waiting for space" (12.4.3) in `STILL_TO_DO_LABELS`. `photos-space-full` is publish-mode only and comes after `photos-failed` when both exist, so the Publish reason line names the fault the message does not cover.
+- **Step-1 Next gate:** needs no space-full handler. I recorded the condition that keeps this true (publish-mode only).
+- **C-11 covers `forcedQuality()` too:** the `__SURPRISE_QUALITY__` override in `src/scene/Experience.tsx` is a debug override gated by `__SURPRISE_E2E__` alone in every build. It goes inside the same build gate in the same change, so the release check can require all five names to be absent. Source: code-rules section 5.
+- **The build condition must be the installer's literal first statement,** not only inside `testHooksEnabled()`, because only that shape is removed by Vite 8.3.5 (scratch test above). This is part of the contract, not a style preference.
+- **No ADR for C-11:** it brings the code in line with code-rules section 5 and the existing contract. Nothing new is decided.
+
+### Assumptions
+- The C-11 fix keeps `?e2e=1` and `__SURPRISE_E2E__` working in `npm run dev` (where `import.meta.env.DEV` is true), as today.
+
+### Not done
+- Code for any of this: owned by the frontend-developer and the scene-developer (requests below).
+
+### Open questions
+- None new. Phase 2 questions 1 and 2 were answered at A2 (see the phase 2 section). Question 3 (NFR-34 (b) annotation text) is still with the product-manager.
+
+### Requests for other agents
+- [open] **scene-developer** (C-11, architecture 8.2 "Test-hook gate"): in `src/scene/controllers/testHooks.ts`, start `installTestHooks` with `if (!(import.meta.env.DEV || import.meta.env.MODE === 'test')) return () => undefined;` and give `testHooksEnabled()` the same first check; in `src/scene/Experience.tsx`, put the same literal condition first in `forcedQuality()`. Then run `npm run build` and confirm `dist/` contains none of `__surpriseMuseum`, `__SURPRISE_E2E__`, `__SURPRISE_QUALITY__`, and run the e2e suite (or ask QA to) to confirm the test-mode build still has the hook. Seen on 27/11/2026 in your working copy (unfinished; it did not build because `SceneDriver.tsx` imports `layoutLabels` and `resetLabels`, which `labelLayout.ts` no longer exports): the build condition is inside `testHooksEnabled()` only, and `forcedQuality()` calls `testHooksEnabled()`. That closes the hole at run time, but in my scratch test this shape left the hook code in the production bundle, so the `dist/` search may fail. Add the literal early return in `installTestHooks` and `forcedQuality()`, or show that the `dist/` search comes back clean.
+- [open] **frontend-developer** (architecture 8.2): `validateDraft` issue `photos-space-full` exactly as in the 8.2 row (message, `fieldId`, step, order, publish mode only); `'photos-space-full': 'Photos are waiting for space'` in `STILL_TO_DO_LABELS` and in `stepCopy.test.ts`; `ReviewStep` shows its reason line without making Publish unavailable; `finaleDockFor` in `src/ui/overlays/finaleDockFor.ts` with the 13.7 boundary cases as unit tests.
+- [open] **qa-engineer**: extend the release check (phase 2 request 3) to all five names: `__APP_TEST__`, `setMockSpaceFull`, `__surpriseMuseum`, `__SURPRISE_E2E__`, `__SURPRISE_QUALITY__`, searched in a production `dist/`. No e2e spec needs to change for C-11.
+
+### Requests received
+- [done] from tech lead (iteration 5, phase 3 start): ADR statuses Accepted, amendments accepted, fail open recorded (ADR 0024 section 5, architecture 7.8); C-11 contract (architecture 8.2, 10.2, 11).
+- [done] from ux-ui-designer (a): confirmed. `finaleDockFor` returns `'top' | 'right'` (`FinaleDock`) by calling `detectLayout`: top for `phone-portrait`, right otherwise (architecture 8.2, Finale dock).
+- [done] from ux-ui-designer (b): "Photos are waiting for space" is the chip label for `photos-space-full` in `STILL_TO_DO_LABELS`; the issue's `message` is "Some photos are waiting for space." (the 12.5.4 reason line) (architecture 8.2, Issue text).
+- [done] from ux-ui-designer (c): the step-1 Next gate cannot report `photos-space-full` (it uses `'preview'` mode; the issue is publish-only), so it needs no handler; if that ever changes, it must use the Publish handler (architecture 8.2). Also confirmed by reading: Preview works with waiting photos. The designer's "no new store field or test-hook entry" holds: none was added.
+
+---
 
 ## Iteration 5, phase 2 Design (26/11/2026)
 
@@ -71,8 +129,8 @@ I designed purge health and the space-full guard, and wrote the contracts the fr
 | C-11 | Code-rules section 5 ("never enable [the test hook] from a URL parameter alone") and architecture 11 ("scene hooks with `__SURPRISE_E2E__`") | `testHooksEnabled()` also accepts `?e2e=1` in production builds (`src/scene/controllers/testHooks.ts:107`), so anyone can install `window.__surpriseMuseum` on the live site. Effect is limited to the user's own tab (teleport, snapshot, fail a photo); no data or secret | Code rules (security) | scene-developer: gate it on `import.meta.env.DEV \|\| import.meta.env.MODE === 'test'` and keep the opt-ins inside that. QA's `?e2e=1` uses run on the test build and keep working. Tech lead: decide whether it joins iteration 5. Earlier releases did not catch it |
 
 ### Open questions
-1. **Fail open or fail closed when the space measurement errors?** (a) Fail open: Creators carry on and the guard is off until someone reads the logs. (b) Fail closed with the generic 500: every new photo fails while the fault lasts. **Recommend (a)**, because creating a museum is Must and the guard is Should (ADR 0024 section 5). Owner: user at A2, or the tech lead.
-2. **C-11 `?e2e=1` in production**: fix it in this iteration? **Recommend yes.** It is a one-line gate and a code-rules security breach, even though the impact is small. Owner: tech lead.
+1. **[answered at A2, 27/11/2026: fail open]** **Fail open or fail closed when the space measurement errors?** (a) Fail open: Creators carry on and the guard is off until someone reads the logs. (b) Fail closed with the generic 500: every new photo fails while the fault lasts. **Recommend (a)**, because creating a museum is Must and the guard is Should (ADR 0024 section 5). Owner: user at A2, or the tech lead.
+2. **[answered at A2, 27/11/2026: yes, the scene-developer fixes it in iteration 5; contract in architecture 8.2]** **C-11 `?e2e=1` in production**: fix it in this iteration? **Recommend yes.** It is a one-line gate and a code-rules security breach, even though the impact is small. Owner: tech lead.
 3. **NFR-34 (b) annotation text**: the `::error` annotation names the cause ("flag missing" or "purge behind") and holds no count, age or key; the summary line stays exactly `purge: unhealthy`. Acceptable, or must the annotation also be only "purge: unhealthy"? **Recommend acceptable.** Owner: product-manager.
 
 ### Requests for other agents
@@ -94,7 +152,7 @@ I designed purge health and the space-full guard, and wrote the contracts the fr
   4. `src/lib/apiPort.ts`: `isSpaceFull` and the `describeApiError` case.
   5. `src/main.tsx`: `setMockSpaceFull` in the existing hook block only.
   6. The FR-106 message per the design spec; the finale dock from a pure viewport function (`data-dock` kept); FR-110 per the design spec. Unit tests for the store, the queue and the dock function.
-- [open] **scene-developer** (phase 3): `headBoxes()` on `window.__surpriseMuseum` (architecture 8.2); FR-109 and FR-111 in the label solver; C-11 gate if the tech lead agrees.
+- [open] **scene-developer** (phase 3): `headBoxes()` on `window.__surpriseMuseum` (architecture 8.2); FR-109 and FR-111 in the label solver; C-11 gate (agreed at A2; exact contract in the phase 3 section above).
 - [open] **devops-engineer** (phase 3 or 6):
   1. `keep-alive.yml` exactly as ADR 0023 section 4: two steps, `jq -e '.purgeHealthy == true'`, the exact summary lines, no body printed, `permissions: {}` unchanged. **Do not let it reach `main` before the function deploy and one purge run** (architecture 13, release order).
   2. `docs/deployment.md`: what a red "purge: unhealthy" run means and the checks to make (NFR-34 (f)); the in-app refusal at 80%; egress is a limit the app cannot detect; the optional threshold variables; the iteration 5 release order; the "act now" line below 80% (C-7). `CHANGELOG.md`.
@@ -111,7 +169,7 @@ I designed purge health and the space-full guard, and wrote the contracts the fr
   3. Release check: search `dist/` for `__APP_TEST__` and `setMockSpaceFull`.
   4. Use `headBoxes()` for US-80 AC-5.
 - [open] **product-manager**: C-8 (optional wording), C-9, C-10 (optional AC-5 note), open question 3. Record Q-37 as answered: egress is a limit the app cannot detect (FR-104 (e), NFR-32 (f), US-70 AC-5, US-74 AC-6).
-- [open] **tech lead**: hold the `keep-alive.yml` change out of `main` until the release order allows it; decide open questions 1 and 2.
+- [open] **tech lead**: hold the `keep-alive.yml` change out of `main` until the release order allows it. (Open questions 1 and 2: done, answered at A2 on 27/11/2026.)
 
 ### Requests received
 - [done] from tech lead (iteration 5, phase 2): purge health design, space-full design, client contracts, Q-37 with evidence, contract notes for the visual fixes, contradictions list. See above.

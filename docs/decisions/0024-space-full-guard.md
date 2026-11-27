@@ -1,7 +1,7 @@
 # 0024: Space-full guard: measured in the database, refused with `space_full`
 
 ## Status
-Proposed (26/11/2026, iteration 5 phase 2), awaiting the user's design approval (A2). Supersedes the "no in-app handling (FR-104 deferred)" parts of ADR 0022 (context and consequences). ADR 0022 section 3 (usage is reported nowhere public; the owner checks it in the dashboard) still holds.
+Accepted (27/11/2026, the user's A2 design approval for iteration 5, which also chose fail open for section 5). Proposed 26/11/2026 (iteration 5 phase 2). Supersedes the "no in-app handling (FR-104 deferred)" parts of ADR 0022 (context and consequences). ADR 0022 section 3 (usage is reported nowhere public; the owner checks it in the dashboard) still holds.
 
 ## Context
 Requirements v0.8.1: FR-104 (rewritten, Should), FR-106, FR-107, US-74 to US-77, backlog CR-9. User decisions 26/11/2026:
@@ -97,7 +97,7 @@ New `ApiErrorCode` `space_full`, **HTTP 409**, the same status as the other "val
 No `field`, no `Retry-After`, no figure, and nothing that says which limit was reached (FR-104 (g)). The live client maps the code by its `error` value, so the status matters only as a fallback. `STATUS_BY_CODE` in `http.ts` and `STATUS` in `mockClient.ts` gain `space_full: 409`. `CONTRACT_VERSION` stays 1: a new code is an addition, and an older client maps an unknown code to `server_error`, which is the generic message it showed before this change.
 
 ### 5. When the measurement fails
-**Fail open.** If `space_usage()` errors, the request goes ahead as if space were free, and the function logs `space check unavailable (<error name>)`, never a figure. Reasons: the guard is a Should-level safety net with 20% headroom in front of the platform's own limit, while creating a museum (FR-1 to FR-4) is Must. A permissions change on `storage.objects` must not stop every Creator. Refusing with `space_full` on a fault would tell Creators "full" when it is not. The cost is that the guard can be off without anyone noticing until the logs are read. That risk is in `docs/architecture.md` section 15.
+**Fail open** (decided by the user at A2, 27/11/2026). If `space_usage()` errors, the request goes ahead as if space were free, and the function logs `space check unavailable (<error name>)`, never a figure. Reasons: the guard is a Should-level safety net with 20% headroom in front of the platform's own limit, while creating a museum (FR-1 to FR-4) is Must. A permissions change on `storage.objects` must not stop every Creator. Refusing with `space_full` on a fault would tell Creators "full" when it is not. The cost is that the guard can be off without anyone noticing until the logs are read. That risk is in `docs/architecture.md` section 15.
 
 ### 6. Client handling
 See `docs/architecture.md` section 8.2 for the store and test-hook contract. In short:
